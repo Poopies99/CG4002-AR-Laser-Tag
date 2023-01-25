@@ -93,7 +93,7 @@ class MoveEngine:
             self.positions_player_1 = [1]*n
             self.positions_player_2 = [1]*n
 
-            self.actions_player_2 = [Helper.Actions.no]*n
+            self.actions_player_2 = [Helper.Actions.no] * n
 
         self.print_data()
 
