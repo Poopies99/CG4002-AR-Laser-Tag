@@ -142,13 +142,13 @@ class Server(threading.Thread):
         self.df = pd.DataFrame(columns=self.columns)
         self.df = self.df.set_index('timestamp')
 
-        # used to distinguish 2 different usages of eval_server for the same group
+        # used to distinguish 2 different usages of eval_sever for the same group
         # not foolproof, needs manual verification
         self.random_id = random.randint(1, 10*1000)
 
         # Setup turns
         self.turn_gen           = TurnGenerator()   # Initialize turn generator
-        self.action_set_time    = 0         # Time turn instructions/actions were set by eval_server
+        self.action_set_time    = 0         # Time turn instructions/actions were set by eval_sever
         self.turn_wait_timeout  = 60        # Turn response timeout amount
         self.turn_wait_timer    = None      # Timer object to keep track of turn response timeout
 
