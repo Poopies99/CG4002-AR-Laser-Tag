@@ -4,8 +4,9 @@ import socket
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 # Get server hostname and port
-host = "192.168.95.221"
-port = 12345
+# host = "192.168.95.221"
+host = "0.0.0.0"
+port = 8080
 
 # Connect to server
 client_socket.connect((host, port))
