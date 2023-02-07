@@ -20,20 +20,17 @@ class Client(threading.Thread):
 
         self.client_socket = client_socket
         self.connection = client_socket.connect(('', port_num))
-        self.secret_key = None
-        self.secret_key_bytes = None
+        self.secret_key = 'chrisisdabest123'
+        self.secret_key_bytes = bytes(str(self.secret_key), encoding='utf-8')
 
         # Flags
         self.shutdown = threading.Event()
 
     def setup(self):
         print('Waiting for Secret Key')
-
-        # Block Function
-        secret_key = self.client_socket.recv(1024).decode()
-
-        self.secret_key = secret_key
-        self.secret_key_bytes = bytes(str(secret_key), encoding='utf-8')
+        """
+        Check whether you can change the eval_server code to send back acknowledge packet
+        """
 
     def close_connection(self):
         self.connection.shutdown(SHUT_RDWR)

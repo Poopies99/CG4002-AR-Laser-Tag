@@ -203,10 +203,10 @@ class Server(threading.Thread):
         # Wait for a connection
         print('Waiting for a connection')
         self.connection, client_address = self.server_socket.accept()
-        print('--------------------------------------------------')
-        print('        Connected to:', client_address[0])
-        print('                     ', ipaddress_dict[client_address[0]])
-        print('--------------------------------------------------')
+        # print('--------------------------------------------------')
+        # print('        Connected to:', client_address[0])
+        # print('                     ', ipaddress_dict[client_address[0]])
+        # print('--------------------------------------------------')
 
         if DISABLE_GUI:
             secret_key = "PLSPLSPLSPLSWORK"
