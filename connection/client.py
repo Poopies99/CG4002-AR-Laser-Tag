@@ -18,8 +18,8 @@ class Client(threading.Thread):
         # Create a TCP/IP socket
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        self.connection = client_socket.connect((host_name, port_num))
         self.client_socket = client_socket
+        self.connection = client_socket.connect((host_name, port_num))
         self.secret_key = None
         self.secret_key_bytes = None
 
@@ -34,8 +34,6 @@ class Client(threading.Thread):
 
         self.secret_key = secret_key
         self.secret_key_bytes = bytes(str(secret_key), encoding='utf-8')
-        print(self.secret_key)
-        print(self.secret_key_bytes)
 
     def close_connection(self):
         self.connection.shutdown(SHUT_RDWR)
@@ -79,7 +77,7 @@ class Client(threading.Thread):
 
         while not self.shutdown.is_set():
             try:
-                message = input("Enter message to be sent:")
+                message = input("Enter message to be sent: ")
                 if message == 'q':
                     break
                 encrypted_message = self.encrypt_message(message)
