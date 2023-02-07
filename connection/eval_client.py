@@ -88,7 +88,7 @@ class Client(threading.Thread):
 
 
 if __name__ == '__main__':
-    _parameters = 3
+    _parameters = 2
     if len(sys.argv) != _parameters:
         print('---------------<Invalid number of arguments>---------------')
         print('python3 ' + os.path.basename(__file__) + ' [Port] [Hostname]')
@@ -99,7 +99,6 @@ if __name__ == '__main__':
         sys.exit()
     elif len(sys.argv) == _parameters:
         _port_num = int(sys.argv[1])
-        _host_name = sys.argv[2]
 
         client = Client(_port_num)
         client.start()
