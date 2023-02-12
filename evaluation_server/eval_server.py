@@ -45,8 +45,8 @@ class TurnGenerator:
                                       disable_gui=DISABLE_GUI)
 
         # Generate random sequence of actions for Player 1
-        self.p1_actions = self.game_engine.actions_player_1
-        self.p1_positions = self.game_engine.positions_player_1
+        self.p1_actions     = self.game_engine.actions_player_1
+        self.p1_positions   = self.game_engine.positions_player_1
         if DEBUG_FLAG:
             print("Actions:   ", self.p1_actions)
             print("Positions: ", self.p1_positions)
@@ -142,13 +142,13 @@ class Server(threading.Thread):
         self.df = pd.DataFrame(columns=self.columns)
         self.df = self.df.set_index('timestamp')
 
-        # used to distinguish 2 different usages of eval_sever for the same group
+        # used to distinguish 2 different usages of eval_server for the same group
         # not foolproof, needs manual verification
         self.random_id = random.randint(1, 10*1000)
 
         # Setup turns
         self.turn_gen           = TurnGenerator()   # Initialize turn generator
-        self.action_set_time    = 0         # Time turn instructions/actions were set by eval_sever
+        self.action_set_time    = 0         # Time turn instructions/actions were set by eval_server
         self.turn_wait_timeout  = 60        # Turn response timeout amount
         self.turn_wait_timer    = None      # Timer object to keep track of turn response timeout
 
@@ -203,10 +203,10 @@ class Server(threading.Thread):
         # Wait for a connection
         print('Waiting for a connection')
         self.connection, client_address = self.server_socket.accept()
-        # print('--------------------------------------------------')
-        # print('        Connected to:', client_address[0])
+        print('--------------------------------------------------')
+        print('        Connected to:', client_address[0])
         # print('                     ', ipaddress_dict[client_address[0]])
-        # print('--------------------------------------------------')
+        print('--------------------------------------------------')
 
         if DISABLE_GUI:
             secret_key = "PLSPLSPLSPLSWORK"
