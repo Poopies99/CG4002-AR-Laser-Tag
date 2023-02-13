@@ -27,10 +27,10 @@ class Client(threading.Thread):
         self.shutdown = threading.Event()
 
     def setup(self):
-        print('Waiting for Secret Key')
+        print('Default Secret Key: chrisisdabest123')
 
         # Blocking Function
-        secret_key = self.client_socket.recv(1024).decode()
+        secret_key = 'chrisisdabest123'
 
         self.secret_key = secret_key
         self.secret_key_bytes = bytes(str(secret_key), encoding='utf-8')
@@ -180,26 +180,6 @@ class Server(threading.Thread):
                 traceback.print_exc()
                 self.close_connection()
 
-"""
-Not Needed for First Individual Checkpoint
-if __name__ == '__main__':
-    _parameters = 3
-    if len(sys.argv) != _parameters:
-        print('---------------<Invalid number of arguments>---------------')
-        print('python3 ' + os.path.basename(__file__) + ' [Port] [Hostname]')
-        print('Port     : The port number for the TCP server')
-        print('Hostname : Server HostName')
-        print('Example  : python3 ' + os.path.basename(__file__) + ' 8080 0.0.0.0')
-        print('-----------------------------------------------------------')
-        sys.exit()
-    elif len(sys.argv) == _parameters:
-        _port_num = int(sys.argv[1])
-        _host_name = sys.argv[2]
-
-        server = Server(_port_num, _host_name)
-        server.start()
-"""
-
 
 if __name__ == '__main__':
     _port_num = 8080
@@ -207,21 +187,3 @@ if __name__ == '__main__':
 
     client = Client(_port_num, _host_name)
     client.start()
-    # _parameters = 3
-    # if len(sys.argv) != _parameters:
-    #     print('---------------<Invalid number of arguments>---------------')
-    #     print('python3 ' + os.path.basename(__file__) + ' [Port] [Hostname]')
-    #     print('Port     : The port number for the TCP server')
-    #     print('Hostname : Client HostName')
-    #     print('Example  : python3 ' + os.path.basename(__file__) + ' 8080 0.0.0.0')
-    #     print('-----------------------------------------------------------')
-    #     sys.exit()
-    # elif len(sys.argv) == _parameters:
-    #     _port_num = int(sys.argv[1])
-    #     _host_name = sys.argv[2]
-    #
-    #     client = Client(_port_num, _host_name)
-    #     client.start()
-
-
-

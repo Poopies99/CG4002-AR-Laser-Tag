@@ -30,10 +30,11 @@ class Client(threading.Thread):
         print('Waiting for Secret Key')
 
         # Blocking Function
-        secret_key = self.client_socket.recv(1024).decode()
+        # secret_key = self.client_socket.recv(1024).decode()
+        secret_key = 'chrisisdabest123'
 
         self.secret_key = secret_key
-        self.secret_key_bytes = bytes(str(secret_key), encoding='utf-8')
+        self.secret_key_bytes = bytes(str(self.secret_key), encoding='utf-8')
 
     def close_connection(self):
         self.connection.shutdown(SHUT_RDWR)
@@ -81,7 +82,8 @@ class Client(threading.Thread):
                 if message == 'q':
                     break
                 encrypted_message = self.encrypt_message(message)
-                self.client_socket.send(encrypted_message.encode())
+                final_message = str(len(encrypted_message)) + "_" + encrypted_message
+                self.client_socket.send(final_message.encode())
             except Exception as _:
                 traceback.print_exc()
                 self.close_connection()

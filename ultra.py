@@ -1,5 +1,4 @@
 import json
-
 import paho.mqtt.client as mqtt
 import socket
 import base64
@@ -82,9 +81,9 @@ class Client(threading.Thread):
         print('Defaulting Secret Key to chrisisdabest123')
 
         # # Blocking Function
-        # secret_key = self.client_socket.recv(1024).decode()
+        secret_key = 'chrisisdabest123'
 
-        self.secret_key = "chrisisdabest123"
+        self.secret_key = secret_key
         self.secret_key_bytes = bytes(str(self.secret_key), encoding='utf-8')
 
     def close_connection(self):
@@ -132,12 +131,12 @@ class Client(threading.Thread):
                 input_message = input("Enter a message to publish (press 'q' to quit): ")
                 if input_message == 'q':
                     break
-                with open('evaluation_server/example.json', 'r') as f:
-                    json_string = json.dumps(f.read())
-                print(json_string)
-                encrypted_message = self.encrypt_message(json_string)
-                # encrypted_message = self.encrypt_message(input_message)
-                self.client_socket.send(encrypted_message.encode())
+                # with open('evaluation_server/example.json', 'r') as f:
+                #     json_string = json.dumps(f.read())
+                # print(json_string)
+                encrypted_message = self.encrypt_message(input_message)
+                final_message = str(len(encrypted_message)) + "_" + encrypted_message
+                self.client_socket.send(final_message.encode())
             except Exception as _:
                 traceback.print_exc()
                 self.close_connection()
@@ -170,8 +169,8 @@ class Server(threading.Thread):
 
         print('Successfully connected to', client_address[0])
 
-        print("Enter Secret Key: ")
-        secret_key = sys.stdin.readline().strip()
+        print('Default Secret Key: chrisisdabest123')
+        secret_key = 'chrisisdabest123'
 
         print('Connection from', client_address)
         if len(secret_key) == 16 or len(secret_key) == 24 or len(secret_key) == 32:
@@ -237,16 +236,8 @@ class Server(threading.Thread):
                 self.close_connection()
 
 
-class Connector(threading.Thread):
-    def __init__(self):
-        server_node = Server(8080, "127.0.0.1")
-        client_node = Client(8080, "127.0.0.1")
-
-        server_node.start()
-        client_node.start()
-
-
 if __name__ == '__main__':
+    # Hive connection to Public Data Broker
     # hive = Subscriber("CG4002")
     # hive.start()
 
@@ -254,22 +245,6 @@ if __name__ == '__main__':
     eval_client = Client(8080, "localhost")
     eval_client.start()
 
-
-    # _parameters = 3
-    # if len(sys.argv) != _parameters:
-    #     print('---------------<Invalid number of arguments>---------------')
-    #     print('python3 ' + os.path.basename(__file__) + ' [Port] [Hostname]')
-    #     print('Port     : The port number for the TCP server')
-    #     print('Hostname : Client HostName')
-    #     print('Example  : python3 ' + os.path.basename(__file__) + ' 8080 0.0.0.0')
-    #     print('-----------------------------------------------------------')
-    #     sys.exit()
-    # elif len(sys.argv) == _parameters:
-    #     _port_num = int(sys.argv[1])
-    #     _host_name = sys.argv[2]
-    #
-    #     client = Client(_port_num, _host_name)
-    #     client.start()
-
-
-
+    # Server Connection to Laptop
+    laptop_server = Server(8080, "localhost")
+    laptop_server = laptop_server.start()
