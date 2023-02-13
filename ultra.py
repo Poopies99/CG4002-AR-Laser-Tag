@@ -2,7 +2,6 @@ import json
 import paho.mqtt.client as mqtt
 import socket
 import base64
-import sys
 import threading
 import traceback
 from _socket import SHUT_RDWR
@@ -11,6 +10,12 @@ from Crypto.Util.Padding import pad
 from Crypto.Util.Padding import unpad
 from Crypto import Random
 
+"""
+Threads: 
+1. Client Thread to connect to eval server
+2. Server Thread for laptop to connect to
+3. Subscriber Thread to publish data to SW Visualizer
+"""
 
 class Subscriber(threading.Thread):
     def __init__(self, topic):
@@ -200,7 +205,7 @@ class Server(threading.Thread):
 
         # Obtain Message using Cipher Decrypt
         decrypted_message_bytes = cipher.decrypt(decode_message[AES.block_size:])
-        # Unpad Message due to AES 16 bytes property
+        # Un-pad Message due to AES 16 bytes property
         decrypted_message_bytes = unpad(decrypted_message_bytes, AES.block_size)
         # Decode Bytes into utf-8
         decrypted_message = decrypted_message_bytes.decode("utf-8")
@@ -219,15 +224,15 @@ class Server(threading.Thread):
         return encoded_message
 
     def run(self):
-        # Listen for ONE incoming connection
         self.server_socket.listen(1)
         self.setup()
 
         while not self.shutdown.is_set():
             try:
-                data = self.connection.recv(1024)
+                # Receive up to 24 Bytes of data
+                data = self.connection.recv(24)
 
-                print("Decrypted Message: ", self.decrypt_message(data))
+                print("Message Received from Laptop: ", self.decrypt_message(data))
 
                 if not data:
                     self.close_connection()
@@ -237,14 +242,16 @@ class Server(threading.Thread):
 
 
 if __name__ == '__main__':
-    # Hive connection to Public Data Broker
+    # Software Visualizer Connection via Public Data Broker
     # hive = Subscriber("CG4002")
     # hive.start()
-
-    # Client connection to Evaluation Server
-    eval_client = Client(8080, "localhost")
-    eval_client.start()
 
     # Server Connection to Laptop
     laptop_server = Server(8080, "localhost")
     laptop_server = laptop_server.start()
+    print("Starting server thread")
+
+    # Client connection to Evaluation Server
+    eval_client = Client(1234, "localhost")
+    eval_client.start()
+    print("Starting client thread")
