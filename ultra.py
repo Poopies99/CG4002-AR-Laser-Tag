@@ -167,20 +167,18 @@ class Server(threading.Thread):
         self.shutdown = threading.Event()
 
     def setup(self):
-        print('Initializing Connection')
+        print('Awaiting Connection')
 
         # Blocking Function
         self.connection, client_address = self.server_socket.accept()
 
         print('Successfully connected to', client_address[0])
 
+        print('Setting up Secret Key')
         print('Default Secret Key: chrisisdabest123')
         secret_key = 'chrisisdabest123'
 
-        print('Connection from', client_address)
         if len(secret_key) == 16 or len(secret_key) == 24 or len(secret_key) == 32:
-            # Send secret key to client
-            self.connection.send(secret_key.encode())
             # Store Secret Key and convert secret key into Byte Object
             self.secret_key = secret_key
             self.secret_key_bytes = bytes(str(secret_key), encoding="utf-8")
@@ -229,10 +227,10 @@ class Server(threading.Thread):
 
         while not self.shutdown.is_set():
             try:
-                # Receive up to 24 Bytes of data
-                data = self.connection.recv(24)
+                # Receive up to 64 Bytes of data
+                data = self.connection.recv(64)
 
-                print("Message Received from Laptop: ", self.decrypt_message(data))
+                print("Message Received from Laptop:", self.decrypt_message(data))
 
                 if not data:
                     self.close_connection()
@@ -247,11 +245,11 @@ if __name__ == '__main__':
     # hive.start()
 
     # Server Connection to Laptop
+    print("Starting Server Thread")
     laptop_server = Server(8080, "localhost")
     laptop_server = laptop_server.start()
-    print("Starting server thread")
 
     # Client connection to Evaluation Server
-    eval_client = Client(1234, "localhost")
-    eval_client.start()
-    print("Starting client thread")
+    # eval_client = Client(1234, "localhost")
+    # eval_client.start()
+    # print("Starting client thread")
