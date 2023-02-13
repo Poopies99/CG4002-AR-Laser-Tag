@@ -222,6 +222,7 @@ class Server(threading.Thread):
             print("AES key must be either 16, 24, or 32 bytes long")
             self.stop()
 
+
         return secret_key
 
     def setup_turn(self):
