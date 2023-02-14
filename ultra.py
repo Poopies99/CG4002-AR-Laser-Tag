@@ -186,7 +186,7 @@ class Client(threading.Thread):
         while not self.shutdown.is_set():
             try:
                 input_message = eval_queue.get()
-                print("Sending Message to Eval Client: ", input_message)
+                print("Sending Message to Eval Client:", input_message)
                 if input_message == 'q':
                     break
                 encrypted_message = self.encrypt_message(input_message)
@@ -296,23 +296,22 @@ class Server(threading.Thread):
 if __name__ == '__main__':
     # Game Engine
     print('---------------<Announcement>---------------')
-    print("         Starting Game Engine Thread        ")
+    print("Starting Game Engine Thread        ")
     GE = GameEngine()
     GE.start()
 
     # Software Visualizer Connection via Public Data Broker
-    print("          Starting Subscriber Thread        ")
+    print("Starting Subscriber Thread        ")
     hive = Subscriber("CG4002")
     hive.start()
 
-    # Server Connection to Laptop
-    print("           Starting Server Thread           ")
-    laptop_server = Server(8080, "192.168.95.221")
-    laptop_server = laptop_server.start()
-
     # Client connection to Evaluation Server
-    print("           Starting Client Thread           ")
+    print("Starting Client Thread           ")
     eval_client = Client(1234, "localhost")
     eval_client.start()
     print('--------------------------------------------')
 
+    # Server Connection to Laptop
+    print("Starting Server Thread           ")
+    laptop_server = Server(8080, "192.168.95.221")
+    laptop_server = laptop_server.start()

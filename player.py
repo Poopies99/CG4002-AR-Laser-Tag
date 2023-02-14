@@ -15,7 +15,7 @@ class Player:
         self.max_hp             = 100
 
         self.hp             = self.max_hp
-        self.action         = 'none'
+        self.action         = "none"
         self.bullets        = self.magazine_size
         self.grenades       = self.max_grenades
         self.shield_time    = 0
@@ -26,25 +26,25 @@ class Player:
         self.shield_start_time = time.time()-30
 
     def get_string(self):
-        print('Current Player HP:', self.hp)
-        print('Player Action:', self.action)
-        print('Number of Bullets Left:', self.bullets)
-        print('Number of Grenades Left:', self.grenades)
-        print('Shield Time Left:', self.shield_time)
-        print('Shield Health Left:', self.shield_health)
-        print('Number of Deaths:', self.num_deaths)
-        print('Number of Shields Left:',  self.num_shield)
+        print("Current Player HP:", self.hp)
+        print("Player Action:", self.action)
+        print("Number of Bullets Left:", self.bullets)
+        print("Number of Grenades Left:", self.grenades)
+        print("Shield Time Left:", self.shield_time)
+        print("Shield Health Left:", self.shield_health)
+        print("Number of Deaths:", self.num_deaths)
+        print("Number of Shields Left:",  self.num_shield)
 
     def get_dict(self):
         _player = dict()
-        _player['hp']               = self.hp
-        _player['action']           = self.action
-        _player['bullets']          = self.bullets
-        _player['grenades']         = self.grenades
-        _player['shield_time']      = self.shield_time
-        _player['shield_health']    = self.shield_health
-        _player['num_deaths']       = self.num_deaths
-        _player['num_shield']       = self.num_shield
+        _player["hp"]               = self.hp
+        _player["action"]           = self.action
+        _player["bullets"]          = self.bullets
+        _player["grenades"]         = self.grenades
+        _player["shield_time"]      = self.shield_time
+        _player["shield_health"]    = self.shield_health
+        _player["num_deaths"]       = self.num_deaths
+        _player["num_shield"]       = self.num_shield
         return _player
 
     def initialize(self, action, bullets_remaining, grenades_remaining,
