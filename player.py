@@ -1,4 +1,5 @@
 import time
+import json
 
 
 class Player:
@@ -25,6 +26,25 @@ class Player:
 
         self.shield_start_time = time.time()-30
 
+    def update_json(self):
+        with open('example.json', 'w') as f:
+            json_object = json.loads(f.read())
+
+        json_object["p1"]["action"] = self.action
+        json_object["p1"]["hp"] = self.hp
+        json_object["p1"]["action"] = self.action
+        json_object["p1"]["bullets"] = self.bullets
+        json_object["p1"]["grenades"] = self.grenades
+        json_object["p1"]["shield_time"] = self.shield_time
+        json_object["p1"]["shield_health"] = self.shield_health
+        json_object["p1"]["num_deaths"] = self.num_deaths
+        json_object["p1"]["num_shield"] = self.num_shield
+
+        with open('example.json', 'w') as f:
+            f.write(json.dumps(json_object))
+
+        return json.dumps(json_object)
+            
     def get_string(self):
         print("Current Player HP:", self.hp)
         print("Player Action:", self.action)
@@ -87,6 +107,7 @@ class Player:
         return True
 
     def shoot(self):
+        self.action = "shoot"
         if self.bullets == 0:
             return "Please Reload"
         elif self.check_sensor():  # If True, Player has been shot
@@ -98,6 +119,7 @@ class Player:
         return self.check_hp()
 
     def throw_grenade(self):
+        self.action = "grenades"
         if self.grenades == 0:
             return "No Grenades"
         elif not self.check_grenade_hit():
@@ -111,6 +133,7 @@ class Player:
         return self.check_hp()
 
     def activate_shield(self):
+        self.action = "shield"
         if self.num_shield == 0:
             return "No Shields Left"
         elif self.check_shield():
@@ -121,6 +144,7 @@ class Player:
             self.num_shield -= 1
 
     def reload(self):
+        self.action = "reload"
         if self.bullets != 0:
             return "Cannot reload when there magazine is not empty"
         else:

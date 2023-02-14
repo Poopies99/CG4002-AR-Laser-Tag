@@ -63,7 +63,12 @@ class GameEngine(threading.Thread):
                 print('Action:', input_message)
                 print(self.update(input_message))
                 self.player.get_string()
-                eval_queue.put(str(self.player.get_dict()))
+
+                with open('example.json', 'r') as f:
+                    json_data = f.read()
+
+                eval_queue.put(json_data)
+                subscribe_queue.put(json_data)
             except Exception as _:
                 traceback.print_exc()
 
@@ -186,12 +191,17 @@ class Client(threading.Thread):
         while not self.shutdown.is_set():
             try:
                 input_message = eval_queue.get()
-                print("Sending Message to Eval Client:", input_message)
                 if input_message == 'q':
                     break
+
                 encrypted_message = self.encrypt_message(input_message)
+
+                # Format String for Eval Server Byte Sequence Process
                 final_message = str(len(encrypted_message)) + "_" + encrypted_message
+
                 self.client_socket.send(final_message.encode())
+
+                print("Sending Message to Eval Client:", input_message)
             except Exception as _:
                 traceback.print_exc()
                 self.close_connection()
