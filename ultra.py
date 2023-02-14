@@ -1,23 +1,32 @@
-import json
 import paho.mqtt.client as mqtt
+import json
 import socket
 import base64
 import threading
 import traceback
-from player import Player
 from _socket import SHUT_RDWR
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad
 from Crypto.Util.Padding import unpad
 from Crypto import Random
+from queue import Queue
+
+from player import Player
 
 """
 Threads: 
 1. Client Thread to connect to eval server
 2. Server Thread for laptop to connect to
 3. Subscriber Thread to publish data to SW Visualizer
-4. 
+4. Game Engine Thread to process incoming data from Laptop
+
+Message Queues:
+1. raw_queue between Server and Game Engine Thread
+2. process_queue from Server to Client, Subscribe thread
 """
+
+raw_queue = Queue()
+process_queue = Queue()
 
 
 class GameEngine(threading.Thread):
@@ -49,9 +58,10 @@ class GameEngine(threading.Thread):
     def run(self):
         while not self.shutdown.is_set():
             try:
-                input_message = input('Enter an action: ')
-                print(self.update(input_message))
-                print('Status: ', self.player.get_dict())
+                input_message = raw_queue.get()
+                print(input_message)
+                # print(self.update(input_message))
+                # print('Status: ', self.player.get_dict())
             except Exception as _:
                 traceback.print_exc()
 
@@ -268,8 +278,12 @@ class Server(threading.Thread):
             try:
                 # Receive up to 64 Bytes of data
                 data = self.connection.recv(64)
+                message = self.decrypt_message(data)
 
-                print("Message Received from Laptop:", self.decrypt_message(data))
+                print("Message Received from Laptop:", message)
+
+                # Add to raw queue
+                raw_queue.put(message)
 
                 if not data:
                     self.close_connection()
@@ -285,10 +299,10 @@ if __name__ == '__main__':
     # hive = Subscriber("CG4002")
     # hive.start()
     #
-    # # Server Connection to Laptop
-    # print("Starting Server Thread")
-    # laptop_server = Server(8080, "192.168.95.221")
-    # laptop_server = laptop_server.start()
+    # Server Connection to Laptop
+    print("Starting Server Thread")
+    laptop_server = Server(8080, "192.168.95.221")
+    laptop_server = laptop_server.start()
     #
     # # Client connection to Evaluation Server
     # print("Starting Client Thread")

@@ -14,3 +14,4 @@ xilinx_port_number="8080"
 # Setup SSH Port Forward
 ssh -f -N -L $port_num:$xilinx_server:$xilinx_port_number $soc_username@$soc_server
 ssh -t -X $soc_username@$soc_server ssh -X $xilinx_username@$xilinx_server
+
