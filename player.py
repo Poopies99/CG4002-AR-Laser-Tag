@@ -26,14 +26,14 @@ class Player:
         self.shield_start_time = time.time()-30
 
     def get_string(self):
-        print('Current Player HP: ', self.hp)
-        print('Player Action: ', self.action)
-        print('Number of Bullets Left: ', self.bullets)
-        print('Number of Grenades Left: ', self.grenades)
-        print('Shield Time Left: ', self.shield_time)
-        print('Shield Health Left: ', self.shield_health)
-        print('Number of Deaths: ', self.num_deaths)
-        print('Number of Shields Left: ',  self.num_shield)
+        print('Current Player HP:', self.hp)
+        print('Player Action:', self.action)
+        print('Number of Bullets Left:', self.bullets)
+        print('Number of Grenades Left:', self.grenades)
+        print('Shield Time Left:', self.shield_time)
+        print('Shield Health Left:', self.shield_health)
+        print('Number of Deaths:', self.num_deaths)
+        print('Number of Shields Left:',  self.num_shield)
 
     def get_dict(self):
         _player = dict()

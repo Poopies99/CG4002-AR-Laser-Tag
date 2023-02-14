@@ -26,7 +26,8 @@ Message Queues:
 """
 
 raw_queue = Queue()
-process_queue = Queue()
+eval_queue = Queue()
+subscribe_queue = Queue()
 
 
 class GameEngine(threading.Thread):
@@ -59,10 +60,10 @@ class GameEngine(threading.Thread):
         while not self.shutdown.is_set():
             try:
                 input_message = raw_queue.get()
-                print('Action: ', input_message)
+                print('Action:', input_message)
                 print(self.update(input_message))
                 self.player.get_string()
-                process_queue.put(self.player.get_dict())
+                eval_queue.put(str(self.player.get_dict()))
             except Exception as _:
                 traceback.print_exc()
 
@@ -108,7 +109,7 @@ class Subscriber(threading.Thread):
 
         while not self.shutdown.is_set():
             try:
-                input_message = process_queue.get()
+                input_message = subscribe_queue.get()
                 print('Publishing to HiveMQ: ', input_message)
                 if input_message == 'q':
                     break
@@ -184,7 +185,7 @@ class Client(threading.Thread):
 
         while not self.shutdown.is_set():
             try:
-                input_message = process_queue.get()
+                input_message = eval_queue.get()
                 print("Sending Message to Eval Client: ", input_message)
                 if input_message == 'q':
                     break
@@ -216,7 +217,7 @@ class Server(threading.Thread):
         self.shutdown = threading.Event()
 
     def setup(self):
-        print('Awaiting Connection')
+        print('Awaiting Connection from Laptop')
 
         # Blocking Function
         self.connection, client_address = self.server_socket.accept()
@@ -296,27 +297,22 @@ if __name__ == '__main__':
     # Game Engine
     print('---------------<Announcement>---------------')
     print("         Starting Game Engine Thread        ")
-    print('--------------------------------------------')
     GE = GameEngine()
     GE.start()
 
     # Software Visualizer Connection via Public Data Broker
-    print('---------------<Announcement>---------------')
     print("          Starting Subscriber Thread        ")
-    print('--------------------------------------------')
     hive = Subscriber("CG4002")
     hive.start()
 
     # Server Connection to Laptop
-    print('---------------<Announcement>---------------')
     print("           Starting Server Thread           ")
-    print('--------------------------------------------')
     laptop_server = Server(8080, "192.168.95.221")
     laptop_server = laptop_server.start()
 
     # Client connection to Evaluation Server
-    print('---------------<Announcement>---------------')
     print("           Starting Client Thread           ")
-    print('--------------------------------------------')
     eval_client = Client(1234, "localhost")
     eval_client.start()
+    print('--------------------------------------------')
+
