@@ -22,7 +22,8 @@ Threads:
 
 Message Queues:
 1. raw_queue between Server and Game Engine Thread
-2. process_queue from Server to Client, Subscribe thread
+2. eval_queue from Game Engine to Client Thread
+3. subscribe_queue from Game Engine to SW Visualizer
 """
 
 raw_queue = Queue()
@@ -305,24 +306,24 @@ class Server(threading.Thread):
 
 
 if __name__ == '__main__':
-    # Game Engine
-    print('---------------<Announcement>---------------')
-    print("Starting Game Engine Thread        ")
-    GE = GameEngine()
-    GE.start()
+    # # Game Engine
+    # print('---------------<Announcement>---------------')
+    # print("Starting Game Engine Thread        ")
+    # GE = GameEngine()
+    # GE.start()
+    #
+    # # Software Visualizer Connection via Public Data Broker
+    # print("Starting Subscriber Thread        ")
+    # hive = Subscriber("CG4002")
+    # hive.start()
 
-    # Software Visualizer Connection via Public Data Broker
-    print("Starting Subscriber Thread        ")
-    hive = Subscriber("CG4002")
-    hive.start()
-
-    # Client connection to Evaluation Server
+    # Client Connection to Evaluation Server
     print("Starting Client Thread           ")
     eval_client = Client(1234, "localhost")
     eval_client.start()
     print('--------------------------------------------')
 
-    # Server Connection to Laptop
-    print("Starting Server Thread           ")
-    laptop_server = Server(8080, "192.168.95.221")
-    laptop_server = laptop_server.start()
+    # # Server Connection to Laptop
+    # print("Starting Server Thread           ")
+    # laptop_server = Server(8080, "192.168.95.221")
+    # laptop_server = laptop_server.start()
