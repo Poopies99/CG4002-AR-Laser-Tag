@@ -1,5 +1,4 @@
 import random
-
 import Helper
 from GameState import GameState
 

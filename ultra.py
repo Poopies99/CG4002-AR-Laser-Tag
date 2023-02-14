@@ -4,6 +4,7 @@ import socket
 import base64
 import threading
 import traceback
+from player import Player
 from _socket import SHUT_RDWR
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad
@@ -15,7 +16,45 @@ Threads:
 1. Client Thread to connect to eval server
 2. Server Thread for laptop to connect to
 3. Subscriber Thread to publish data to SW Visualizer
+4. 
 """
+
+
+class GameEngine(threading.Thread):
+    """
+    1 Player Game Engine
+    """
+    def __init__(self):
+        super().__init__()
+
+        # Create Player
+        self.player = Player()
+
+        # Flags
+        self.shutdown = threading.Event()
+
+    def update(self, action):
+        try:
+            if action == 'shoot':
+                return self.player.shoot()
+            elif action == 'grenade':
+                return self.player.throw_grenade()
+            elif action == 'shield':
+                return self.player.activate_shield()
+            elif action == 'reload':
+                return self.player.reload()
+        except Exception as _:
+            self.shutdown.set()
+
+    def run(self):
+        while not self.shutdown.is_set():
+            try:
+                input_message = input('Enter an action: ')
+                print(self.update(input_message))
+                print('Status: ', self.player.get_dict())
+            except Exception as _:
+                traceback.print_exc()
+
 
 class Subscriber(threading.Thread):
     def __init__(self, topic):
@@ -240,16 +279,19 @@ class Server(threading.Thread):
 
 
 if __name__ == '__main__':
-    # Software Visualizer Connection via Public Data Broker
+    GE = GameEngine()
+    GE.start()
+    # # Software Visualizer Connection via Public Data Broker
     # hive = Subscriber("CG4002")
     # hive.start()
-
-    # Server Connection to Laptop
-    print("Starting Server Thread")
-    laptop_server = Server(8080, "localhost")
-    laptop_server = laptop_server.start()
-
-    # Client connection to Evaluation Server
+    #
+    # # Server Connection to Laptop
+    # print("Starting Server Thread")
+    # laptop_server = Server(8080, "192.168.95.221")
+    # laptop_server = laptop_server.start()
+    #
+    # # Client connection to Evaluation Server
+    # print("Starting Client Thread")
     # eval_client = Client(1234, "localhost")
     # eval_client.start()
-    # print("Starting client thread")
+
