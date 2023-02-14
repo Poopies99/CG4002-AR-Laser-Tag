@@ -53,6 +53,7 @@ class GameEngine(threading.Thread):
                 return self.player.activate_shield()
             elif action == 'reload':
                 return self.player.reload()
+            self.player.update_json()
         except Exception as _:
             self.shutdown.set()
 
