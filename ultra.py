@@ -65,14 +65,10 @@ class GameEngine(threading.Thread):
                 input_message = raw_queue.get()
 
                 # Add-On for random actions
-                # actions = ['shoot', 'reload', 'grenade', 'shield']
-                # input_message = random.choice(actions)
+                actions = ['shoot', 'reload', 'grenade', 'shield']
+                input_message = random.choice(actions)
 
-                print('Action:', input_message)
                 print(self.update(input_message))
-
-                # Print out player status
-                self.player.get_string()
 
                 with open('example.json', 'r') as f:
                     json_data = f.read()
@@ -116,7 +112,6 @@ class Subscriber(threading.Thread):
         print("Shutting Down Connection to HiveMQ")
 
     def send_message(self, message):
-        print('Publishing message: ' + message)
         self.client.publish(self.topic, message)
 
     def run(self):
@@ -314,24 +309,24 @@ class Server(threading.Thread):
 
 
 if __name__ == '__main__':
-    # # Game Engine
-    # print('---------------<Announcement>---------------')
-    # print("Starting Game Engine Thread        ")
-    # GE = GameEngine()
-    # GE.start()
-    #
-    # # Software Visualizer Connection via Public Data Broker
-    # print("Starting Subscriber Thread        ")
-    # hive = Subscriber("CG4002")
-    # hive.start()
+    # Game Engine
+    print('---------------<Announcement>---------------')
+    print("Starting Game Engine Thread        ")
+    GE = GameEngine()
+    GE.start()
+
+    # Software Visualizer Connection via Public Data Broker
+    print("Starting Subscriber Thread        ")
+    hive = Subscriber("CG4002")
+    hive.start()
 
     # Client Connection to Evaluation Server
     print("Starting Client Thread           ")
     eval_client = Client(1234, "localhost")
     eval_client.start()
-    print('--------------------------------------------')
 
-    # # Server Connection to Laptop
-    # print("Starting Server Thread           ")
-    # laptop_server = Server(8080, "192.168.95.221")
-    # laptop_server = laptop_server.start()
+    # Server Connection to Laptop
+    print("Starting Server Thread           ")
+    laptop_server = Server(8080, "192.168.95.221")
+    laptop_server = laptop_server.start()
+    print('--------------------------------------------')
