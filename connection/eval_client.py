@@ -12,25 +12,28 @@ from Crypto import Random
 
 
 class Client(threading.Thread):
-    def __init__(self, port_num):
+    def __init__(self, port_num, host_name):
         super().__init__()
 
         # Create a TCP/IP socket
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         self.client_socket = client_socket
-        self.connection = client_socket.connect(('', port_num))
-        self.secret_key = 'chrisisdabest123'
-        self.secret_key_bytes = bytes(str(self.secret_key), encoding='utf-8')
+        self.connection = client_socket.connect((host_name, port_num))
+        self.secret_key = None
+        self.secret_key_bytes = None
 
         # Flags
         self.shutdown = threading.Event()
 
     def setup(self):
-        print('Waiting for Secret Key')
-        """
-        Check whether you can change the eval_server code to send back acknowledge packet
-        """
+        print('Defaulting Secret Key to chrisisdabest123')
+
+        # # Blocking Function
+        secret_key = 'chrisisdabest123'
+
+        self.secret_key = secret_key
+        self.secret_key_bytes = bytes(str(self.secret_key), encoding='utf-8')
 
     def close_connection(self):
         self.connection.shutdown(SHUT_RDWR)
@@ -74,11 +77,18 @@ class Client(threading.Thread):
 
         while not self.shutdown.is_set():
             try:
-                message = input("Enter message to be sent: ")
-                if message == 'q':
+                input_message = eval_queue.get()
+                if input_message == 'q':
                     break
-                encrypted_message = self.encrypt_message(message)
-                self.client_socket.send(encrypted_message.encode())
+
+                encrypted_message = self.encrypt_message(input_message)
+
+                # Format String for Eval Server Byte Sequence Process
+                final_message = str(len(encrypted_message)) + "_" + encrypted_message
+
+                self.client_socket.send(final_message.encode())
+
+                print("Sending Message to Eval Client:", input_message)
             except Exception as _:
                 traceback.print_exc()
                 self.close_connection()

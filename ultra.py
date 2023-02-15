@@ -4,6 +4,7 @@ import socket
 import base64
 import threading
 import traceback
+import random
 from _socket import SHUT_RDWR
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad
@@ -62,8 +63,15 @@ class GameEngine(threading.Thread):
         while not self.shutdown.is_set():
             try:
                 input_message = raw_queue.get()
+
+                # Add-On for random actions
+                # actions = ['shoot', 'reload', 'grenade', 'shield']
+                # input_message = random.choice(actions)
+
                 print('Action:', input_message)
                 print(self.update(input_message))
+
+                # Print out player status
                 self.player.get_string()
 
                 with open('example.json', 'r') as f:
