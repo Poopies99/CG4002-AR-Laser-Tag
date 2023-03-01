@@ -321,9 +321,9 @@ if __name__ == '__main__':
     hive.start()
 
     # Client Connection to Evaluation Server
-    print("Starting Client Thread           ")
-    eval_client = Client(1234, "localhost")
-    eval_client.start()
+    # print("Starting Client Thread           ")
+    # eval_client = Client(1234, "localhost")
+    # eval_client.start()
 
     # Server Connection to Laptop
     print("Starting Server Thread           ")
