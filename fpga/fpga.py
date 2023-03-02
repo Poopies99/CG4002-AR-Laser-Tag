@@ -3,7 +3,7 @@ import pynq
 from pynq import Overlay
 import numpy as np
 
-overlay = Overlay("design_2.bit")
+overlay = Overlay("design_3_wrapper.bit")
 
 dma = overlay.axi_dma_0
 
