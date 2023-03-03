@@ -3,7 +3,7 @@ import pynq
 from pynq import Overlay
 import numpy as np
 
-overlay = Overlay("design_3_wrapper.bit")
+overlay = Overlay("design_3.bit")
 
 dma = overlay.axi_dma_0
 
@@ -27,18 +27,7 @@ dma.recvchannel.transfer(out_buffer)
 
 # wait for transfer to finish
 dma.sendchannel.wait()
-
+          
 # print output buffer
 for output in out_buffer:
     print(output)
-
-
-
-# classifier_ip.write(0x00, 0x01)
-
-# while (classifier_ip.read(0x00) & 0x02) == 0:
-#     pass
-
-# output_category = classifier_ip.read(0x20)
-
-# print("Output Category: {}".format(output_category))
