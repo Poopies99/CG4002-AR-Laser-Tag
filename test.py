@@ -6,7 +6,7 @@ import scipy
 from scipy import stats, signal
 
 
-def preprocess_data(self, df):
+def preprocess_data(df):
     def compute_mean(data):
         return np.mean(data)
 
@@ -111,7 +111,6 @@ print(data)
 if len(data) == 0:
     print("Invalid data:", data)
 
-data = data[1:].split(",")
 if len(data) == 8:
     yaw, pitch, roll, accx, accy, accz, flex1, flex2 = data
 
