@@ -121,7 +121,7 @@ class Subscriber(threading.Thread):
         while not self.shutdown.is_set():
             try:
                 input_message = subscribe_queue.get()
-                print('Publishing to HiveMQ: ', input_message)
+                # print('Publishing to HiveMQ: ', input_message)
                 if input_message == 'q':
                     break
                 self.send_message(input_message)
@@ -207,7 +207,7 @@ class Client(threading.Thread):
 
                 self.client_socket.send(final_message.encode())
 
-                print("Sending Message to Eval Client:", input_message)
+                # print("Sending Message to Eval Client:", input_message)
             except Exception as _:
                 traceback.print_exc()
                 self.close_connection()
@@ -277,7 +277,7 @@ class Server(threading.Thread):
                 packet = self.data[:20]
                 self.data = self.data[20:]
 
-                print("Message Received from Laptop:", packet)
+                # print("Message Received from Laptop:", packet)
 
                 # Add to raw queue
                 raw_queue.put(packet)
@@ -423,7 +423,7 @@ class Training(threading.Thread):
                     unpacker.unpack(data)
                     data = unpacker.get_euler_data() + unpacker.get_acc_data() + unpacker.get_flex_data()
 
-                    print("Unpacked Data", data)
+                    # print("Unpacked Data", data)
 
                     if len(data) == 0:
                         print("Invalid data:", data)
