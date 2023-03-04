@@ -301,16 +301,16 @@ class Training(threading.Thread):
             writer.writerow(headers)
 
     def preprocess_data(self, df):
-        def compute_mean(self, data):
+        def compute_mean(data):
                 return np.mean(data)
 
-        def compute_variance(self, data):
+        def compute_variance(data):
             return np.var(data)
 
-        def compute_median_absolute_deviation(self, data):
+        def compute_median_absolute_deviation(data):
             return stats.median_abs_deviation(data, axis=None)
 
-        def compute_root_mean_square(self, data):
+        def compute_root_mean_square(data):
             return np.sqrt(np.mean(np.square(data)))
 
         def compute_interquartile_range(data):
