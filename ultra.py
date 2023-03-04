@@ -11,10 +11,8 @@ from Crypto.Util.Padding import pad
 from Crypto.Util.Padding import unpad
 from Crypto import Random
 from queue import Queue
-from fpga import training_data_collector
 import csv
 import pandas as pd
-from intcomm import IntComm
 import time
 import numpy as np
 from scipy import stats, signal
