@@ -114,6 +114,15 @@ if __name__ == "__main__":
     # 2: "/dev/ttyACM2"
     intcomm = IntComm(0) # TODO comms - goal: get data from arduino
     all_data = []
+
+    # defining headers for post processing
+    variables = ['Acc-X', 'Acc-Y', 'Acc-Z', 'Gyro-X', 'Gyro-Y', 'Gyro-Z', 'Flex1', 'Flex2']
+    factors = ['mean', 'variance', 'median_absolute_deviation', 'root_mean_square', 'interquartile_range',            
+            'percentile_75', 'kurtosis', 'min_max', 'signal_magnitude_area', 'zero_crossing_rate',            
+            'spectral_centroid', 'spectral_entropy', 'spectral_energy', 'principle_frequency']
+
+    headers = [f'{var}_{factor}' for var in variables for factor in factors]
+
     print("Start")
     try:
         while True:
@@ -141,8 +150,7 @@ if __name__ == "__main__":
                     )
 
             # Convert data to DataFrame
-            df = pd.DataFrame(all_data)
-            df.columns = ["yaw", "pitch", "roll", "ax", "ay", "az", "flex1", "flex2"]
+            df = pd.DataFrame([data], columns=["yaw", "pitch", "roll", "ax", "ay", "az", "flex1", "flex2"])
 
             # Show user the data and prompt for confirmation
             print(df.head())
@@ -153,7 +161,8 @@ if __name__ == "__main__":
                 # Append processed data to CSV file
                 with open("processed_data.csv", "a") as f:
                     writer = csv.writer(f)
-                    writer.writerows(processed_data)
+                    writer.writerow(headers)
+                    writer.writerow(processed_data)
 
                 # Clear raw data list
                 raw_data = []
