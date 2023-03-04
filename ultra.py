@@ -296,60 +296,11 @@ class Training(threading.Thread):
         headers = [f'{var}_{factor}' for var in variables for factor in factors]
 
         # Open a new CSV file and write headers
-        with open('filename.csv', mode='w', newline='') as file:
+        with open('processed_data.csv', mode='w', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(headers)
 
-    def preprocess_data(df):
-        def compute_mean(data):
-            return np.mean(data)
-
-        def compute_variance(data):
-            return np.var(data)
-
-        def compute_median_absolute_deviation(data):
-            return stats.median_abs_deviation(data, axis=None)
-
-        def compute_root_mean_square(data):
-            return np.sqrt(np.mean(np.square(data)))
-
-        def compute_interquartile_range(data):
-            return stats.iqr(data)
-
-        def compute_percentile_75(data):
-            return np.percentile(data, 75)
-
-        def compute_kurtosis(data):
-            return stats.kurtosis(data)
-
-        def compute_min_max(data):
-            return np.max(data) - np.min(data)
-
-        def compute_signal_magnitude_area(data):
-            return np.sum(data) / len(data)
-
-        def compute_zero_crossing_rate(data):
-            return ((data[:-1] * data[1:]) < 0).sum()
-
-        def compute_spectral_centroid(data):
-            spectrum = np.abs(np.fft.rfft(data))
-            normalized_spectrum = spectrum / np.sum(spectrum)
-            normalized_frequencies = np.linspace(0, 1, len(spectrum))
-            spectral_centroid = np.sum(normalized_frequencies * normalized_spectrum)
-            return spectral_centroid
-
-        def compute_spectral_entropy(data):
-            freqs, power_density = signal.welch(data)
-            return stats.entropy(power_density)
-
-        def compute_spectral_energy(data):
-            freqs, power_density = signal.welch(data)
-            return np.sum(np.square(power_density))
-
-        def compute_principle_frequency(data):
-            freqs, power_density = signal.welch(data)
-            return freqs[np.argmax(np.square(power_density))]
-
+    def preprocess_data(self, df):
         processed_data = []
 
         # Loop through each column and compute features
@@ -357,20 +308,20 @@ class Training(threading.Thread):
             column_data = df[column]
 
             # Compute features for the column
-            mean = compute_mean(column_data)
-            variance = compute_variance(column_data)
-            median_absolute_deviation = compute_median_absolute_deviation(column_data)
-            root_mean_square = compute_root_mean_square(column_data)
-            interquartile_range = compute_interquartile_range(column_data)
-            percentile_75 = compute_percentile_75(column_data)
-            kurtosis = compute_kurtosis(column_data)
-            min_max = compute_min_max(column_data)
-            signal_magnitude_area = compute_signal_magnitude_area(column_data)
-            zero_crossing_rate = compute_zero_crossing_rate(column_data)
-            spectral_centroid = compute_spectral_centroid(column_data)
-            spectral_entropy = compute_spectral_entropy(column_data)
-            spectral_energy = compute_spectral_energy(column_data)
-            principle_frequency = compute_principle_frequency(column_data)
+            mean = self.compute_mean(column_data)
+            variance = self.compute_variance(column_data)
+            median_absolute_deviation = self.compute_median_absolute_deviation(column_data)
+            root_mean_square = self.compute_root_mean_square(column_data)
+            interquartile_range = self.compute_interquartile_range(column_data)
+            percentile_75 = self.compute_percentile_75(column_data)
+            kurtosis = self.compute_kurtosis(column_data)
+            min_max = self.compute_min_max(column_data)
+            signal_magnitude_area = self.compute_signal_magnitude_area(column_data)
+            zero_crossing_rate = self.compute_zero_crossing_rate(column_data)
+            spectral_centroid = self.compute_spectral_centroid(column_data)
+            spectral_entropy = self.compute_spectral_entropy(column_data)
+            spectral_energy = self.compute_spectral_energy(column_data)
+            principle_frequency = self.compute_principle_frequency(column_data)
 
             # Store features in list
             processed_column_data = [mean, variance, median_absolute_deviation, root_mean_square,
@@ -385,6 +336,69 @@ class Training(threading.Thread):
 
         return processed_data_arr
 
+    @staticmethod
+    def compute_mean(self, data):
+        return np.mean(data)
+
+    @staticmethod
+    def compute_variance(self, data):
+        return np.var(data)
+
+    @staticmethod
+    def compute_median_absolute_deviation(self, data):
+        return stats.median_abs_deviation(data, axis=None)
+
+    @staticmethod
+    def compute_root_mean_square(self, data):
+        return np.sqrt(np.mean(np.square(data)))
+
+    @staticmethod
+    def compute_interquartile_range(self, data):
+        return stats.iqr(data)
+
+    @staticmethod
+    def compute_percentile_75(self, data):
+        return np.percentile(data, 75)
+
+    @staticmethod
+    def compute_kurtosis(self, data):
+        return stats.kurtosis(data)
+
+    @staticmethod
+    def compute_min_max(self, data):
+        return np.max(data) - np.min(data)
+
+    @staticmethod
+    def compute_signal_magnitude_area(self, data):
+        return np.sum(data) / len(data)
+
+    @staticmethod
+    def compute_zero_crossing_rate(self, data):
+        return ((data[:-1] * data[1:]) < 0).sum()
+
+    @staticmethod
+    def compute_spectral_centroid(self, data):
+        spectrum = np.abs(np.fft.rfft(data))
+        normalized_spectrum = spectrum / np.sum(spectrum)
+        normalized_frequencies = np.linspace(0, 1, len(spectrum))
+        spectral_centroid = np.sum(normalized_frequencies * normalized_spectrum)
+        return spectral_centroid
+
+    @staticmethod
+    def compute_spectral_entropy(self, data):
+        freqs, power_density = signal.welch(data)
+        return stats.entropy(power_density)
+
+    @staticmethod
+    def compute_spectral_energy(self, data):
+        freqs, power_density = signal.welch(data)
+        return np.sum(np.square(power_density))
+
+    @staticmethod
+    def compute_principle_frequency(self, data):
+        freqs, power_density = signal.welch(data)
+        return freqs[np.argmax(np.square(power_density))]
+
     def close_connection(self):
         self.shutdown.set()
 
@@ -395,17 +409,13 @@ class Training(threading.Thread):
         all_data = []
         while not self.shutdown.is_set():
             try:
-                # start_time = time.time()
-                # print("Recording for 1 second...")
-
-                # while time.time() - start_time < 1:
                 data = fpga_queue.get()
 
                 unpacker.unpack(data)
-
                 data = unpacker.get_euler_data() + unpacker.get_acc_data() + unpacker.get_flex_data()
 
-                print(data)
+                print("Unpacked Data: ", data)
+
                 if len(data) == 0:
                     print("Invalid data:", data)
                     continue
@@ -414,9 +424,7 @@ class Training(threading.Thread):
                 if len(data) == 8:
                     yaw, pitch, roll, accx, accy, accz, flex1, flex2 = data
 
-                    all_data.append(
-                    [yaw, pitch, roll, accx, accy, accz, flex1, flex2]
-                    )
+                    all_data.append([yaw, pitch, roll, accx, accy, accz, flex1, flex2])
 
                 # Convert data to DataFrame
                 df = pd.DataFrame(all_data)
@@ -427,13 +435,16 @@ class Training(threading.Thread):
 
                 processed_data = self.preprocess_data(df)
 
+                print(processed_data)
+                print("Processed Data Length: ", processed_data)
+
                 # Append processed data to CSV file
                 with open("processed_data.csv", "a") as f:
                     writer = csv.writer(f)
-                    writer.writerow(df)
+                    writer.writerow(processed_data)
 
                 # Clear raw data list
-                raw_data = []
+                all_data = []
                 print("Data processed and saved to CSV file.")
 
             except KeyboardInterrupt:
