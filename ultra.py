@@ -285,6 +285,9 @@ class Training(threading.Thread):
     def __init__(self):
         super().__init__()
 
+        # Flags
+        self.shutdown = threading.Event()
+
     def init_csv(self):
         variables = ['Acc-X', 'Acc-Y', 'Acc-Z', 'Gyro-X', 'Gyro-Y', 'Gyro-Z', 'Flex1', 'Flex2']
         factors = ['mean', 'variance', 'median_absolute_deviation', 'root_mean_square', 'interquartile_range',
@@ -387,8 +390,8 @@ class Training(threading.Thread):
         unpacker = BLEPacket()
         all_data = []
         print("Start")
-        try:
-            while True:
+        while not self.shutdown.is_set():
+            try:
                 # collecting data upon key press and 1s sleep timer
                 input("Press any key to start data collection...")
                 time.sleep(1)
@@ -397,22 +400,22 @@ class Training(threading.Thread):
                 print("Recording for 1 second...")
 
                 # assuming all actions within 1 second of key press
-                while time.time() - start_time < 1:
-                    data = fpga_queue.get()  # TODO comms - goal: get data from queue
-                    data = unpacker.unpack(data)
+                # while time.time() - start_time < 1:
+                data = fpga_queue.get()  # TODO comms - goal: get data from queue
+                data = unpacker.unpack(data)
 
-                    print(data)
-                    if len(data) == 0 or data[0] != "#":
-                        print("Invalid data:", data)
-                        continue
+                print(data)
+                if len(data) == 0 or data[0] != "#":
+                    print("Invalid data:", data)
+                    continue
 
-                    data = data[1:].split(",")
-                    if len(data) == 8:
-                        yaw, pitch, roll, accx, accy, accz, flex1, flex2 = data
+                data = data[1:].split(",")
+                if len(data) == 8:
+                    yaw, pitch, roll, accx, accy, accz, flex1, flex2 = data
 
-                        all_data.append(
-                            [yaw, pitch, roll, accx, accy, accz, flex1, flex2]
-                        )
+                    all_data.append(
+                    [yaw, pitch, roll, accx, accy, accz, flex1, flex2]
+                    )
 
                 # Convert data to DataFrame
                 df = pd.DataFrame(all_data)
@@ -434,11 +437,10 @@ class Training(threading.Thread):
                     print("Data processed and saved to CSV file.")
                 else:
                     print("Data not processed.")
-
-        except KeyboardInterrupt:
-            print("terminating program")
-        except Exception:
-            print("an error occured")
+            except KeyboardInterrupt:
+                print("terminating program")
+            except Exception:
+                print("an error occured")
 
 
 
@@ -464,11 +466,9 @@ if __name__ == '__main__':
     print("Starting Server Thread           ")
     laptop_server = Server(8080, "192.168.95.221")
     laptop_server.start()
-    print('--------------------------------------------')
 
     # AI Model
     print("Starting AI Model Thread")
     ai_model = Training()
     ai_model.start()
-
-
+    print('--------------------------------------------')
