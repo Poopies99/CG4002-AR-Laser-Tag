@@ -390,11 +390,11 @@ class Training(threading.Thread):
         while not self.shutdown.is_set():
             try:
                 # collecting data upon key press and 1s sleep timer
-                input("Press any key to start data collection...")
-                time.sleep(1)
+                # input("Press any key to start data collection...")
+                # time.sleep(1)
 
-                start_time = time.time()
-                print("Recording for 1 second...")
+                # start_time = time.time()
+                # print("Recording for 1 second...")
 
                 # assuming all actions within 1 second of key press
                 # while time.time() - start_time < 1:
@@ -431,7 +431,7 @@ class Training(threading.Thread):
                     # Append processed data to CSV file
                     with open("processed_data.csv", "a") as f:
                         writer = csv.writer(f)
-                        writer.writerows(processed_data)
+                        writer.writerow(processed_data)
 
                     # Clear raw data list
                     raw_data = []
