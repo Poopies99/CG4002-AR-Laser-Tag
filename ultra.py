@@ -456,6 +456,12 @@ class Training(threading.Thread):
                         # writer.writerow(headers)
                         writer.writerow(processed_data)
 
+                    # Append processed data to CSV file
+                    # with open("backup_raw_data.csv", "a") as f:
+                    #     writer = csv.writer(f)
+                    #     # writer.writerow(headers)
+                    #     writer.writerow(data)
+
                     # Clear raw data list
                     all_data = []
                     print("Data processed and saved to CSV file.")
