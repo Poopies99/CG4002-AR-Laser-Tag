@@ -279,6 +279,7 @@ class Server(threading.Thread):
                 traceback.print_exc()
                 self.close_connection()
 
+
 class Training(threading.Thread):
     def __init__(self):
         super().__init__()
@@ -389,14 +390,9 @@ class Training(threading.Thread):
         all_data = []
         while not self.shutdown.is_set():
             try:
-                # collecting data upon key press and 1s sleep timer
-                # input("Press any key to start data collection...")
-                # time.sleep(1)
-
                 # start_time = time.time()
                 # print("Recording for 1 second...")
 
-                # assuming all actions within 1 second of key press
                 # while time.time() - start_time < 1:
                 data = fpga_queue.get()
 
@@ -404,7 +400,6 @@ class Training(threading.Thread):
 
                 data = unpacker.get_euler_data() + unpacker.get_acc_data() + unpacker.get_flex_data()
 
-                print("Hello")
                 print(data)
                 if len(data) == 0:
                     print("Invalid data:", data)
@@ -424,20 +419,18 @@ class Training(threading.Thread):
 
                 # Show user the data and prompt for confirmation
                 print(df.head())
-                user_input = input("Does the data look ok? (y/n): ")
-                if user_input.lower() == "y":
-                    processed_data = self.preprocess_data(df)
 
-                    # Append processed data to CSV file
-                    with open("processed_data.csv", "a") as f:
-                        writer = csv.writer(f)
-                        writer.writerow(processed_data)
+                processed_data = self.preprocess_data(df)
 
-                    # Clear raw data list
-                    raw_data = []
-                    print("Data processed and saved to CSV file.")
-                else:
-                    print("Data not processed.")
+                # Append processed data to CSV file
+                with open("processed_data.csv", "a") as f:
+                    writer = csv.writer(f)
+                    writer.writerow(df)
+
+                # Clear raw data list
+                raw_data = []
+                print("Data processed and saved to CSV file.")
+
             except KeyboardInterrupt:
                 print("terminating program")
             except Exception:
