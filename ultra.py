@@ -440,7 +440,7 @@ class Training(threading.Thread):
                 df = pd.DataFrame([data], columns=["yaw", "pitch", "roll", "ax", "ay", "az", "flex1", "flex2"])
 
                 # Show user the data and prompt for confirmation
-                print(df.head())
+                print(df)
 
                 ui = input("data ok? y/n")
                 if ui.lower() == "y":
