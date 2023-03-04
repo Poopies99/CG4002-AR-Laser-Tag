@@ -396,17 +396,13 @@ class Training(threading.Thread):
         all_data = []
         while not self.shutdown.is_set():
             try:
-                # start_time = time.time()
-                # print("Recording for 1 second...")
-
-                # while time.time() - start_time < 1:
                 data = fpga_queue.get()
 
                 unpacker.unpack(data)
-
                 data = unpacker.get_euler_data() + unpacker.get_acc_data() + unpacker.get_flex_data()
 
-                print(data)
+                print("Unpacked Data", data)
+
                 if len(data) == 0:
                     print("Invalid data:", data)
                     continue
