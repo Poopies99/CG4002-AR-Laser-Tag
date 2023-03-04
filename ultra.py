@@ -224,6 +224,9 @@ class Server(threading.Thread):
         # Binds socket to specified host and port
         server_socket.bind((host_name, port_num))
 
+        # Data Buffer
+        self.data = b''
+
         self.server_socket = server_socket
         self.connection = None
         self.secret_key = None
@@ -266,12 +269,18 @@ class Server(threading.Thread):
             try:
                 # Receive up to 64 Bytes of data
                 message = self.connection.recv(64)
+                self.data = self.data + message
 
-                print("Message Received from Laptop:", message)
+                if len(self.data) < 20:
+                    continue
+                packet = self.data[:20]
+                self.data = self.data[20:]
+
+                print("Message Received from Laptop:", packet)
 
                 # Add to raw queue
-                raw_queue.put(message)
-                fpga_queue.put(message)
+                raw_queue.put(packet)
+                fpga_queue.put(packet)
 
                 if not message:
                     self.close_connection()
@@ -414,7 +423,6 @@ class Training(threading.Thread):
                     print("Invalid data:", data)
                     continue
 
-                data = data[1:].split(",")
                 if len(data) == 8:
                     yaw, pitch, roll, accx, accy, accz, flex1, flex2 = data
 
