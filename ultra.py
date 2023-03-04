@@ -406,7 +406,7 @@ class Training(threading.Thread):
 
                 print("Hello")
                 print(data)
-                if len(data) == 0 or data[0] != "#":
+                if len(data) == 0:
                     print("Invalid data:", data)
                     continue
 
