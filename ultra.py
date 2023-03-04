@@ -385,6 +385,11 @@ class Training(threading.Thread):
 
         return processed_data_arr
 
+    def close_connection(self):
+        self.shutdown.set()
+
+        print("Shutting Down Connection")
+
     def run(self):
         unpacker = BLEPacket()
         all_data = []
@@ -432,11 +437,13 @@ class Training(threading.Thread):
                 print("Data processed and saved to CSV file.")
 
             except KeyboardInterrupt:
+                traceback.print_exc()
+                self.close_connection()
                 print("terminating program")
-            except Exception:
+            except Exception as _:
+                traceback.print_exc()
+                self.close_connection()
                 print("an error occured")
-
-
 
 
 if __name__ == '__main__':
