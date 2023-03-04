@@ -269,6 +269,7 @@ class Server(threading.Thread):
             try:
                 # Receive up to 64 Bytes of data
                 message = self.connection.recv(64)
+                # Append existing data into new data
                 self.data = self.data + message
 
                 if len(self.data) < 20:
@@ -317,7 +318,7 @@ class Training(threading.Thread):
             return np.var(data)
 
         def compute_median_absolute_deviation(data):
-            return stats.median_abs_deviation(data, axis=None)
+            return np.median(data)
 
         def compute_root_mean_square(data):
             return np.sqrt(np.mean(np.square(data)))
@@ -412,23 +413,28 @@ class Training(threading.Thread):
 
         while not self.shutdown.is_set():
             try:
-                data = fpga_queue.get()
+                input("start?")
 
-                unpacker.unpack(data)
-                data = unpacker.get_euler_data() + unpacker.get_acc_data() + unpacker.get_flex_data()
+                start_time = time.time()
 
-                print("Unpacked Data", data)
+                while time.time() - start_time < 2:
+                    data = fpga_queue.get()
 
-                if len(data) == 0:
-                    print("Invalid data:", data)
-                    continue
+                    unpacker.unpack(data)
+                    data = unpacker.get_euler_data() + unpacker.get_acc_data() + unpacker.get_flex_data()
 
-                if len(data) == 8:
-                    yaw, pitch, roll, accx, accy, accz, flex1, flex2 = data
+                    print("Unpacked Data", data)
 
-                    all_data.append(
-                    [yaw, pitch, roll, accx, accy, accz, flex1, flex2]
-                    )
+                    if len(data) == 0:
+                        print("Invalid data:", data)
+                        continue
+
+                    if len(data) == 8:
+                        yaw, pitch, roll, accx, accy, accz, flex1, flex2 = data
+
+                        all_data.append(
+                        [yaw, pitch, roll, accx, accy, accz, flex1, flex2]
+                        )
 
                 # Convert data to DataFrame
                 df = pd.DataFrame([data], columns=["yaw", "pitch", "roll", "ax", "ay", "az", "flex1", "flex2"])
@@ -436,20 +442,25 @@ class Training(threading.Thread):
                 # Show user the data and prompt for confirmation
                 print(df.head())
 
-                processed_data = self.preprocess_data(df)
+                ui = input("data ok? y/n")
+                if ui.lower() == "y":
 
-                print(processed_data)
-                print("Processed Data Length: ", processed_data)
+                    processed_data = self.preprocess_data(df)
 
-                # Append processed data to CSV file
-                with open("processed_data.csv", "a") as f:
-                    writer = csv.writer(f)
-                    writer.writerow(headers)
-                    writer.writerow(processed_data)
+                    print(processed_data)
+                    print("Processed Data Length: ", processed_data)
 
-                # Clear raw data list
-                all_data = []
-                print("Data processed and saved to CSV file.")
+                    # Append processed data to CSV file
+                    with open("processed_data.csv", "a") as f:
+                        writer = csv.writer(f)
+                        # writer.writerow(headers)
+                        writer.writerow(processed_data)
+
+                    # Clear raw data list
+                    all_data = []
+                    print("Data processed and saved to CSV file.")
+                else:
+                    print("not proceed, restarts")
 
             except KeyboardInterrupt:
                 traceback.print_exc()
