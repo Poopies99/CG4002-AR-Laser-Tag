@@ -387,7 +387,6 @@ class Training(threading.Thread):
     def run(self):
         unpacker = BLEPacket()
         all_data = []
-        print("Start")
         while not self.shutdown.is_set():
             try:
                 # collecting data upon key press and 1s sleep timer
@@ -399,9 +398,13 @@ class Training(threading.Thread):
 
                 # assuming all actions within 1 second of key press
                 # while time.time() - start_time < 1:
-                data = fpga_queue.get()  # TODO comms - goal: get data from queue
-                data = unpacker.unpack(data)
+                data = fpga_queue.get()
 
+                unpacker.unpack(data)
+
+                data = unpacker.get_euler_data() + unpacker.get_acc_data() + unpacker.get_flex_data()
+
+                print("Hello")
                 print(data)
                 if len(data) == 0 or data[0] != "#":
                     print("Invalid data:", data)
