@@ -64,12 +64,6 @@ class GameEngine(threading.Thread):
             try:
                 input_message = raw_queue.get()
 
-                # Add-On for random actions
-                actions = ['shoot', 'reload', 'grenade', 'shield']
-                input_message = random.choice(actions)
-
-                print(self.update(input_message))
-
                 with open('example.json', 'r') as f:
                     json_data = f.read()
 
@@ -264,15 +258,14 @@ class Server(threading.Thread):
         while not self.shutdown.is_set():
             try:
                 # Receive up to 64 Bytes of data
-                data = self.connection.recv(64)
-                message = self.decrypt_message(data)
+                message = self.connection.recv(64)
 
                 print("Message Received from Laptop:", message)
 
                 # Add to raw queue
                 raw_queue.put(message)
 
-                if not data:
+                if not message:
                     self.close_connection()
             except Exception as _:
                 traceback.print_exc()
@@ -292,9 +285,9 @@ if __name__ == '__main__':
     hive.start()
 
     # Client Connection to Evaluation Server
-    print("Starting Client Thread           ")
-    eval_client = Client(1234, "localhost")
-    eval_client.start()
+    # print("Starting Client Thread           ")
+    # eval_client = Client(1234, "localhost")
+    # eval_client.start()
 
     # Server Connection to Laptop
     print("Starting Server Thread           ")
