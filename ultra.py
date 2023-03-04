@@ -257,35 +257,6 @@ class Server(threading.Thread):
 
         print("Shutting Down Server")
 
-    def decrypt_message(self, message):
-        # Decode from Base64 to Byte Object
-        decode_message = base64.b64decode(message)
-        # Initialization Vector
-        iv = decode_message[:AES.block_size]
-
-        # Create Cipher Object
-        cipher = AES.new(self.secret_key_bytes, AES.MODE_CBC, iv)
-
-        # Obtain Message using Cipher Decrypt
-        decrypted_message_bytes = cipher.decrypt(decode_message[AES.block_size:])
-        # Un-pad Message due to AES 16 bytes property
-        decrypted_message_bytes = unpad(decrypted_message_bytes, AES.block_size)
-        # Decode Bytes into utf-8
-        decrypted_message = decrypted_message_bytes.decode("utf-8")
-
-        return decrypted_message
-
-    def encrypt_message(self, message):
-        padded_message = pad(bytes(message, 'utf-8'), AES.block_size)
-
-        iv = Random.new().read(AES.block_size)
-
-        cipher = AES.new(self.secret_key_bytes, AES.MODE_CBC, iv)
-        encrypted_message = iv + cipher.encrypt(padded_message)
-
-        encoded_message = base64.b64encode(encrypted_message).decode('utf-8')
-        return encoded_message
-
     def run(self):
         self.server_socket.listen(1)
         self.setup()
