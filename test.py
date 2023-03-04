@@ -93,16 +93,19 @@ def preprocess_data(self, df):
 
 unpacker = BLEPacket()
 
+# defining headers for post processing
+variables = ['Acc-X', 'Acc-Y', 'Acc-Z', 'Gyro-X', 'Gyro-Y', 'Gyro-Z', 'Flex1', 'Flex2']
+factors = ['mean', 'variance', 'median_absolute_deviation', 'root_mean_square', 'interquartile_range',
+            'percentile_75', 'kurtosis', 'min_max', 'signal_magnitude_area', 'zero_crossing_rate',
+            'spectral_centroid', 'spectral_entropy', 'spectral_energy', 'principle_frequency']
+
+headers = [f'{var}_{factor}' for var in variables for factor in factors]
+
 # start_time = time.time()
 # print("Recording for 1 second...")
 all_data = []
 
-# while time.time() - start_time < 1:
-data = b'3\x00\xdf\xff\xfe\xff\xea\xff\x89\xfc\xef\xfbx\xfa\xe7\xff\xea\xff\x00\x00'
-
-unpacker.unpack(data)
-
-data = unpacker.get_euler_data() + unpacker.get_acc_data() + unpacker.get_flex_data()
+data = [15885, -1583, 13951, 14461, -23122, 20934, 23211, -23212]
 
 print(data)
 if len(data) == 0:
@@ -117,8 +120,7 @@ if len(data) == 8:
     )
 
 # Convert data to DataFrame
-df = pd.DataFrame(all_data)
-df.columns = ["yaw", "pitch", "roll", "ax", "ay", "az", "flex1", "flex2"]
+df = pd.DataFrame([data], columns=["yaw", "pitch", "roll", "ax", "ay", "az", "flex1", "flex2"])
 
 # Show user the data and prompt for confirmation
 print(df.head())
@@ -131,6 +133,7 @@ print("Processed Data Length: ", processed_data)
 # Append processed data to CSV file
 with open("processed_data.csv", "a") as f:
     writer = csv.writer(f)
+    writer.writerow(headers)
     writer.writerow(processed_data)
 
 # Clear raw data list
