@@ -127,14 +127,14 @@ if __name__ == "__main__":
     try:
         while True:
             # collecting data upon key press and 1s sleep timer
-            input("Press any key to start data collection...")  ``
+            input("Press any key to start data collection...")
             time.sleep(1)
 
             start_time = time.time()
             print("Recording for 1 second...")
 
             # assuming all actions within 1 second of key press
-            while time.time() - start_time < 2:
+            while time.time() - start_time < 1:
                 data = intcomm.get_line() # TODO comms - goal: get data from arduino
                 print(data)
                 if len(data) == 0 or data[0] != "#":
@@ -161,7 +161,7 @@ if __name__ == "__main__":
                 # Append processed data to CSV file
                 with open("processed_data.csv", "a") as f:
                     writer = csv.writer(f)
-                    writer.writerow(headers) 
+                    writer.writerow(headers)
                     writer.writerow(processed_data)
 
                 # Clear raw data list

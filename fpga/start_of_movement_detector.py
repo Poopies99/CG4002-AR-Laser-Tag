@@ -1,45 +1,92 @@
-# LATEST WORKING
 import numpy as np
+import time
 import matplotlib.pyplot as plt
-import pandas as pd
 
-t = np.linspace(0, 10, 50)
-x = np.sin(t) + 0.2 * np.random.randn(50)
-x[20] = 10
-x[10:15] = 10
-x[30:35] = 10
+# Function to generate noisy sin wave
+def generate_noisy_sin_wave():
+    t = np.linspace(0, 10, 50)
+    x = np.sin(t) + 0.2 * np.random.randn(50)
+    x[20] = 10
+    x[10:15] = 10
+    x[30:35] = 10
+    return x
 
-# Define the window size and threshold factor
-window_size = 7
-threshold_factor = 3
+if __name__ == "__main__":
+    # Set the window size and threshold factor
+    window_size = 7  # corresponds to 0.5s assuming sampling rate of 50 Hz
+    threshold_factor = 4
+    t = 0
+    w = generate_noisy_sin_wave()
 
-# Apply median filtering with a dynamic threshold
-filtered = np.zeros_like(x)
+    # Initialize the sliding window and threshold arrays
+    window = np.zeros(window_size)
+    threshold = np.zeros(window_size)
 
-# Compute moving window median
-for i in range(window_size // 2, len(x) - window_size // 2):
-    filtered[i] = np.median(x[i - window_size // 2:i + window_size // 2 + 1])
+    # Compute the initial threshold
+    median = np.median(window)
+    threshold[window_size // 2] = threshold_factor * np.median(np.abs(window - median))
 
-# Compute threshold using past median data
-threshold = threshold_factor * np.median(np.abs(filtered - np.roll(filtered, window_size // 2)))
+    # Initialize the start time and flag for movement
+    start_time = time.time()
+    end_time = None
+    # movement_started = False
+    movement_line = np.zeros(window_size)
 
-# Identify movement
-movement_detected = []
-for i in range(window_size // 2, len(x) - window_size // 2):
-    if np.abs(filtered[i] - filtered[i-1]) > threshold:
-        movement_detected.append(t[i])
+    # Initialize the plot
+    fig, ax = plt.subplots()
+    ax.set_ylim([-12, 12])
+    ax.set_xlabel('Time')
+    ax.set_ylabel('Acceleration')
+    ax.set_title('Movement Detection')
 
-# Output individual datapoint values to a CSV file
-df = pd.DataFrame({'time': t, 'original': x, 'threshold': threshold, 'filtered': filtered})
-df.to_csv('output.csv', index=False)
+    # Plot the initial window and threshold
+    x = np.arange(-window_size // 2, window_size // 2)
+    line_window, = ax.plot(x, window, label='Sliding Window')
+    line_threshold, = ax.plot(x, threshold, 'r--', label='Threshold')
 
-# Plot the original and filtered signals
-fig, ax = plt.subplots(figsize=(10, 8))
-ax.plot(t, x, ':', label='Original', linewidth=2.5)
-ax.plot(t, threshold*np.ones_like(x), ':', label='Threshold', color='red')
-ax.plot(t, filtered, ':', label='Filtered', linewidth=2.5)
-ax.vlines(movement_detected, ymin=filtered.min(), ymax=filtered.max(), colors='green', label='Movement Detected')
-ax.set_ylabel('Signal')
-ax.set_xlabel('Time (s)')
-ax.legend()
-plt.show()
+    ax.legend()
+
+    # Main loop for processing the live data
+    with open('movement_log.txt', 'w') as f:
+        while t<50:
+            # Get the next data point (assuming it comes in as a scalar value)
+            x = w[t]
+            t += 1
+
+            # Update the sliding window and threshold arrays
+            window[:-1] = window[1:]
+            window[-1] = x
+            median = np.median(window)
+            threshold[:-1] = threshold[1:]
+            threshold[-1] = threshold_factor * np.median(np.abs(window - median))
+
+            # Update the window and threshold lines
+            line_window.set_ydata(window)
+            line_threshold.set_ydata(threshold)
+
+            # Open the log file in write mode
+            
+            f.write(f'Time: {time.time()}, median: {median}, thresh norm: {threshold[window_size // 2]}, thresh: {threshold[-1]}\n')
+            
+            # Check if the current median exceeds the threshold
+            if median > threshold[window_size // 2]:
+                # if not movement_started:
+                    # Mark the start of the movement
+                    # movement_started = True
+                start_time = time.time()
+                print(f'Movement started at {start_time:.2f}')
+            # else:
+            #     if movement_started:
+            #         # Check if the movement has lasted for at least 0.5s
+            #         elapsed_time = time.time() - start_time
+            #         if elapsed_time >= 0.5:
+            #             # Mark the end of the movement
+            #             movement_started = False
+            #             end_time = time.time()
+            #             print(f'Movement ended at {end_time:.2f}')
+            
+            # Update the plot
+            plt.draw()
+            plt.pause(0.1)
+            
+
