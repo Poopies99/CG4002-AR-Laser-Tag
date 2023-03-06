@@ -93,18 +93,19 @@ def preprocess_data(df):
     return processed_data_arr
 
 
-def init_csv():
-    variables = ['Acc-X', 'Acc-Y', 'Acc-Z', 'Gyro-X', 'Gyro-Y', 'Gyro-Z', 'Flex1', 'Flex2']
-    factors = ['mean', 'variance', 'median_absolute_deviation', 'root_mean_square', 'interquartile_range',            
-            'percentile_75', 'kurtosis', 'min_max', 'signal_magnitude_area', 'zero_crossing_rate',            
-            'spectral_centroid', 'spectral_entropy', 'spectral_energy', 'principle_frequency']
+# def init_csv():
+#     variables = ['Acc-X', 'Acc-Y', 'Acc-Z', 'Gyro-X', 'Gyro-Y', 'Gyro-Z', 'Flex1', 'Flex2']
+#     factors = ['mean', 'variance', 'median_absolute_deviation', 'root_mean_square', 'interquartile_range',            
+#             'percentile_75', 'kurtosis', 'min_max', 'signal_magnitude_area', 'zero_crossing_rate',            
+#             'spectral_centroid', 'spectral_entropy', 'spectral_energy', 'principle_frequency']
 
-    headers = [f'{var}_{factor}' for var in variables for factor in factors]
+#     headers = [f'{var}_{factor}' for var in variables for factor in factors]
+#     headers.insert(0, 'timestamp') # inserting timestamp at the beginning of the list
 
-    # Open a new CSV file and write headers
-    with open('filename.csv', mode='w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(headers)
+#     # Open a new CSV file and write headers
+#     with open('filename.csv', mode='w', newline='') as file:
+#         writer = csv.writer(file)
+#         writer.writerow(headers)
 
 if __name__ == "__main__":
 
@@ -115,6 +116,8 @@ if __name__ == "__main__":
     intcomm = IntComm(0) # TODO comms - goal: get data from arduino
     all_data = []
 
+    raw_headers = ["yaw", "pitch", "roll", "ax", "ay", "az", "flex1", "flex2"]
+
     # defining headers for post processing
     variables = ['Acc-X', 'Acc-Y', 'Acc-Z', 'Gyro-X', 'Gyro-Y', 'Gyro-Z', 'Flex1', 'Flex2']
     factors = ['mean', 'variance', 'median_absolute_deviation', 'root_mean_square', 'interquartile_range',            
@@ -122,6 +125,7 @@ if __name__ == "__main__":
             'spectral_centroid', 'spectral_entropy', 'spectral_energy', 'principle_frequency']
 
     headers = [f'{var}_{factor}' for var in variables for factor in factors]
+    # headers.insert(0, 'timestamp') # inserting timestamp at the beginning of the list
 
     print("Start")
     try:
@@ -150,13 +154,21 @@ if __name__ == "__main__":
                     )
 
             # Convert data to DataFrame
-            df = pd.DataFrame([data], columns=["yaw", "pitch", "roll", "ax", "ay", "az", "flex1", "flex2"])
+            df = pd.DataFrame([all_data], columns=raw_headers)
 
             # Show user the data and prompt for confirmation
             print(df.head())
             user_input = input("Does the data look ok? (y/n): ")
             if user_input.lower() == "y":
+
+                # Store raw data into a new CSV file
+                filename = time.strftime("%Y%m%d-%H%M%S") + "_raw.csv"
+                df.to_csv(filename, index=False, header=True)
+                
+                # Add timestamp column to processed data
+                # timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
                 processed_data = preprocess_data(df)
+                print(processed_data)
 
                 # Append processed data to CSV file
                 with open("processed_data.csv", "a") as f:
