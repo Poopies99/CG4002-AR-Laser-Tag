@@ -439,7 +439,7 @@ class Training(threading.Thread):
         temp_df = pd.DataFrame(processed_data_arr.reshape(8, -1), index=self.columns, columns=self.factors)
 
         # print the temporary dataframe
-        print(temp_df)
+        print(f"processed_data: \n {temp_df} \n")
 
         return processed_data_arr
 
@@ -488,12 +488,21 @@ class Training(threading.Thread):
                 ui = input("data ok? y/n")
                 if ui.lower() == "y":
 
-                    # Store raw data into a new CSV file
-                    filename = time.strftime("%Y%m%d-%H%M%S") + "_raw.csv"
-                    df.to_csv(filename, index=False, header=True)
+                    # # Store raw data into a new CSV file
+                    # filename = time.strftime("%Y%m%d-%H%M%S") + "_raw.csv"
+                    # df.to_csv(filename, index=False, header=True)
+                    
+                    # append dataframe and timestamp to CSV file
+                    with open("/training/raw_data.csv", 'a') as f:
+                        # append timestamp as first column
+                        timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+                        df.insert(0, 'timestamp', timestamp)
+                        
+                        # append dataframe to CSV file
+                        df.to_csv(f, header=f.tell()==0, index=False)
 
+                    # Preprocess data
                     processed_data = self.preprocess_data(df)
-                    print(f"processed_data: \n {processed_data} \n")
 
                     # Prompt user for label
                     label = input("Enter label (G = GRENADE, R = RELOAD, S = SHIELD, L = LOGOUT): ")
