@@ -335,6 +335,11 @@ class Training(threading.Thread):
         self.headers = [f'{raw_header}_{factor}' for raw_header in self.columns for factor in self.factors]
         self.headers.append('action')
 
+    def sleep(self, seconds):
+        start_time = time.time()
+        while time.time() - start_time < seconds:
+            pass
+
     def generate_simulated_data(self):
         yaw = random.uniform(-180, 180)
         pitch = random.uniform(-180, 180)
@@ -451,6 +456,7 @@ class Training(threading.Thread):
                 while time.time() - start_time < 2:
                     # getting data - simulation
                     data = self.generate_simulated_data()
+                    print(f"data: {data} \n")
 
                     # getting data - actl
                     # data = self.fpga_queue.get()
@@ -464,8 +470,10 @@ class Training(threading.Thread):
                         flex1, flex2, yaw, pitch, roll, accX, accY, accZ = data
                         all_data.append([flex1, flex2, yaw, pitch, roll, accX, accY, accZ])
 
+                    self.sleep(0.05)
+
                 # Convert data to DataFrame
-                df = pd.DataFrame([all_data], columns=self.columns)
+                df = pd.DataFrame(all_data, columns=self.columns)
 
                 # Show user the data and prompt for confirmation
                 print(df[['yaw', 'pitch', 'roll', 'accX', 'accY', 'accZ']].head(40))
