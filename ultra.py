@@ -154,9 +154,11 @@ class LaptopClient(threading.Thread):
         print("Shutting Down Laptop Client Connection")
 
     def run(self):
+
+
         while not self.shutdown.is_set():
             try:
-                input_message = laptop_queue.get()
+                input_message = input("Enter Message: ")
                 if input_message == 'q':
                     break
 

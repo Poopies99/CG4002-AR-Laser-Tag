@@ -112,8 +112,8 @@ if __name__ == '__main__':
     _port_num = 8080
     _host_name = "localhost"
 
-    client = Client(_port_num, _host_name)
-    client.start()
+    # client = Client(_port_num, _host_name)
+    # client.start()
 
-    server = Server(8123, 'localhost')
+    server = Server(8012, 'localhost')
     server.start()
