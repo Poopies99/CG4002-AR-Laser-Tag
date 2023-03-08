@@ -493,7 +493,7 @@ class Training(threading.Thread):
                     # df.to_csv(filename, index=False, header=True)
                     
                     # append dataframe and timestamp to CSV file
-                    with open("/training/raw_data.csv", 'a') as f:
+                    with open("/home/xilinx/code/training/raw_data.csv", 'a') as f:
                         # append timestamp as first column
                         timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
                         df.insert(0, 'timestamp', timestamp)
@@ -511,7 +511,7 @@ class Training(threading.Thread):
                     processed_data = np.append(processed_data, label)
 
                     # Append processed data to CSV file
-                    with open("/training/processed_data.csv", "a") as f:
+                    with open("/home/xilinx/code/training/processed_data.csv", "a") as f:
                         writer = csv.writer(f)
                         # writer.writerow(self.headers)
                         writer.writerow(processed_data)
