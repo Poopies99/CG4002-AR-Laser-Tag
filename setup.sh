@@ -16,7 +16,7 @@ ssh -f -N -L $port_num:$xilinx_server:$xilinx_port_number $soc_username@$soc_ser
 # Setup Reverse SSH between Local Machine and stu Server
 ssh -f -N -R 5000:localhost:8012 chris99@stu.comp.nus.edu.sg
 # Setup Reverse SSH between stu Server and ultra96
-ssh -f -t $soc_username@$soc_server ssh -f -N -R 12345:
+ssh -t $soc_username@$soc_server ssh -f -N -R 12345:localhost:5000 xilinx@192.168.95.221
 echo "Hello"
 #ssh -t -X $soc_username@$soc_server ssh -X $xilinx_username@$xilinx_server
 

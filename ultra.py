@@ -38,6 +38,8 @@ raw_queue = Queue()
 eval_queue = Queue()
 subscribe_queue = Queue()
 fpga_queue = Queue()
+laptop_queue = Queue()
+
 
 class GameEngine(threading.Thread):
     """
@@ -76,6 +78,7 @@ class GameEngine(threading.Thread):
 
                 eval_queue.put(json_data)
                 subscribe_queue.put(json_data)
+                laptop_queue.put(json_data)
             except Exception as _:
                 traceback.print_exc()
 
@@ -130,7 +133,42 @@ class Subscriber(threading.Thread):
                 self.close_connection()
 
 
-class Client(threading.Thread):
+class LaptopClient(threading.Thread):
+    def __init__(self, port_num, host_name):
+        super().__init__()
+
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        self.client_socket = client_socket
+        self.connection = client_socket.connect((host_name, port_num))
+
+        # Flags
+        self.shutdown = threading.Event()
+
+    def close_connection(self):
+        self.connection.shutdown(SHUT_RDWR)
+        self.connection.close()
+        self.shutdown.set()
+        self.client_socket.close()
+
+        print("Shutting Down Laptop Client Connection")
+
+    def run(self):
+        while not self.shutdown.is_set():
+            try:
+                input_message = laptop_queue.get()
+                if input_message == 'q':
+                    break
+
+                self.client_socket.send(input_message.encode())
+
+                print("Sending Message to Laptop:", input_message)
+            except Exception as _:
+                traceback.print_exc()
+                self.close_connection()
+
+
+class EvalClient(threading.Thread):
     def __init__(self, port_num, host_name):
         super().__init__()
 
@@ -160,7 +198,7 @@ class Client(threading.Thread):
         self.shutdown.set()
         self.client_socket.close()
 
-        print("Shutting Down Connection")
+        print("Shutting Down EvalClient Connection")
 
     def decrypt_message(self, message):
         # Decode from Base64 to Byte Object
@@ -205,7 +243,9 @@ class Client(threading.Thread):
                 # Format String for Eval Server Byte Sequence Process
                 final_message = str(len(encrypted_message)) + "_" + encrypted_message
 
-                self.client_socket.send(final_message.encode())
+                self.client_socket.sendall(final_message.encode())
+
+                self.client_socket.recvfrom()
 
                 # print("Sending Message to Eval Client:", input_message)
             except Exception as _:
@@ -457,28 +497,33 @@ class Training(threading.Thread):
 
 if __name__ == '__main__':
     # Game Engine
-    print('---------------<Announcement>---------------')
-    print("Starting Game Engine Thread        ")
-    GE = GameEngine()
-    GE.start()
+    # print('---------------<Announcement>---------------')
+    # print("Starting Game Engine Thread        ")
+    # GE = GameEngine()
+    # GE.start()
 
     # Software Visualizer Connection via Public Data Broker
-    print("Starting Subscriber Thread        ")
-    hive = Subscriber("CG4002")
-    hive.start()
+    # print("Starting Subscriber Thread        ")
+    # hive = Subscriber("CG4002")
+    # hive.start()
 
     # Client Connection to Evaluation Server
     # print("Starting Client Thread           ")
-    # eval_client = Client(1234, "localhost")
+    # eval_client = EvalClient(1234, "localhost")
     # eval_client.start()
 
+    # Client Connection to Laptop
+    print("Starting Client Thread to Laptop         ")
+    laptop_client = LaptopClient(12345, 'localhost')
+    laptop_client.start()
+
     # Server Connection to Laptop
-    print("Starting Server Thread           ")
-    laptop_server = Server(8080, "192.168.95.221")
-    laptop_server.start()
+    # print("Starting Server Thread           ")
+    # laptop_server = Server(8080, "192.168.95.221")
+    # laptop_server.start()
 
     # AI Model
-    print("Starting AI Model Thread")
-    ai_model = Training()
-    ai_model.start()
+    # print("Starting AI Model Thread")
+    # ai_model = Training()
+    # ai_model.start()
     print('--------------------------------------------')
