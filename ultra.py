@@ -495,7 +495,7 @@ class Training(threading.Thread):
                     # append dataframe and timestamp to CSV file
                     with open("/home/xilinx/code/training/raw_data.csv", 'a') as f:
                         # append timestamp as first column
-                        timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+                        timestamp = time.strftime('%Y-%m-%d-%H:%M:%S')
                         df.insert(0, 'timestamp', timestamp)
                         
                         # append dataframe to CSV file
