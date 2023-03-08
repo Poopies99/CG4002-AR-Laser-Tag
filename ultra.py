@@ -154,8 +154,6 @@ class LaptopClient(threading.Thread):
         print("Shutting Down Laptop Client Connection")
 
     def run(self):
-
-
         while not self.shutdown.is_set():
             try:
                 input_message = input("Enter Message: ")
@@ -517,7 +515,6 @@ if __name__ == '__main__':
     # Client Connection to Laptop
     print("Starting Client Thread to Laptop         ")
     laptop_client = LaptopClient(12345, 'localhost')
-    laptop_client.start()
 
     # Server Connection to Laptop
     # print("Starting Server Thread           ")
@@ -529,3 +526,5 @@ if __name__ == '__main__':
     # ai_model = Training()
     # ai_model.start()
     print('--------------------------------------------')
+
+    laptop_client.start()
