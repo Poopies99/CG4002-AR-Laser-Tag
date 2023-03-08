@@ -429,11 +429,17 @@ class Training(threading.Thread):
                                      interquartile_range, percentile_75, kurtosis, min_max,
                                      signal_magnitude_area, zero_crossing_rate, spectral_centroid,
                                      spectral_entropy, spectral_energy, principle_frequency]
-            print(processed_column_data)
+            # print(processed_column_data)
             # Append processed column data to main processed data array
             processed_data.append(processed_column_data)
 
         processed_data_arr = np.concatenate(processed_data)
+        
+        # reshape into a temporary dataframe of 8x14
+        temp_df = pd.DataFrame(processed_data_arr.reshape(8, -1), index=self.columns, columns=self.factors)
+
+        # print the temporary dataframe
+        print(temp_df)
 
         return processed_data_arr
 
