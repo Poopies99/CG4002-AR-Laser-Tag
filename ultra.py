@@ -494,7 +494,9 @@ class Training(threading.Thread):
                     # df.to_csv(filename, index=False, header=True)
 
                     # Convert df to a NumPy array and append timestamp at the end
-                    all_data = np.append(df.values, [[time.strftime("%Y%m%d-%H%M%S")]], axis=0)
+                    timestamp = np.array([[time.strftime("%Y%m%d-%H%M%S")]])
+                    timestamp = timestamp.reshape((1, 1))
+                    all_data = np.concatenate((df.values, timestamp), axis=1)
 
                     # Store data into a new CSV file
                     filename = "/home/xilinx/code/training/raw_data.csv"
