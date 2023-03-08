@@ -490,8 +490,22 @@ class Training(threading.Thread):
                     
                     time_now = time.strftime("%Y%m%d-%H%M%S")
                     # # Store raw data into a new CSV file
-                    filename = time_now + "_raw.csv"
+                    # filename = time_now + "_raw.csv"
                     df.to_csv(filename, index=False, header=True)
+
+                    # Convert df to a NumPy array and append timestamp at the end
+                    all_data = np.append(df.values, [[time.strftime("%Y%m%d-%H%M%S")]], axis=0)
+
+                    # Store data into a new CSV file
+                    filename = "/home/xilinx/code/training/raw_data.csv"
+                    np.savetxt(filename, all_data, delimiter=",", fmt="%s")
+
+                    # Append a new line to the CSV file
+                    with open(filename, "a") as file:
+                        file.write("\n")
+
+                    # Clear raw data list
+                    all_data = []
                     
                     # not working need to fix somehow 
                     # append dataframe and timestamp to CSV file
@@ -519,8 +533,6 @@ class Training(threading.Thread):
                         # writer.writerow(self.headers)
                         writer.writerow(processed_data)
 
-                    # Clear raw data list
-                    all_data = []
                     print("Data processed and saved to CSV file.")
                 else:
                     print("not proceed, restart")
