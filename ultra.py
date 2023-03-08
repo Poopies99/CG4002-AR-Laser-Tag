@@ -491,7 +491,7 @@ class Training(threading.Thread):
                     time_now = time.strftime("%Y%m%d-%H%M%S")
                     # # Store raw data into a new CSV file
                     # filename = time_now + "_raw.csv"
-                    df.to_csv(filename, index=False, header=True)
+                    # df.to_csv(filename, index=False, header=True)
 
                     # Convert df to a NumPy array and append timestamp at the end
                     all_data = np.append(df.values, [[time.strftime("%Y%m%d-%H%M%S")]], axis=0)
