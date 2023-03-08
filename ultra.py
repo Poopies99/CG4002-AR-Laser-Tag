@@ -243,17 +243,6 @@ class Server(threading.Thread):
 
         print('Successfully connected to', client_address[0])
 
-        print('Setting up Secret Key')
-        print('Default Secret Key: chrisisdabest123')
-        secret_key = 'chrisisdabest123'
-
-        if len(secret_key) == 16 or len(secret_key) == 24 or len(secret_key) == 32:
-            # Store Secret Key and convert secret key into Byte Object
-            self.secret_key = secret_key
-            self.secret_key_bytes = bytes(str(secret_key), encoding="utf-8")
-        else:
-            self.close_connection()
-
     def close_connection(self):
         self.connection.shutdown(SHUT_RDWR)
         self.connection.close()
@@ -277,7 +266,7 @@ class Server(threading.Thread):
                 packet = self.data[:20]
                 self.data = self.data[20:]
 
-                # print("Message Received from Laptop:", packet)
+                print("Message Received from Laptop:", packet)
 
                 # Add to raw queue
                 raw_queue.put(packet)
@@ -404,70 +393,58 @@ class Training(threading.Thread):
     def run(self):
         unpacker = BLEPacket()
         all_data = []
-        variables = ['Acc-X', 'Acc-Y', 'Acc-Z', 'Gyro-X', 'Gyro-Y', 'Gyro-Z', 'Flex1', 'Flex2']
-        factors = ['mean', 'variance', 'median_absolute_deviation', 'root_mean_square', 'interquartile_range',
-                   'percentile_75', 'kurtosis', 'min_max', 'signal_magnitude_area', 'zero_crossing_rate',
-                   'spectral_centroid', 'spectral_entropy', 'spectral_energy', 'principle_frequency']
 
-        headers = [f'{var}_{factor}' for var in variables for factor in factors]
+        i = 12
 
-        while not self.shutdown.is_set():
+        user_input = input("start?")
+
+        while not self.shutdown.is_set() and user_input == 'y':
             try:
-                input("start?")
+                user_input = input("start?")
 
                 start_time = time.time()
 
                 while time.time() - start_time < 2:
-                    data = fpga_queue.get()
-
+                    data = self.fpga_queue.get()
                     unpacker.unpack(data)
                     data = unpacker.get_euler_data() + unpacker.get_acc_data() + unpacker.get_flex_data()
-
-                    # print("Unpacked Data", data)
-
                     if len(data) == 0:
                         print("Invalid data:", data)
                         continue
-
                     if len(data) == 8:
                         yaw, pitch, roll, accx, accy, accz, flex1, flex2 = data
-
-                        all_data.append(
-                        [yaw, pitch, roll, accx, accy, accz, flex1, flex2]
-                        )
+                        all_data.append(self.columns)
 
                 # Convert data to DataFrame
-                df = pd.DataFrame([data], columns=["yaw", "pitch", "roll", "ax", "ay", "az", "flex1", "flex2"])
+                df = pd.DataFrame([data], columns=self.columns)
 
                 # Show user the data and prompt for confirmation
                 print(df)
 
                 ui = input("data ok? y/n")
                 if ui.lower() == "y":
-
                     processed_data = self.preprocess_data(df)
+
+                    i += 1
 
                     print(processed_data)
                     print("Processed Data Length: ", processed_data)
 
                     # Append processed data to CSV file
-                    with open("processed_data.csv", "a") as f:
+                    with open("/training/processed_data.csv", "a") as f:
                         writer = csv.writer(f)
-                        # writer.writerow(headers)
                         writer.writerow(processed_data)
 
                     # Append processed data to CSV file
-                    # with open("backup_raw_data.csv", "a") as f:
-                    #     writer = csv.writer(f)
-                    #     # writer.writerow(headers)
-                    #     writer.writerow(data)
+                    with open(f"backup_raw_data_{i}.csv", "a") as f:
+                        writer = csv.writer(f)
+                        writer.writerow(data)
 
                     # Clear raw data list
                     all_data = []
                     print("Data processed and saved to CSV file.")
                 else:
                     print("not proceed, restarts")
-
             except KeyboardInterrupt:
                 traceback.print_exc()
                 self.close_connection()
@@ -475,7 +452,7 @@ class Training(threading.Thread):
             except Exception as _:
                 traceback.print_exc()
                 self.close_connection()
-                print("an error occured")
+                print("an error occurred")
 
 
 if __name__ == '__main__':
