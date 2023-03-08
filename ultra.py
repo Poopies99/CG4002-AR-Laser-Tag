@@ -333,7 +333,7 @@ class Training(threading.Thread):
             'spectral_centroid', 'spectral_entropy', 'spectral_energy', 'principle_frequency']
 
         self.headers = [f'{raw_header}_{factor}' for raw_header in self.columns for factor in self.factors]
-        self.headers.append('action')
+        self.headers.extend(['action', 'timestamp'])
 
     def sleep(self, seconds):
         start_time = time.time()
@@ -487,9 +487,10 @@ class Training(threading.Thread):
 
                 ui = input("data ok? y/n")
                 if ui.lower() == "y":
-
+                    
+                    time_now = time.strftime("%Y%m%d-%H%M%S")
                     # # Store raw data into a new CSV file
-                    filename = time.strftime("%Y%m%d-%H%M%S") + "_raw.csv"
+                    filename = time_now + "_raw.csv"
                     df.to_csv(filename, index=False, header=True)
                     
                     # not working need to fix somehow 
@@ -508,8 +509,9 @@ class Training(threading.Thread):
                     # Prompt user for label
                     label = input("Enter label (G = GRENADE, R = RELOAD, S = SHIELD, L = LOGOUT): ")
                     
-                    # Append label to processed data
+                    # Append label, timestamp to processed data
                     processed_data = np.append(processed_data, label)
+                    processed_data = np.append(processed_data, time_now)
 
                     # Append processed data to CSV file
                     with open("/home/xilinx/code/training/processed_data.csv", "a") as f:
