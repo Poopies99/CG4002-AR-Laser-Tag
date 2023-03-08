@@ -497,11 +497,11 @@ class Training(threading.Thread):
 
                     # Store data into a new CSV file
                     filename = "/home/xilinx/code/training/raw_data.csv"
-                    np.savetxt(filename, all_data, delimiter=",", fmt="%s")
 
                     # Append a new line to the CSV file
-                    with open(filename, "a") as file:
-                        file.write("\n\n")
+                    with open(filename, "a") as f:
+                        writer = csv.writer(f)
+                        writer.writerow(all_data)
 
                     # Clear raw data list
                     all_data = []
