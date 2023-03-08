@@ -489,17 +489,18 @@ class Training(threading.Thread):
                 if ui.lower() == "y":
 
                     # # Store raw data into a new CSV file
-                    # filename = time.strftime("%Y%m%d-%H%M%S") + "_raw.csv"
-                    # df.to_csv(filename, index=False, header=True)
+                    filename = time.strftime("%Y%m%d-%H%M%S") + "_raw.csv"
+                    df.to_csv(filename, index=False, header=True)
                     
+                    # not working need to fix somehow 
                     # append dataframe and timestamp to CSV file
-                    with open("/home/xilinx/code/training/raw_data.csv", 'a') as f:
-                        # append timestamp as first column
-                        timestamp = time.strftime('%Y-%m-%d-%H:%M:%S')
-                        df.insert(0, 'timestamp', timestamp)
+                    # with open("/home/xilinx/code/training/raw_data.csv", 'a') as f:
+                    #     # append timestamp as first column
+                    #     timestamp = time.strftime('%Y-%m-%d-%H:%M:%S')
+                    #     df.insert(0, 'timestamp', timestamp)
                         
-                        # append dataframe to CSV file
-                        df.to_csv(f, header=f.tell()==0, index=False)
+                    #     # append dataframe to CSV file
+                    #     df.to_csv(f, header=f.tell()==0, index=False)
 
                     # Preprocess data
                     processed_data = self.preprocess_data(df)
