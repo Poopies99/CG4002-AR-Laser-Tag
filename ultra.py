@@ -501,7 +501,7 @@ class Training(threading.Thread):
 
                     # Append a new line to the CSV file
                     with open(filename, "a") as file:
-                        file.write("\n")
+                        file.write("\n\n")
 
                     # Clear raw data list
                     all_data = []
