@@ -1,40 +1,172 @@
-import pandas as pd
+import time
 import numpy as np
-from collections import deque
+import matplotlib.pyplot as plt
+import pandas as pd
 
-# Initialize circular buffer and sliding window size
-buffer_size = 1000 # 10s of data assuming data is coming in at 0.1s frequency
-window_size = 10 # 0.5s interval
+def generate_simulated_data():
+    # simulate game movement with noise and action
 
-# Initialize empty deque object for circular buffer
-data_buffer = deque(maxlen=buffer_size)
+    # base noise 10s long -> 20Hz*10 = 200 samples
+    t = np.linspace(0, 5, 200) # Define the time range
+    x1 = 0.2 * np.sin(t) + 0.2 * np.random.randn(200) 
+    x1[(x1 > -1) & (x1 < 1)] = 0.0 # TODO - sensor noise within margin of error auto remove
+    
+    # movement motion
+    period = 2  # seconds
+    amplitude = 5
+    t = np.linspace(0, 2, int(2 / 0.05)) # Define the time range
+    x2 = amplitude * np.sin(2 * np.pi * t / period)[:40] # Compute the sine wave for only one cycle
 
-# Read incoming data and add to buffer
-while True:
-    # Read incoming data (assuming it's in format of 1x8 array)
-    incoming_data = read_incoming_data()
-    
-    # Add incoming data to buffer
-    data_buffer.append(incoming_data)
-    
-    # Convert buffer to pandas DataFrame for easier manipulation
-    df = pd.DataFrame(data_buffer)
-    
-    # Preprocess the data by smoothing
-    df['x_smooth'] = df.iloc[:, 0].rolling(window=window_size).mean()
-    df['y_smooth'] = df.iloc[:, 1].rolling(window=window_size).mean()
-    df['z_smooth'] = df.iloc[:, 2].rolling(window=window_size).mean()
+    x = x1 
+    # Add to the 40th-80th elements
+    x[20:60] += x2
 
-    # Extract the maximum acceleration
-    df['max_acc'] = np.sqrt(df['x_smooth']**2 + df['y_smooth']**2 + df['z_smooth']**2)
+    x[80:120] += x2
+
+    return x
+
+
+# Define the window size and threshold factor
+window_size = 11
+threshold_factor = 2
+
+# Define N units for flagging movement, 20Hz -> 2s = 40 samples
+N = 40
+
+# Initialize empty arrays for data storage
+t = []
+x = []
+filtered = []
+threshold = []
+movement_detected = []
+last_movement_time = -N  # set last movement time to negative N seconds ago
     
-    # Set threshold as 2 sds above the running mean of the past 5 seconds of data
-    past_data = df.iloc[-50:, :]
-    threshold = np.mean(past_data['max_acc']) + 2 * np.std(past_data['max_acc'])
-    
-    # Check if latest 0.5s window is above threshold and flag as start of movement if so
-    latest_data = df.iloc[-5:, :]
-    latest_max_acc = np.sqrt(latest_data['x_smooth'].mean()**2 + latest_data['y_smooth'].mean()**2 + latest_data['z_smooth'].mean()**2)
-    
-    if latest_max_acc > threshold:
-        print("Start of Movement Detected!")
+if __name__ == "__main__":
+    # Create plot window
+    plt.ion()
+    plt.show()
+
+    wave = generate_simulated_data()
+
+    # Simulate incoming data every 0.05 seconds
+    for i in range(len(wave)):
+        # new_t = time.time()
+        new_t = i
+        new_x = wave[i] # TODO change to data comms line
+
+        # process data sub-function
+        # Append new data to arrays
+        t.append(new_t)
+        x.append(new_x)
+        
+        # Compute moving window median
+        if len(x) < window_size:
+            filtered.append(0)
+        else:
+            filtered.append(np.median(x[-window_size:]))
+        
+        # Compute threshold using past median data, threshold = mean + k * std
+        if len(filtered) < window_size:
+            threshold.append(0)
+        else:
+            past_filtered = filtered[-window_size:]
+            threshold.append(np.mean(past_filtered) + (threshold_factor * np.std(past_filtered)))
+        
+        # Identify movement
+        if len(filtered) > window_size:
+            # checking if val is past threshold and if last movement was more than N seconds ago
+            if filtered[-1] > threshold[-1] and t[-1] - last_movement_time >= N:
+                movement_detected.append(t[-1])
+                last_movement_time = t[-1]  # update last movement time
+                print(f"Movement detected at {t[-1]}")
+        
+        # # Output data to a CSV file
+        # df = pd.DataFrame({'time': t, 'original': x, 'filtered': filtered, 'threshold': threshold})
+        # df.to_csv('output.csv', index=False)
+
+        # Plot data
+        plt.clf()
+        plt.plot(t, x, label='original signal')
+        plt.plot(t, filtered, label='filtered signal')
+        plt.plot(t, threshold, label='threshold function')
+        plt.legend()
+        plt.draw()
+        plt.pause(0.01)
+
+        time.sleep(0.01)
+
+    # Close plot window
+    plt.close()
+
+
+# t = np.linspace(0, 10, 50)
+# x = np.sin(t) + 0.2 * np.random.randn(50)
+# x[20] = 10
+# x[10:15] = 10
+# x[30:35] = 10
+
+# # Define the window size and threshold factor
+# window_size = 7
+# threshold_factor = 2
+
+# # Apply median filtering with a dynamic threshold
+# filtered = np.zeros_like(x)
+# threshold = np.zeros_like(x)
+
+# # Start processing data
+# for i in range(window_size, len(t)):
+#     # Get the latest datapoint and add it to the filtered array
+#     x_latest = np.sin(t[i]) + 0.2 * np.random.randn(1)
+#     x_latest_filtered = np.median(x_latest)  # filtered latest data point
+
+#     # Update filtered array
+#     filtered = np.concatenate((filtered, [x_latest_filtered]))
+#     filtered = filtered[1:]
+
+#     # Compute threshold using past median data, threshold = mean + k * std
+#     past_filtered = filtered[-window_size:]
+#     threshold_value = np.mean(past_filtered) + (threshold_factor * np.std(past_filtered))
+#     threshold = np.concatenate((threshold, [threshold_value]))
+#     threshold = threshold[1:]
+
+#     # Check if movement is detected
+#     if filtered[-1] > threshold[-1]:
+#         movement_detected = t[i]
+#         print(f"Movement detected at {i}, {t[i]}")
+
+#     # Plot the filtered signal and threshold
+#     plt.clf()
+#     plt.plot(t[:i+1], filtered)
+#     plt.plot(t[:i+1], threshold)
+#     plt.pause(0.01)
+
+# # Compute moving window median
+# for i in range(window_size // 2, len(x) - window_size // 2):
+#     filtered[i] = np.median(x[i - window_size // 2:i + window_size // 2 + 1])
+
+#     # Compute threshold using past median data, threshold = mean + k * std
+#     past_filtered = filtered[i - window_size // 2:i + window_size // 2]
+#     threshold[i] = np.mean(past_filtered) + (threshold_factor * np.std(past_filtered))
+#     print(f"{i}, {filtered[i]}, {threshold[i]}\n")
+
+# # Identify movement
+# movement_detected = []
+# for i in range(window_size // 2, len(x) - window_size // 2):
+#     if filtered[i] > threshold[i]:
+#         movement_detected.append(t[i])
+
+# Output individual datapoint values to a CSV file
+# df = pd.DataFrame({'time': t, 'original': x, 'threshold': threshold, 'filtered': filtered})
+# df.to_csv('output.csv', index=False)
+
+# Plot the original and filtered signals
+# fig, ax = plt.subplots(figsize=(10, 8))
+# ax.plot(t, x, ':', label='Original', linewidth=2.5)
+# ax.plot(t, threshold, ':', label='Threshold', color='red')
+# ax.plot(t, filtered, ':', label='Filtered', linewidth=2.5)
+# ax.vlines(movement_detected, ymin=filtered.min(), ymax=filtered.max(), colors='green', label='Movement Detected')
+# ax.set_ylabel('Signal')
+# ax.set_xlabel('Time (s)')
+# ax.legend()
+# plt.show()
+

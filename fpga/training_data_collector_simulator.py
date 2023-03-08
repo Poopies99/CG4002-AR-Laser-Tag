@@ -15,7 +15,7 @@ def preprocess_data(df):
     def compute_variance(data):
         return np.var(data)
 
-    def compute_median(data):
+    def compute_median_absolute_deviation(data):
         return np.median(data)
 
     def compute_root_mean_square(data):
@@ -67,7 +67,7 @@ def preprocess_data(df):
         # Compute features for the column
         mean = compute_mean(column_data)
         variance = compute_variance(column_data)
-        median = compute_median(column_data)
+        median_absolute_deviation = compute_median_absolute_deviation(column_data)
         root_mean_square = compute_root_mean_square(column_data)
         interquartile_range = compute_interquartile_range(column_data)
         percentile_75 = compute_percentile_75(column_data)
@@ -81,7 +81,7 @@ def preprocess_data(df):
         principle_frequency = compute_principle_frequency(column_data)
 
         # Store features in list
-        processed_column_data = [mean, variance, median, root_mean_square, 
+        processed_column_data = [mean, variance, median_absolute_deviation, root_mean_square, 
                                 interquartile_range, percentile_75, kurtosis, min_max, 
                                 signal_magnitude_area, zero_crossing_rate, spectral_centroid, 
                                 spectral_entropy, spectral_energy, principle_frequency]
@@ -92,6 +92,19 @@ def preprocess_data(df):
     processed_data_arr = np.concatenate(processed_data)
 
     return processed_data_arr
+
+
+def generate_simulated_data():
+    import random
+    yaw = random.uniform(-180, 180)
+    pitch = random.uniform(-180, 180)
+    roll = random.uniform(-180, 180)
+    accX = random.uniform(-1000, 1000)
+    accY = random.uniform(-1000, 1000)
+    accZ = random.uniform(-1000, 1000)
+    flex1 = random.uniform(-180, 180)
+    flex2 = random.uniform(-180, 180)
+    return [flex1, flex2, yaw, pitch, roll, accX, accY, accZ]
 
 
 if __name__ == "__main__":
@@ -108,17 +121,20 @@ if __name__ == "__main__":
     headers.append('action')
 
     print("Start")
+    flag = True
     if 1 == 1:
-        while True:
+        if flag:
+            flag = False
             # collecting data upon key press and 1s sleep timer
-            input("Press any key to start data collection...\n")
+            print("Press any key to start data collection...\n")
 
+            i=0
             start_time = time.time()
             print("Recording for 2 seconds...\n")
 
             # assuming all actions within 1 second of key press
             while time.time() - start_time < 2:
-                data = ... # TODO comms - refactor to call in data
+                data = generate_simulated_data()
                 print(f"data: {data} \n")
                 # if len(data) == 0 or data[0] != "#":
                 #     print("Invalid data:", data)
@@ -131,16 +147,19 @@ if __name__ == "__main__":
                     all_data.append(
                         [flex1, flex2, yaw, pitch, roll, accX, accY, accZ]
                     )
+                time.sleep(0.05)
+                print(f"iteration: {i}")
+                i+=1
+
 
             # Convert data to DataFrame
-            df = pd.DataFrame([all_data], columns=raw_headers)
+            df = pd.DataFrame(all_data, columns=raw_headers)
 
             # Show user the data and prompt for confirmation
             print(df[['yaw', 'pitch', 'roll', 'accX', 'accY', 'accZ']].head(40))
             print(f"Number of rows and columns: {df.shape[0]} by {df.shape[1]}")
-
-            user_input = input("Does the data look ok? (y/n): ")
-            if user_input.lower() == "y":
+            # user_input = input("Does the data look ok? (y/n): ")
+            if 1 == 1:
 
                 # Store raw data into a new CSV file
                 filename = time.strftime("%Y%m%d-%H%M%S") + "_raw.csv"
@@ -153,7 +172,8 @@ if __name__ == "__main__":
                 print("\n")
 
                 # Prompt user for label
-                label = input("Enter label (G = GRENADE, R = RELOAD, S = SHIELD, L = LOGOUT): ")
+                print("Enter label (G = GRENADE, R = RELOAD, S = SHIELD, L = LOGOUT): ")
+                label = "G"
 
                 # Append label to processed data
                 processed_data = np.append(processed_data, label)
@@ -168,6 +188,5 @@ if __name__ == "__main__":
                 raw_data = []
                 print("Data processed and saved to CSV file.")
             else:
+                all_data = []
                 print("Data not processed.")
-
-
