@@ -325,23 +325,31 @@ class Training(threading.Thread):
 
         # Flags
         self.shutdown = threading.Event()
+        self.columns = ['flex1', 'flex2', 'yaw', 'pitch', 'roll', 'accX', 'accY', 'accZ']
+        
+        # defining headers for post processing
+        self.factors = ['mean', 'variance', 'median', 'root_mean_square', 'interquartile_range',            
+            'percentile_75', 'kurtosis', 'min_max', 'signal_magnitude_area', 'zero_crossing_rate',            
+            'spectral_centroid', 'spectral_entropy', 'spectral_energy', 'principle_frequency']
 
-    def init_csv(self):
-        variables = ['Acc-X', 'Acc-Y', 'Acc-Z', 'Gyro-X', 'Gyro-Y', 'Gyro-Z', 'Flex1', 'Flex2']
-        factors = ['mean', 'variance', 'median_absolute_deviation', 'root_mean_square', 'interquartile_range',
-                   'percentile_75', 'kurtosis', 'min_max', 'signal_magnitude_area', 'zero_crossing_rate',
-                   'spectral_centroid', 'spectral_entropy', 'spectral_energy', 'principle_frequency']
+        self.headers = [f'{raw_header}_{factor}' for raw_header in self.columns for factor in self.factors]
+        self.headers.append('action')
 
-        headers = [f'{var}_{factor}' for var in variables for factor in factors]
+    def generate_simulated_data():
+        yaw = random.uniform(-180, 180)
+        pitch = random.uniform(-180, 180)
+        roll = random.uniform(-180, 180)
+        accX = random.uniform(-1000, 1000)
+        accY = random.uniform(-1000, 1000)
+        accZ = random.uniform(-1000, 1000)
+        flex1 = random.uniform(-180, 180)
+        flex2 = random.uniform(-180, 180)
+        return [flex1, flex2, yaw, pitch, roll, accX, accY, accZ]
 
-        # Open a new CSV file and write headers
-        with open('processed_data.csv', mode='w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(headers)
 
     def preprocess_data(self, df):
         def compute_mean(data):
-                return np.mean(data)
+            return np.mean(data)
 
         def compute_variance(data):
             return np.var(data)
@@ -434,61 +442,62 @@ class Training(threading.Thread):
         unpacker = BLEPacket()
         all_data = []
 
-        i = 12
-
-        user_input = input("start?")
-
-        while not self.shutdown.is_set() and user_input == 'y':
+        while not self.shutdown.is_set():
             try:
-                user_input = input("start?")
+                input("start?")
 
                 start_time = time.time()
 
                 while time.time() - start_time < 2:
-                    data = self.fpga_queue.get()
-                    unpacker.unpack(data)
-                    data = unpacker.get_euler_data() + unpacker.get_acc_data() + unpacker.get_flex_data()
+                    # getting data - simulation
+                    data = self.generate_simulated_data()
+
+                    # getting data - actl
+                    # data = self.fpga_queue.get()
+                    # unpacker.unpack(data)
+                    # data = unpacker.get_euler_data() + unpacker.get_acc_data() + unpacker.get_flex_data()
+                    
                     if len(data) == 0:
                         print("Invalid data:", data)
                         continue
                     if len(data) == 8:
-                        yaw, pitch, roll, accx, accy, accz, flex1, flex2 = data
-                        all_data.append(self.columns)
+                        flex1, flex2, yaw, pitch, roll, accX, accY, accZ = data
+                        all_data.append([flex1, flex2, yaw, pitch, roll, accX, accY, accZ])
 
                 # Convert data to DataFrame
-                df = pd.DataFrame([data], columns=self.columns)
+                df = pd.DataFrame([all_data], columns=self.columns)
 
                 # Show user the data and prompt for confirmation
-                print(df)
+                print(df[['yaw', 'pitch', 'roll', 'accX', 'accY', 'accZ']].head(40))
+                print(f"Number of rows and columns: {df.shape[0]} by {df.shape[1]}")
 
                 ui = input("data ok? y/n")
                 if ui.lower() == "y":
+
+                    # Store raw data into a new CSV file
+                    filename = time.strftime("%Y%m%d-%H%M%S") + "_raw.csv"
+                    df.to_csv(filename, index=False, header=True)
+
                     processed_data = self.preprocess_data(df)
+                    print(f"processed_data: \n {processed_data} \n")
 
-                    i += 1
-
-                    print(processed_data)
-                    print("Processed Data Length: ", processed_data)
+                    # Prompt user for label
+                    label = input("Enter label (G = GRENADE, R = RELOAD, S = SHIELD, L = LOGOUT): ")
+                    
+                    # Append label to processed data
+                    processed_data = np.append(processed_data, label)
 
                     # Append processed data to CSV file
                     with open("/training/processed_data.csv", "a") as f:
                         writer = csv.writer(f)
+                        # writer.writerow(self.headers)
                         writer.writerow(processed_data)
-
-                    # Append processed data to CSV file
-                    with open(f"backup_raw_data_{i}.csv", "a") as f:
-                        writer = csv.writer(f)
-                        writer.writerow(data)
 
                     # Clear raw data list
                     all_data = []
                     print("Data processed and saved to CSV file.")
                 else:
-                    print("not proceed, restarts")
-            except KeyboardInterrupt:
-                traceback.print_exc()
-                self.close_connection()
-                print("terminating program")
+                    print("not proceed, restart")
             except Exception as _:
                 traceback.print_exc()
                 self.close_connection()
