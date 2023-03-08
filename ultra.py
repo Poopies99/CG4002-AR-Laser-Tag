@@ -335,7 +335,7 @@ class Training(threading.Thread):
         self.headers = [f'{raw_header}_{factor}' for raw_header in self.columns for factor in self.factors]
         self.headers.append('action')
 
-    def generate_simulated_data():
+    def generate_simulated_data(self):
         yaw = random.uniform(-180, 180)
         pitch = random.uniform(-180, 180)
         roll = random.uniform(-180, 180)
