@@ -522,8 +522,8 @@ if __name__ == '__main__':
     # eval_client.start()
 
     # Client Connection to Laptop
-    print("Starting Client Thread to Laptop         ")
-    laptop_client = LaptopClient(12345, 'localhost')
+    # print("Starting Client Thread to Laptop         ")
+    # laptop_client = LaptopClient(12345, 'localhost')
 
     # Server Connection to Laptop
     # print("Starting Server Thread           ")
@@ -531,9 +531,9 @@ if __name__ == '__main__':
     # laptop_server.start()
 
     # AI Model
-    # print("Starting AI Model Thread")
-    # ai_model = Training()
-    # ai_model.start()
+    print("Starting AI Model Thread")
+    ai_model = Training()
+    ai_model.start()
     print('--------------------------------------------')
 
-    laptop_client.start()
+    # laptop_client.start()
