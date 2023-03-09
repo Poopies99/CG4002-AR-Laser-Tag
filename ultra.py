@@ -20,6 +20,8 @@ import csv
 import matplotlib.pyplot as plt
 import pynq
 from pynq import Overlay
+from keras.models import Sequential
+from keras.layers import Dense
 
 from ble_packet import BLEPacket
 
@@ -516,6 +518,32 @@ class Training(threading.Thread):
         print(f"MLP time taken so far output: {time.time() - start_time}")
 
         return [random.random() for _ in range(4)]
+    
+    def instantMLP(self, data):
+        # Define the input weights and biases
+        w1 = np.random.rand(24, 10)
+        b1 = np.random.rand(10)
+        w2 = np.random.rand(10, 20)
+        b2 = np.random.rand(20)
+        w3 = np.random.rand(20, 4)
+        b3 = np.random.rand(4)
+
+        # Define the MLP model architecture
+        model = Sequential()
+        model.add(Dense(10, input_dim=24, activation='relu'))
+        model.add(Dense(20, activation='relu'))
+        model.add(Dense(4, activation='softmax'))
+
+        # Set the weights and biases for each layer
+        model.layers[0].set_weights([w1, b1])
+        model.layers[1].set_weights([w2, b2])
+        model.layers[2].set_weights([w3, b3])
+
+        # Perform forward propagation and get the output
+        softmax_output = model.predict(data)
+
+        return softmax_output
+
 
     def close_connection(self):
         self.shutdown.set()
@@ -608,7 +636,9 @@ class Training(threading.Thread):
                     print(f"preprocessed data to feed into MLP: \n {preprocessed_data} \n")
                     
                     # feed preprocessed data into neural network
-                    output = self.MLP(preprocessed_data)
+                    # output = self.MLP(preprocessed_data) # TODO
+                    output = self.instantMLP(preprocessed_data)
+                    
                     print(f"output from MLP: \n {output} \n") # print output of MLP
 
                     np_output = np.array(output)
