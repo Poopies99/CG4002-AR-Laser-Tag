@@ -20,8 +20,6 @@ import csv
 import matplotlib.pyplot as plt
 import pynq
 from pynq import Overlay
-from keras.models import Sequential
-from keras.layers import Dense
 
 from ble_packet import BLEPacket
 
