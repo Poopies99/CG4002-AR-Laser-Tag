@@ -532,8 +532,11 @@ class Training(threading.Thread):
         a2 = np.dot(h1, w2) + b2
         h2 = np.maximum(0, a2)  # ReLU activation
         a3 = np.dot(h2, w3) + b3
-        softmax_output = np.exp(a3) / np.sum(np.exp(a3))  # Softmax activation
 
+        c = np.max(a3)
+        exp_a3 = np.exp(a3 - c)
+        softmax_output = exp_a3 / np.sum(exp_a3)  # Softmax activation
+        
         return softmax_output
 
 
