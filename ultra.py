@@ -502,12 +502,15 @@ class Training(threading.Thread):
             i = 0
             timenow = 0
 
+            print(f"entering while loop \n")
+
             while True:
                 # Create plot window
                 plt.ion()
                 plt.show()
 
                 data = self.generate_simulated_data()
+                print(f"data: {data} \n")
 
                 # Append new data to dataframe
                 df.loc[len(df)] = data
