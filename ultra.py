@@ -18,6 +18,8 @@ import numpy as np
 from scipy import stats, signal
 import csv
 import matplotlib.pyplot as plt
+import pynq
+from pynq import Overlay
 
 from ble_packet import BLEPacket
 
@@ -340,6 +342,10 @@ class Training(threading.Thread):
         # defining game action dictionary
         self.action_map = {0: 'GRENADE', 1: 'LOGOUT', 2: 'SHIELD', 3: 'RELOAD'}
 
+        # PYNQ overlay
+        self.overlay = Overlay("/fpga/design_3.bit")
+        self.dma = self.overlay.axi_dma_0
+
     def sleep(self, seconds):
         start_time = time.time()
         while time.time() - start_time < seconds:
@@ -470,6 +476,45 @@ class Training(threading.Thread):
         return processed_data_arr
     
     def MLP(self, data):
+        start_time = time.time()
+        # allocate in and out buffer
+        in_buffer = pynq.allocate(shape=(24,), dtype=np.double)
+
+        # print time taken so far 
+        print(f"MLP time taken so far in_buffer: {time.time() - start_time}")
+        # out buffer of 1 integer
+        out_buffer = pynq.allocate(shape=(1,), dtype=np.int32)
+        print(f"MLP time taken so far out_buffer: {time.time() - start_time}")
+
+        # # TODO - copy all data to in buffer
+        # for i, val in enumerate(data):
+        #     in_buffer[i] = val
+
+        for i, val in enumerate(data[:24]):
+            in_buffer[i] = val
+
+        print(f"MLP time taken so far begin trf: {time.time() - start_time}")
+
+        self.dma.sendchannel.transfer(in_buffer)
+        self.dma.recvchannel.transfer(out_buffer)
+
+        print(f"MLP time taken so far end trf: {time.time() - start_time}")
+
+
+        # wait for transfer to finish
+        self.dma.sendchannel.wait()
+
+        print(f"MLP time taken so far wait: {time.time() - start_time}")
+
+
+        # print("mlp done \n")
+
+        # print output buffer
+        for output in out_buffer:
+            print(f"mlp done with output {output}")
+        
+        print(f"MLP time taken so far output: {time.time() - start_time}")
+
         return [random.random() for _ in range(4)]
 
     def close_connection(self):
@@ -511,7 +556,9 @@ class Training(threading.Thread):
 
                 data = self.generate_simulated_data()
                 self.sleep(0.05)
-                print(f"data: {data} \n")
+                print("Data: ")
+                print(" ".join([f"{x:.8g}" for x in data]))
+                print("\n")
 
                 # Append new data to dataframe
                 df.loc[len(df)] = data
