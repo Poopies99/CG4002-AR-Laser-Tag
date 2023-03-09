@@ -503,6 +503,7 @@ class Training(threading.Thread):
 
         # wait for transfer to finish
         self.dma.sendchannel.wait()
+        self.dma.recvchannel.wait()
 
         print(f"MLP time taken so far wait: {time.time() - start_time}")
 
