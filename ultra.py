@@ -506,10 +506,11 @@ class Training(threading.Thread):
 
             while True:
                 # Create plot window
-                plt.ion()
-                plt.show()
+                # plt.ion()
+                # plt.show()
 
                 data = self.generate_simulated_data()
+                self.sleep(0.05)
                 print(f"data: {data} \n")
 
                 # Append new data to dataframe
@@ -575,21 +576,20 @@ class Training(threading.Thread):
                     # reset movement_detected list
                     movement_detected.clear()
 
-                i +=1
+                i += 1
                 timenow += 1
 
                 if i == 200:
                     i = 0
 
-                plt.clf()
-                plt.plot(t, x, label='original signal')
-                plt.plot(t, filtered, label='filtered signal')
-                plt.plot(t, threshold, label='threshold function')
-                plt.legend()
-                plt.draw()
-                plt.pause(0.01)
+                # plt.clf()
+                # plt.plot(t, x, label='original signal')
+                # plt.plot(t, filtered, label='filtered signal')
+                # plt.plot(t, threshold, label='threshold function')
+                # plt.legend()
+                # plt.draw()
+                # plt.pause(0.01)
 
-                self.sleep(0.05)
 
         # data collection loop
         # while not self.shutdown.is_set():
