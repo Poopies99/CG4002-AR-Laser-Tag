@@ -343,7 +343,7 @@ class Training(threading.Thread):
         self.action_map = {0: 'GRENADE', 1: 'LOGOUT', 2: 'SHIELD', 3: 'RELOAD'}
 
         # PYNQ overlay
-        self.overlay = Overlay("/fpga/design_3.bit")
+        self.overlay = Overlay("design_3.bit")
         self.dma = self.overlay.axi_dma_0
 
     def sleep(self, seconds):
