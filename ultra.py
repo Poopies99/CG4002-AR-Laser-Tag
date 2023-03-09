@@ -528,19 +528,13 @@ class Training(threading.Thread):
         w3 = np.random.rand(20, 4)
         b3 = np.random.rand(4)
 
-        # Define the MLP model architecture
-        model = Sequential()
-        model.add(Dense(10, input_dim=24, activation='relu'))
-        model.add(Dense(20, activation='relu'))
-        model.add(Dense(4, activation='softmax'))
-
-        # Set the weights and biases for each layer
-        model.layers[0].set_weights([w1, b1])
-        model.layers[1].set_weights([w2, b2])
-        model.layers[2].set_weights([w3, b3])
-
-        # Perform forward propagation and get the output
-        softmax_output = model.predict(data)
+        # Perform the forward propagation
+        a1 = np.dot(data, w1) + b1
+        h1 = np.maximum(0, a1)  # ReLU activation
+        a2 = np.dot(h1, w2) + b2
+        h2 = np.maximum(0, a2)  # ReLU activation
+        a3 = np.dot(h2, w3) + b3
+        softmax_output = np.exp(a3) / np.sum(np.exp(a3))  # Softmax activation
 
         return softmax_output
 
