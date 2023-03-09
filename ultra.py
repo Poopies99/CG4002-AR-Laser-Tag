@@ -589,7 +589,7 @@ class Training(threading.Thread):
                 plt.draw()
                 plt.pause(0.01)
 
-                time.sleep(0.05)
+                self.sleep(0.05)
 
         # data collection loop
         # while not self.shutdown.is_set():
