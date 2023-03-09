@@ -527,7 +527,7 @@ class Training(threading.Thread):
         b3 = np.random.rand(4)
 
         # Perform the forward propagation
-        a1 = np.dot(data, w1) + b1
+        a1 = np.dot(data[:24], w1) + b1
         h1 = np.maximum(0, a1)  # ReLU activation
         a2 = np.dot(h1, w2) + b2
         h2 = np.maximum(0, a2)  # ReLU activation
