@@ -342,9 +342,9 @@ class Training(threading.Thread):
         # defining game action dictionary
         self.action_map = {0: 'GRENADE', 1: 'LOGOUT', 2: 'SHIELD', 3: 'RELOAD'}
 
-        # PYNQ overlay
-        self.overlay = Overlay("design_3.bit")
-        self.dma = self.overlay.axi_dma_0
+        # PYNQ overlay - TODO
+        # self.overlay = Overlay("design_3.bit")
+        # self.dma = self.overlay.axi_dma_0
 
     def sleep(self, seconds):
         start_time = time.time()
