@@ -505,16 +505,6 @@ class Training(threading.Thread):
 
                     # Clear raw data list
                     all_data = []
-                    
-                    # not working need to fix somehow 
-                    # append dataframe and timestamp to CSV file
-                    # with open("/home/xilinx/code/training/raw_data.csv", 'a') as f:
-                    #     # append timestamp as first column
-                    #     timestamp = time.strftime('%Y-%m-%d-%H:%M:%S')
-                    #     df.insert(0, 'timestamp', timestamp)
-                        
-                    #     # append dataframe to CSV file
-                    #     df.to_csv(f, header=f.tell()==0, index=False)
 
                     # Preprocess data
                     processed_data = self.preprocess_data(df)
