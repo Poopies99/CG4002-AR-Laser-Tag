@@ -79,7 +79,7 @@ class GameEngine(threading.Thread):
                 input_message = raw_queue.get()
 
                 with open('example.json', 'r') as f:
-                    json_data = f.read()
+                    json_data = json.load(f.read())
 
                 print('JSON Data: ', json_data)
 
