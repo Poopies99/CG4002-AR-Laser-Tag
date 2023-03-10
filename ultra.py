@@ -82,7 +82,6 @@ class GameEngine(threading.Thread):
                     json_data = f.read()
 
                 json_data = json.loads(json_data)
-                print(json_data["p1"])
 
                 eval_queue.put(json_data)
                 subscribe_queue.put(json_data)
@@ -290,11 +289,12 @@ class Server(threading.Thread):
                 header = (node_id << 4) | packet_type
                 data = [header,
                         game_state['p1']['bullets'],
-                        game_state['p1']['health'],
+                        game_state['p1']['hp'],
                         0, 0, 0, 0, 0, 0, 0]
 
                 self.connection.send(self.packer.pack(data))
 
+                print('Sent back to laptop')
                 if not message:
                     self.close_connection()
             except Exception as _:
