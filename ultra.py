@@ -81,10 +81,10 @@ class GameEngine(threading.Thread):
                 with open('example.json', 'r') as f:
                     json_data = f.read()
 
-                json_data = json.loads(json_data)
-
                 eval_queue.put(json_data)
                 subscribe_queue.put(json_data)
+
+                json_data = json.loads(json_data)
                 laptop_queue.put(json_data)
             except Exception as _:
                 traceback.print_exc()
