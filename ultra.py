@@ -674,13 +674,15 @@ class Training(threading.Thread):
 
                 while time.time() - start_time < 2:
                     # getting data - simulation
-                    data = self.generate_simulated_data()
+                    # data = self.generate_simulated_data()
                     print(f"data: {data} \n")
 
                     # getting data - actl
-                    # data = self.fpga_queue.get()
-                    # unpacker.unpack(data)
-                    # data = unpacker.get_euler_data() + unpacker.get_acc_data() + unpacker.get_flex_data()
+                    data = self.fpga_queue.get()
+                    unpacker.unpack(data)
+                    data = unpacker.get_flex_data() + unpacker.get_euler_data() + unpacker.get_acc_data()  
+                    print(f"data: {data} \n")
+
                     
                     if len(data) == 0:
                         print("Invalid data:", data)
