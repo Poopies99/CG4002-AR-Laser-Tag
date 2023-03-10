@@ -17,7 +17,7 @@ import time
 import numpy as np
 from scipy import stats, signal
 import csv
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 # import pynq
 # from pynq import Overlay
 
