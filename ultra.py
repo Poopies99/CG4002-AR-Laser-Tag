@@ -746,29 +746,29 @@ class Training(threading.Thread):
 
 if __name__ == '__main__':
     # Game Engine
-    # print('---------------<Announcement>---------------')
-    # print("Starting Game Engine Thread        ")
-    # GE = GameEngine()
-    # GE.start()
+    print('---------------<Announcement>---------------')
+    print("Starting Game Engine Thread        ")
+    GE = GameEngine()
+    GE.start()
 
     # Software Visualizer Connection via Public Data Broker
-    # print("Starting Subscriber Thread        ")
-    # hive = Subscriber("CG4002")
-    # hive.start()
+    print("Starting Subscriber Thread        ")
+    hive = Subscriber("CG4002")
+    hive.start()
 
-    # Client Connection to Evaluation Server
+    # # Client Connection to Evaluation Server
     # print("Starting Client Thread           ")
     # eval_client = EvalClient(1234, "localhost")
     # eval_client.start()
 
-    # Client Connection to Laptop
+    # # Client Connection to Laptop
     # print("Starting Client Thread to Laptop         ")
     # laptop_client = LaptopClient(12345, 'localhost')
 
     # Server Connection to Laptop
-    # print("Starting Server Thread           ")
-    # laptop_server = Server(8080, "192.168.95.221")
-    # laptop_server.start()
+    print("Starting Server Thread           ")
+    laptop_server = Server(8080, "192.168.95.221")
+    laptop_server.start()
 
     # AI Model
     print("Starting AI Model Thread")
