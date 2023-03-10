@@ -16,9 +16,20 @@ class Client(threading.Thread):
 
         self.client_socket = client_socket
         self.connection = client_socket.connect((host_name, port_num))
+        self.secret_key = None
+        self.secret_key_bytes = None
 
         # Flags
         self.shutdown = threading.Event()
+
+    def setup(self):
+        print('Setting up Secret Key')
+        print('Default Secret Key: chrisisdabest123')
+
+        secret_key = 'chrisisdabest123'
+
+        self.secret_key = secret_key
+        self.secret_key_bytes = bytes(str(secret_key), encoding='utf-8')
 
     def close_connection(self):
         self.connection.shutdown(SHUT_RDWR)
@@ -29,30 +40,15 @@ class Client(threading.Thread):
         print("Shutting Down Connection")
 
     def run(self):
+        self.setup()
+
         while not self.shutdown.is_set():
             try:
                 message = input("Enter message to be sent: ")
                 if message == 'q':
-                    self.close_connection()
                     break
 
                 self.client_socket.send(message.encode())
-                #
-                # if self.connection:
-                #     reply = self.connection.recv(64)
-                #
-                #     if reply:
-                #         print(reply.decode())
-                #     else:
-                #         # Connection was closed
-                #         print("Connection closed by server")
-                #         self.close_connection()
-                #         break
-                # else:
-                #     # Connection was not established
-                #     print("Connection not established")
-                #     self.close_connection()
-                #     break
             except Exception as _:
                 traceback.print_exc()
                 self.close_connection()
@@ -103,15 +99,8 @@ class Server(threading.Thread):
             try:
                 # Receive up to 64 Bytes of data
                 message = self.connection.recv(64)
-                # Append existing data into new data
-                self.data = self.data + message
 
-                if len(self.data) < 20:
-                    continue
-                packet = self.data[:20]
-                self.data = self.data[20:]
-
-                print("Message Received from Laptop:", packet)
+                print("Message Received from Ultra:", message)
 
                 if not message:
                     self.close_connection()
@@ -119,13 +108,12 @@ class Server(threading.Thread):
                 traceback.print_exc()
                 self.close_connection()
 
-
 if __name__ == '__main__':
     _port_num = 8080
     _host_name = "localhost"
 
-    client = Client(8080, 'localhost')
-    client.start()
+    # client = Client(_port_num, _host_name)
+    # client.start()
 
-    # server = Server(8080, 'localhost')
-    # server.start()
+    server = Server(8080, 'localhost')
+    server.start()
