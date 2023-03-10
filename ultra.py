@@ -22,6 +22,7 @@ import csv
 # from pynq import Overlay
 
 from ble_packet import BLEPacket
+from packet_type import PacketType
 
 from player import Player
 
@@ -241,6 +242,7 @@ class Server(threading.Thread):
         # Flags
         self.shutdown = threading.Event()
 
+        self.packer = BLEPacket()
     def setup(self):
         print('Awaiting Connection from Laptop')
 
@@ -280,7 +282,15 @@ class Server(threading.Thread):
 
                 game_state = laptop_queue.get()
 
-                self.connection.send(game_state)
+                node_id = 0
+                packet_type = PacketType.ACK
+                header = (node_id << 4) | packet_type
+                data = [header,
+                        game_state['p1']['bullets'],
+                        game_state['p1']['health'],
+                        0, 0, 0, 0, 0, 0, 0]
+
+                self.connection.send(self.packer.pack(data))
 
                 if not message:
                     self.close_connection()

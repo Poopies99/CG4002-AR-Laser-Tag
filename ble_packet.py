@@ -1,5 +1,6 @@
 from multipledispatch import dispatch
 import struct
+from packet_type import PacketType
 
 class BLEPacket:
     format = "Bx8hH"
