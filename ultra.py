@@ -550,110 +550,111 @@ class Training(threading.Thread):
         unpacker = BLEPacket()
         all_data = []
 
-        while not self.shutdown.is_set():
+        # live integration loop
+        # while not self.shutdown.is_set():
 
-            df = pd.DataFrame(columns=['flex1', 'flex2', 'yaw', 'pitch', 'roll', 'accX', 'accY', 'accZ'])
-            # Define the window size and threshold factor
-            window_size = 11
-            threshold_factor = 2
+        #     df = pd.DataFrame(columns=['flex1', 'flex2', 'yaw', 'pitch', 'roll', 'accX', 'accY', 'accZ'])
+        #     # Define the window size and threshold factor
+        #     window_size = 11
+        #     threshold_factor = 2
 
-            # Define N units for flagging movement, 20Hz -> 2s = 40 samples
-            N = 40
+        #     # Define N units for flagging movement, 20Hz -> 2s = 40 samples
+        #     N = 40
 
-            # Initialize empty arrays for data storage
-            t = []
-            x = []
-            filtered = []
-            threshold = []
-            movement_detected = []
-            last_movement_time = -N  # set last movement time to negative N seconds ago
-            wave = self.generate_simulated_wave()
-            i = 0
-            timenow = 0
+        #     # Initialize empty arrays for data storage
+        #     t = []
+        #     x = []
+        #     filtered = []
+        #     threshold = []
+        #     movement_detected = []
+        #     last_movement_time = -N  # set last movement time to negative N seconds ago
+        #     wave = self.generate_simulated_wave()
+        #     i = 0
+        #     timenow = 0
 
-            print(f"entering while loop \n")
+        #     print(f"entering while loop \n")
 
-            while True:
-                # Create plot window
-                # plt.ion()
-                # plt.show()
+        #     while True:
+        #         # Create plot window
+        #         # plt.ion()
+        #         # plt.show()
 
-                data = self.generate_simulated_data()
-                self.sleep(0.05)
-                print("Data: ")
-                print(" ".join([f"{x:.8g}" for x in data]))
-                print("\n")
+        #         data = self.generate_simulated_data()
+        #         self.sleep(0.05)
+        #         print("Data: ")
+        #         print(" ".join([f"{x:.8g}" for x in data]))
+        #         print("\n")
 
-                # Append new data to dataframe
-                df.loc[len(df)] = data
+        #         # Append new data to dataframe
+        #         df.loc[len(df)] = data
 
-                # Compute absolute acceleration values
-                # x.append(np.abs(data[5:8])) # abs of accX, accY, accZ
-                x.append(wave[i]) # abs of accX, accY, accZ
+        #         # Compute absolute acceleration values
+        #         # x.append(np.abs(data[5:8])) # abs of accX, accY, accZ
+        #         x.append(wave[i]) # abs of accX, accY, accZ
 
-                # time
-                t.append(timenow)
+        #         # time
+        #         t.append(timenow)
 
-                # Compute moving window median
-                if len(x) < window_size:
-                    filtered.append(0)
-                else:
-                    filtered.append(np.median(x[-window_size:], axis=0))
+        #         # Compute moving window median
+        #         if len(x) < window_size:
+        #             filtered.append(0)
+        #         else:
+        #             filtered.append(np.median(x[-window_size:], axis=0))
 
-                # Compute threshold using past median data, threshold = mean + k * std
-                if len(filtered) < window_size:
-                    threshold.append(0)
-                else:
-                    past_filtered = filtered[-window_size:]
-                    threshold.append(np.mean(past_filtered, axis=0) + (threshold_factor * np.std(past_filtered, axis=0)))
+        #         # Compute threshold using past median data, threshold = mean + k * std
+        #         if len(filtered) < window_size:
+        #             threshold.append(0)
+        #         else:
+        #             past_filtered = filtered[-window_size:]
+        #             threshold.append(np.mean(past_filtered, axis=0) + (threshold_factor * np.std(past_filtered, axis=0)))
 
-                # Identify movement
-                if len(filtered) > window_size:
-                    # checking if val is past threshold and if last movement was more than N samples ago
-                    if np.all(filtered[-1] > threshold[-1]) and len(t) - last_movement_time >= N:
-                        movement_detected.append(len(df) - 1)
-                        last_movement_time = len(t)  # update last movement time
-                        print(f"Movement detected at sample {len(df) - 1}")
+        #         # Identify movement
+        #         if len(filtered) > window_size:
+        #             # checking if val is past threshold and if last movement was more than N samples ago
+        #             if np.all(filtered[-1] > threshold[-1]) and len(t) - last_movement_time >= N:
+        #                 movement_detected.append(len(df) - 1)
+        #                 last_movement_time = len(t)  # update last movement time
+        #                 print(f"Movement detected at sample {len(df) - 1}")
 
-                # if movement has been detected for more than N samples, preprocess and feed into neural network
-                if len(movement_detected) > 0 and len(df) - movement_detected[-1] >= N:
-                    # extract movement data
-                    start = movement_detected[-1]
-                    end = len(df)
-                    movement_data = df.iloc[start:end, :]
+        #         # if movement has been detected for more than N samples, preprocess and feed into neural network
+        #         if len(movement_detected) > 0 and len(df) - movement_detected[-1] >= N:
+        #             # extract movement data
+        #             start = movement_detected[-1]
+        #             end = len(df)
+        #             movement_data = df.iloc[start:end, :]
 
-                    # print the start and end index of the movement
-                    print(f"Processing movement detected from sample {start} to {end}")
+        #             # print the start and end index of the movement
+        #             print(f"Processing movement detected from sample {start} to {end}")
 
-                    # perform data preprocessing
-                    preprocessed_data = self.preprocess_data(movement_data)
+        #             # perform data preprocessing
+        #             preprocessed_data = self.preprocess_data(movement_data)
 
-                    # print preprocessed data
-                    print(f"preprocessed data to feed into MLP: \n {preprocessed_data} \n")
+        #             # print preprocessed data
+        #             print(f"preprocessed data to feed into MLP: \n {preprocessed_data} \n")
                     
-                    # feed preprocessed data into neural network
-                    # output = self.MLP(preprocessed_data) # TODO
-                    output = self.instantMLP(preprocessed_data)
+        #             # feed preprocessed data into neural network
+        #             # output = self.MLP(preprocessed_data) # TODO
+        #             output = self.instantMLP(preprocessed_data)
                     
-                    print(f"output from MLP: \n {output} \n") # print output of MLP
+        #             print(f"output from MLP: \n {output} \n") # print output of MLP
 
-                    np_output = np.array(output)
-                    largest_index = np_output.argmax()
+        #             np_output = np.array(output)
+        #             largest_index = np_output.argmax()
 
-                    largest_action = self.action_map[largest_index]
+        #             largest_action = self.action_map[largest_index]
 
-                    # print largest index and largest action of MLP output
-                    print(f"largest index: {largest_index} \n")
-                    print(f"largest action: {largest_action} \n")
+        #             # print largest index and largest action of MLP output
+        #             print(f"largest index: {largest_index} \n")
+        #             print(f"largest action: {largest_action} \n")
 
-                    # reset movement_detected list
-                    movement_detected.clear()
+        #             # reset movement_detected list
+        #             movement_detected.clear()
 
-                i += 1
-                timenow += 1
+        #         i += 1
+        #         timenow += 1
 
-                if i == 200:
-                    i = 0
+        #         if i == 200:
+        #             i = 0
 
                 # plt.clf()
                 # plt.plot(t, x, label='original signal')
@@ -665,82 +666,82 @@ class Training(threading.Thread):
 
 
         # data collection loop
-        # while not self.shutdown.is_set():
-        #     try:
-        #         input("start?")
+        while not self.shutdown.is_set():
+            try:
+                input("start?")
 
-        #         start_time = time.time()
+                start_time = time.time()
 
-        #         while time.time() - start_time < 2:
-        #             # getting data - simulation
-        #             data = self.generate_simulated_data()
-        #             print(f"data: {data} \n")
+                while time.time() - start_time < 2:
+                    # getting data - simulation
+                    data = self.generate_simulated_data()
+                    print(f"data: {data} \n")
 
-        #             # getting data - actl
-        #             # data = self.fpga_queue.get()
-        #             # unpacker.unpack(data)
-        #             # data = unpacker.get_euler_data() + unpacker.get_acc_data() + unpacker.get_flex_data()
+                    # getting data - actl
+                    # data = self.fpga_queue.get()
+                    # unpacker.unpack(data)
+                    # data = unpacker.get_euler_data() + unpacker.get_acc_data() + unpacker.get_flex_data()
                     
-        #             if len(data) == 0:
-        #                 print("Invalid data:", data)
-        #                 continue
-        #             if len(data) == 8:
-        #                 flex1, flex2, yaw, pitch, roll, accX, accY, accZ = data
-        #                 all_data.append([flex1, flex2, yaw, pitch, roll, accX, accY, accZ])
+                    if len(data) == 0:
+                        print("Invalid data:", data)
+                        continue
+                    if len(data) == 8:
+                        flex1, flex2, yaw, pitch, roll, accX, accY, accZ = data
+                        all_data.append([flex1, flex2, yaw, pitch, roll, accX, accY, accZ])
 
-        #             self.sleep(0.05)
+                    self.sleep(0.05)
 
-        #         # Convert data to DataFrame
-        #         df = pd.DataFrame(all_data, columns=self.columns)
+                # Convert data to DataFrame
+                df = pd.DataFrame(all_data, columns=self.columns)
 
-        #         # Show user the data and prompt for confirmation
-        #         print(df[['yaw', 'pitch', 'roll', 'accX', 'accY', 'accZ']].head(40))
-        #         print(f"Number of rows and columns: {df.shape[0]} by {df.shape[1]}")
+                # Show user the data and prompt for confirmation
+                print(df[['yaw', 'pitch', 'roll', 'accX', 'accY', 'accZ']].head(40))
+                print(f"Number of rows and columns: {df.shape[0]} by {df.shape[1]}")
 
-        #         ui = input("data ok? y/n")
-        #         if ui.lower() == "y":
+                ui = input("data ok? y/n")
+                if ui.lower() == "y":
                     
-        #             time_now = time.strftime("%Y%m%d-%H%M%S")
-        #             # # Store raw data into a new CSV file
-        #             # filename = time_now + "_raw.csv"
-        #             # df.to_csv(filename, index=False, header=True)
+                    time_now = time.strftime("%Y%m%d-%H%M%S")
+                    # # Store raw data into a new CSV file
+                    # filename = time_now + "_raw.csv"
+                    # df.to_csv(filename, index=False, header=True)
 
-        #             all_data.append(time_now)
+                    all_data.append(time_now)
 
-        #             # Store data into a new CSV file
-        #             filename = "/home/xilinx/code/training/raw_data.csv"
+                    # Store data into a new CSV file
+                    filename = "/home/xilinx/code/training/raw_data.csv"
 
-        #             # Append a new line to the CSV file
-        #             with open(filename, "a") as f:
-        #                 writer = csv.writer(f)
-        #                 writer.writerow(all_data)
+                    # Append a new line to the CSV file
+                    with open(filename, "a") as f:
+                        writer = csv.writer(f)
+                        writer.writerow(all_data)
 
-        #             # Clear raw data list
-        #             all_data = []
+                    # Clear raw data list
+                    all_data = []
 
-        #             # Preprocess data
-        #             processed_data = self.preprocess_data(df)
+                    # Preprocess data
+                    processed_data = self.preprocess_data(df)
 
-        #             # Prompt user for label
-        #             label = input("Enter label (G = GRENADE, R = RELOAD, S = SHIELD, L = LOGOUT): ")
+                    # Prompt user for label
+                    label = input("Enter label (G = GRENADE, R = RELOAD, S = SHIELD, L = LOGOUT): ")
                     
-        #             # Append label, timestamp to processed data
-        #             processed_data = np.append(processed_data, label)
-        #             processed_data = np.append(processed_data, time_now)
+                    # Append label, timestamp to processed data
+                    processed_data = np.append(processed_data, label)
+                    processed_data = np.append(processed_data, time_now)
 
-        #             # Append processed data to CSV file
-        #             with open("/home/xilinx/code/training/processed_data.csv", "a") as f:
-        #                 writer = csv.writer(f)
-        #                 # writer.writerow(self.headers)
-        #                 writer.writerow(processed_data)
+                    # Append processed data to CSV file
+                    with open("/home/xilinx/code/training/processed_data.csv", "a") as f:
+                        writer = csv.writer(f)
+                        # writer.writerow(self.headers)
+                        writer.writerow(processed_data)
 
-        #             print("Data processed and saved to CSV file.")
-        #         else:
-        #             print("not proceed, restart")
-        #     except Exception as _:
-        #         traceback.print_exc()
-        #         self.close_connection()
-        #         print("an error occurred")
+                    print("Data processed and saved to CSV file.")
+                else:
+                    print("not proceed, restart")
+            except Exception as _:
+                traceback.print_exc()
+                self.close_connection()
+                print("an error occurred")
 
 
 if __name__ == '__main__':
