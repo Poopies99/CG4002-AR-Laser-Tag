@@ -81,6 +81,8 @@ class GameEngine(threading.Thread):
                 with open('example.json', 'r') as f:
                     json_data = f.read()
 
+                print('JSON Data: ', json_data)
+
                 eval_queue.put(json_data)
                 subscribe_queue.put(json_data)
                 laptop_queue.put(json_data)
@@ -281,6 +283,8 @@ class Server(threading.Thread):
                 fpga_queue.put(packet)
 
                 game_state = laptop_queue.get()
+
+                print(game_state)
 
                 node_id = 0
                 packet_type = PacketType.ACK
