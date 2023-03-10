@@ -272,9 +272,6 @@ class Server(threading.Thread):
         self.data = b''
 
         self.server_socket = server_socket
-        self.connection = None
-        self.secret_key = None
-        self.secret_key_bytes = None
 
         # Flags
         self.shutdown = threading.Event()
