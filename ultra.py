@@ -530,28 +530,28 @@ class Training(threading.Thread):
         all_data = []
 
         # live integration loop
-        while not self.shutdown.is_set():
+        # while not self.shutdown.is_set():
+        #
+        #     df = pd.DataFrame(columns=['flex1', 'flex2', 'yaw', 'pitch', 'roll', 'accX', 'accY', 'accZ'])
+        #     # Define the window size and threshold factor
+        #     window_size = 11
+        #     threshold_factor = 2
+        #
+        #     # Define N units for flagging movement, 20Hz -> 2s = 40 samples
+        #     N = 40
+        #
+        #     # Initialize empty arrays for data storage
+        #     t = []
+        #     x = []
+        #     filtered = []
+        #     threshold = []
+        #     movement_detected = []
+        #     last_movement_time = -N  # set last movement time to negative N seconds ago
+        #     wave = self.generate_simulated_wave()
+        #     i = 0
+        #     timenow = 0
 
-            df = pd.DataFrame(columns=['flex1', 'flex2', 'yaw', 'pitch', 'roll', 'accX', 'accY', 'accZ'])
-            # Define the window size and threshold factor
-            window_size = 11
-            threshold_factor = 2
-
-            # Define N units for flagging movement, 20Hz -> 2s = 40 samples
-            N = 40
-
-            # Initialize empty arrays for data storage
-            t = []
-            x = []
-            filtered = []
-            threshold = []
-            movement_detected = []
-            last_movement_time = -N  # set last movement time to negative N seconds ago
-            wave = self.generate_simulated_wave()
-            i = 0
-            timenow = 0
-
-            print(f"entering while loop \n")
+            # print(f"entering while loop \n")
 
             # data detection loop
             # while True:
@@ -647,7 +647,7 @@ class Training(threading.Thread):
                 while time.time() - start_time < 2:
                     # getting data - simulation
                     # data = self.generate_simulated_data()
-                    print(f"data: {data} \n")
+                    # print(f"data: {data} \n")
 
                     # getting data - actl
                     data = self.fpga_queue.get()
