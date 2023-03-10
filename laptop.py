@@ -5,7 +5,7 @@ import sys
 import threading
 import traceback
 from _socket import SHUT_RDWR
-
+import time
 
 class Client(threading.Thread):
     def __init__(self, port_num, host_name):
@@ -29,6 +29,7 @@ class Client(threading.Thread):
         print("Shutting Down Connection")
 
     def run(self):
+
         while not self.shutdown.is_set():
             try:
                 message = input("Enter message to be sent: ")
@@ -37,22 +38,10 @@ class Client(threading.Thread):
                     break
 
                 self.client_socket.send(message.encode())
-                #
-                # if self.connection:
-                #     reply = self.connection.recv(64)
-                #
-                #     if reply:
-                #         print(reply.decode())
-                #     else:
-                #         # Connection was closed
-                #         print("Connection closed by server")
-                #         self.close_connection()
-                #         break
-                # else:
-                #     # Connection was not established
-                #     print("Connection not established")
-                #     self.close_connection()
-                #     break
+
+                reply = self.client_socket.recv(64)
+
+                print(reply)
             except Exception as _:
                 traceback.print_exc()
                 self.close_connection()

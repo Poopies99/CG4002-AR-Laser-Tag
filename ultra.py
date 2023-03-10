@@ -137,41 +137,6 @@ class Subscriber(threading.Thread):
                 self.close_connection()
 
 
-class LaptopClient(threading.Thread):
-    def __init__(self, port_num, host_name):
-        super().__init__()
-
-        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-        self.client_socket = client_socket
-        self.connection = client_socket.connect((host_name, port_num))
-
-        # Flags
-        self.shutdown = threading.Event()
-
-    def close_connection(self):
-        self.connection.shutdown(SHUT_RDWR)
-        self.connection.close()
-        self.shutdown.set()
-        self.client_socket.close()
-
-        print("Shutting Down Laptop Client Connection")
-
-    def run(self):
-        while not self.shutdown.is_set():
-            try:
-                input_message = input("Enter Message: ")
-                if input_message == 'q':
-                    break
-
-                self.client_socket.send(input_message.encode())
-
-                print("Sending Message to Laptop:", input_message)
-            except Exception as _:
-                traceback.print_exc()
-                self.close_connection()
-
-
 class EvalClient(threading.Thread):
     def __init__(self, port_num, host_name):
         super().__init__()
@@ -312,6 +277,10 @@ class Server(threading.Thread):
                 # Add to raw queue
                 raw_queue.put(packet)
                 fpga_queue.put(packet)
+
+                game_state = laptop_queue.get()
+
+                self.connection.send(game_state)
 
                 if not message:
                     self.close_connection()
@@ -759,10 +728,6 @@ if __name__ == '__main__':
     # print("Starting Client Thread           ")
     # eval_client = EvalClient(1234, "localhost")
     # eval_client.start()
-
-    # # Client Connection to Laptop
-    # print("Starting Client Thread to Laptop         ")
-    # laptop_client = LaptopClient(12345, 'localhost')
 
     # Server Connection to Laptop
     print("Starting Server Thread           ")
