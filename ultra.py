@@ -18,8 +18,8 @@ import numpy as np
 from scipy import stats, signal
 import csv
 import matplotlib.pyplot as plt
-import pynq
-from pynq import Overlay
+# import pynq
+# from pynq import Overlay
 
 from ble_packet import BLEPacket
 
