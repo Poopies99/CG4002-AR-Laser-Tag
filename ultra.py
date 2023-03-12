@@ -378,7 +378,7 @@ class Training(threading.Thread):
         return x
 
 
-    def preprocess_data(self, df):
+    def preprocess_data(self, data):
         data = data + 1e-12
 
         # Preprocess the data
