@@ -18,7 +18,7 @@ import time
 import numpy as np
 from scipy import stats, signal
 import csv
-import PyWavelets as pywt 
+import pywt 
 from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import SelectKBest
 from scipy.signal import butter
