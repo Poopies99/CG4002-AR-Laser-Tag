@@ -601,7 +601,7 @@ class Training(threading.Thread):
                     time_now = time.strftime("%Y%m%d-%H%M%S")
                     
                     res_arr = res.values.reshape(1,-1)
-                    res_arr.append(time_now)
+                    res_arr = np.append(res_arr, time_now)
 
                     # Store data into a new CSV file
                     filename = "/home/xilinx/code/training/raw_data.csv"
