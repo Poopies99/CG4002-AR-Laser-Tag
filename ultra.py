@@ -479,6 +479,8 @@ class Training(threading.Thread):
         # Loop through each column and compute features
         for column in df.columns:
             column_data = df[column]
+            # print column1 values
+            print(f"column_data: {column_data}")
 
             temp_processed = self.preprocess_data(column_data)
 
