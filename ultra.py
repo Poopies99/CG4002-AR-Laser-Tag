@@ -321,12 +321,16 @@ class Training(threading.Thread):
         # self.factors = ['mean', 'variance', 'median', 'root_mean_square', 'interquartile_range',            
         #     'percentile_75', 'kurtosis', 'min_max', 'signal_magnitude_area', 'zero_crossing_rate',            
         #     'spectral_centroid', 'spectral_entropy', 'spectral_energy', 'principle_frequency']
-        self.factors = ['kbest10_0', 'kbest10_1', 'kbest10_2', 'kbest10_3', 'kbest10_4', 
-                         'kbest10_5', 'kbest10_6', 'kbest10_7', 'kbest10_8', 'kbest10_9',
-                         'spectral_centroid', 'spectral_spread', 'wavelet_energy', 'wavelet_entropy', 
-                         'mean', 'std', 'variance', 'min', 'max', 'range', 'peak_to_peak_amplitude',
-                         'mad', 'root_mean_square', 'interquartile_range', 'percentile_75',
-                         'skewness', 'kurtosis', 'zero_crossing_rate', 'energy', 'entropy']
+        # self.factors = ['kbest10_0', 'kbest10_1', 'kbest10_2', 'kbest10_3', 'kbest10_4', 
+        #                  'kbest10_5', 'kbest10_6', 'kbest10_7', 'kbest10_8', 'kbest10_9',
+        #                  'spectral_centroid', 'spectral_spread', 'wavelet_energy', 'wavelet_entropy', 
+        #                  'mean', 'std', 'variance', 'min', 'max', 'range', 'peak_to_peak_amplitude',
+        #                  'mad', 'root_mean_square', 'interquartile_range', 'percentile_75',
+        #                  'skewness', 'kurtosis', 'zero_crossing_rate', 'energy', 'entropy']
+
+        self.factors = ['mean', 'std', 'variance', 'min', 'max', 'range', 'peak_to_peak_amplitude',
+                    'mad', 'root_mean_square', 'interquartile_range', 'percentile_75',
+                    'skewness', 'kurtosis', 'zero_crossing_rate', 'energy', 'entropy']
 
         self.headers = [f'{raw_header}_{factor}' for raw_header in self.columns for factor in self.factors]
         self.headers.extend(['action', 'timestamp'])
@@ -379,67 +383,67 @@ class Training(threading.Thread):
     def preprocess_data(self, data):
         data = data + 1e-12
 
-        # Preprocess the data
-        data_smoothed = sig.medfilt(data, kernel_size=3)
-        # data_filtered = butter(3, 0.1, 'lowpass', fs=50)(data_smoothed)
-        data_normalized = StandardScaler().fit_transform(data_smoothed.reshape(1, -1))
+        # # Preprocess the data
+        # data_smoothed = sig.medfilt(data, kernel_size=3)
+        # # data_filtered = butter(3, 0.1, 'lowpass', fs=50)(data_smoothed)
+        # data_normalized = StandardScaler().fit_transform(data_smoothed.reshape(1, -1))
 
-        # Extract features using Fourier transforms
-        data_fft = np.abs(np.fft.fft(data_normalized, axis=1))
-        data_fft = data_fft[:, :data_fft.shape[1]//2]
+        # # Extract features using Fourier transforms
+        # data_fft = np.abs(np.fft.fft(data_normalized, axis=1))
+        # data_fft = data_fft[:, :data_fft.shape[1]//2]
 
-        # Extract features using wavelet transforms
-        data_dwt = pywt.dwt(data_normalized, 'db1', axis=1)
-        data_dwt = np.concatenate(data_dwt, axis=0)
+        # # Extract features using wavelet transforms
+        # data_dwt = pywt.dwt(data_normalized, 'db1', axis=1)
+        # data_dwt = np.concatenate(data_dwt, axis=0)
 
-        # Extract statistical features
-        data_kurtosis = np.apply_along_axis(stats.kurtosis, axis=1, arr=data_normalized)
-        data_skewness = np.apply_along_axis(stats.skew, axis=1, arr=data_normalized)
-        data_entropy = np.apply_along_axis(stats.entropy, axis=1, arr=data_normalized)
+        # # Extract statistical features
+        # data_kurtosis = np.apply_along_axis(stats.kurtosis, axis=1, arr=data_normalized)
+        # data_skewness = np.apply_along_axis(stats.skew, axis=1, arr=data_normalized)
+        # data_entropy = np.apply_along_axis(stats.entropy, axis=1, arr=data_normalized)
 
-        # Reshape statistical features to match shape of data_dwt
-        data_kurtosis = np.tile(data_kurtosis, (2, 1)).T
-        data_skewness = np.tile(data_skewness, (2, 1)).T
-        data_entropy = np.tile(data_entropy, (2, 1)).T
+        # # Reshape statistical features to match shape of data_dwt
+        # data_kurtosis = np.tile(data_kurtosis, (2, 1)).T
+        # data_skewness = np.tile(data_skewness, (2, 1)).T
+        # data_entropy = np.tile(data_entropy, (2, 1)).T
 
-        # Combine features into a feature matrix
-        features = np.concatenate((data_fft, data_dwt.reshape(1, -1), data_kurtosis,
-                                    data_skewness, data_entropy),
-                                axis=1)
+        # # Combine features into a feature matrix
+        # features = np.concatenate((data_fft, data_dwt.reshape(1, -1), data_kurtosis,
+        #                             data_skewness, data_entropy),
+        #                         axis=1)
 
-        # Replace NaN values with the mean of the column
-        # features = np.nan_to_num(features, nan=np.nanmean(features, axis=0))
+        # # Replace NaN values with the mean of the column
+        # # features = np.nan_to_num(features, nan=np.nanmean(features, axis=0))
 
-        # Replace True/False values with 1/0
-        features = features.astype(int)
+        # # Replace True/False values with 1/0
+        # features = features.astype(int)
 
-        # Select top 10 features
-        selector = SelectKBest(k=10)
-        features_selected = selector.fit_transform(features, np.zeros(features.shape[0]))
+        # # Select top 10 features
+        # selector = SelectKBest(k=10)
+        # features_selected = selector.fit_transform(features, np.zeros(features.shape[0]))
 
-        # Flatten to 1d array and return top 10 components
-        top_10_components = features_selected.flatten()[:10]
+        # # Flatten to 1d array and return top 10 components
+        # top_10_components = features_selected.flatten()[:10]
 
-        # Extract spectral centroid and spread
-        data_normalized_mono = data_normalized[0]
-        stft = librosa.stft(data_normalized_mono)
+        # # Extract spectral centroid and spread
+        # data_normalized_mono = data_normalized[0]
+        # stft = librosa.stft(data_normalized_mono)
 
-        # Extract spectral centroid and spread
-        spectral_centroid = librosa.feature.spectral_centroid(S=np.abs(stft), n_fft=64)
-        spectral_spread = librosa.feature.spectral_bandwidth(S=np.abs(stft), n_fft=64)
+        # # Extract spectral centroid and spread
+        # spectral_centroid = librosa.feature.spectral_centroid(S=np.abs(stft), n_fft=64)
+        # spectral_spread = librosa.feature.spectral_bandwidth(S=np.abs(stft), n_fft=64)
 
-        # Extract wavelet energy and entropy
-        wavelet_coeffs = pywt.wavedec(data_normalized, 'db1', level=5)
-        wavelet_energy = np.sum([np.sum(np.square(c)) for c in wavelet_coeffs])
-        eps = 1e-10
-        wavelet_entropy = np.sum([np.sum(np.square(c) * np.log(np.square(c) + eps)) for c in wavelet_coeffs])
+        # # Extract wavelet energy and entropy
+        # wavelet_coeffs = pywt.wavedec(data_normalized, 'db1', level=5)
+        # wavelet_energy = np.sum([np.sum(np.square(c)) for c in wavelet_coeffs])
+        # eps = 1e-10
+        # wavelet_entropy = np.sum([np.sum(np.square(c) * np.log(np.square(c) + eps)) for c in wavelet_coeffs])
 
-        # Combine all features into a single array
-        all_features = np.concatenate((top_10_components.reshape(-1, 1), spectral_centroid.reshape(-1, 1), spectral_spread.reshape(-1, 1),
-                                        wavelet_energy.reshape(-1, 1), wavelet_entropy.reshape(-1, 1)), axis=0)
+        # # Combine all features into a single array
+        # all_features = np.concatenate((top_10_components.reshape(-1, 1), spectral_centroid.reshape(-1, 1), spectral_spread.reshape(-1, 1),
+        #                                 wavelet_energy.reshape(-1, 1), wavelet_entropy.reshape(-1, 1)), axis=0)
 
-        # Return array of features
-        all_features = all_features.reshape(1, -1)
+        # # Return array of features
+        # all_features = all_features.reshape(1, -1)
 
         # standard data processing techniques
         mean = np.mean(data)
@@ -463,11 +467,11 @@ class Training(threading.Thread):
                                 mad, root_mean_square, interquartile_range, percentile_75,
                                 skewness, kurtosis, zero_crossing_rate, energy, entropy]
 
-        output_array = np.array(output_array)                        
+        # output_array = np.array(output_array)                        
 
-        combined_array = np.concatenate((all_features.reshape(1, -1), output_array.reshape(1, -1)), axis=1)
+        # combined_array = np.concatenate((all_features.reshape(1, -1), output_array.reshape(1, -1)), axis=1)
 
-        return combined_array
+        return output_array.reshape(1, -1)
     
     def preprocess_dataset(self, df):
         processed_data = []
