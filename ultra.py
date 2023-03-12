@@ -664,69 +664,74 @@ class Training(threading.Thread):
                 # plt.draw()
                 # plt.pause(0.01)
 
-
         # data collection loop
+        i = 0
         while not self.shutdown.is_set():
             try:
                 input("start?")
 
-                start_time = time.time()
+                # start_time = time.time()
 
-                while time.time() - start_time < 2:
+                while i<41:
                     # getting data - simulation
-                    # data = self.generate_simulated_data()
+                    data = self.generate_simulated_data()
                     print(f"data: {data} \n")
 
-                    # getting data - actl
-                    data = self.fpga_queue.get()
-                    unpacker.unpack(data)
-                    data = unpacker.get_flex_data() + unpacker.get_euler_data() + unpacker.get_acc_data()  
-                    print(f"data: {data} \n")
+                    # # getting data - actl
+                    # data = fpga_queue.get()
+                    # unpacker.unpack(data)
+                    # data = unpacker.get_flex_data() + unpacker.get_euler_data() + unpacker.get_acc_data()
+                    # print(f"data: {data} \n")
 
-                    
                     if len(data) == 0:
                         print("Invalid data:", data)
                         continue
                     if len(data) == 8:
-                        flex1, flex2, yaw, pitch, roll, accX, accY, accZ = data
-                        all_data.append([flex1, flex2, yaw, pitch, roll, accX, accY, accZ])
+                        flex1, flex2, gx, gy, gz, accX, accY, accZ = data
+                        all_data.append([flex1, flex2, gx, gy, gz, accX/100, accY/100, accZ/100])
 
                     self.sleep(0.05)
+                    i += 1
 
-                # Convert data to DataFrame
+                # creating df for preview 
                 df = pd.DataFrame(all_data, columns=self.columns)
+                # creating res to output differences 
+                res = pd.DataFrame(columns=self.columns)
+
+                for j in range(len(df)):
+                    diff = df.iloc[j] - df.iloc[j-1]
+                    res = res.append(diff, ignore_index=True)
 
                 # Show user the data and prompt for confirmation
-                print(df[['yaw', 'pitch', 'roll', 'accX', 'accY', 'accZ']].head(40))
-                print(f"Number of rows and columns: {df.shape[0]} by {df.shape[1]}")
+                print(res[['gx', 'gy', 'gz', 'accX', 'accY', 'accZ']].head(40))
+                # print(f"Number of rows and columns: {df.shape[0]} by {df.shape[1]}")
 
                 ui = input("data ok? y/n")
                 if ui.lower() == "y":
-                    
-                    time_now = time.strftime("%Y%m%d-%H%M%S")
-                    # # Store raw data into a new CSV file
-                    # filename = time_now + "_raw.csv"
-                    # df.to_csv(filename, index=False, header=True)
 
-                    all_data.append(time_now)
+                    time_now = time.strftime("%Y%m%d-%H%M%S")
+                    
+                    res_arr = res.values.reshape(1,-1)
+                    res_arr.append(time_now)
 
                     # Store data into a new CSV file
                     filename = "/home/xilinx/code/training/raw_data.csv"
 
-                    # Append a new line to the CSV file
                     with open(filename, "a") as f:
                         writer = csv.writer(f)
-                        writer.writerow(all_data)
+                        writer.writerow(res_arr)
 
                     # Clear raw data list
                     all_data = []
+                    res_arr = []
+                    i = 0
 
                     # Preprocess data
-                    processed_data = self.preprocess_data(df)
+                    processed_data = self.preprocess_data(res_arr)
 
                     # Prompt user for label
                     label = input("Enter label (G = GRENADE, R = RELOAD, S = SHIELD, L = LOGOUT): ")
-                    
+
                     # Append label, timestamp to processed data
                     processed_data = np.append(processed_data, label)
                     processed_data = np.append(processed_data, time_now)
@@ -739,6 +744,9 @@ class Training(threading.Thread):
 
                     print("Data processed and saved to CSV file.")
                 else:
+                    all_data = []
+                    res_arr = 0
+                    i = 0
                     print("not proceed, restart")
             except Exception as _:
                 traceback.print_exc()
