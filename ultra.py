@@ -321,12 +321,12 @@ class Training(threading.Thread):
         # self.factors = ['mean', 'variance', 'median', 'root_mean_square', 'interquartile_range',            
         #     'percentile_75', 'kurtosis', 'min_max', 'signal_magnitude_area', 'zero_crossing_rate',            
         #     'spectral_centroid', 'spectral_entropy', 'spectral_energy', 'principle_frequency']
-        self.factors = ['mean', 'std', 'variance', 'min', 'max', 'range', 'peak_to_peak_amplitude',
-                         'mad', 'root_mean_square', 'interquartile_range', 'percentile_75',
-                         'skewness', 'kurtosis', 'zero_crossing_rate', 'energy', 'entropy',
-                         'kbest10_0', 'kbest10_1', 'kbest10_2', 'kbest10_3', 'kbest10_4', 
+        self.factors = ['kbest10_0', 'kbest10_1', 'kbest10_2', 'kbest10_3', 'kbest10_4', 
                          'kbest10_5', 'kbest10_6', 'kbest10_7', 'kbest10_8', 'kbest10_9',
-                         'spectral_centroid', 'spectral_spread', 'wavelet_energy', 'wavelet_entropy']
+                         'spectral_centroid', 'spectral_spread', 'wavelet_energy', 'wavelet_entropy', 
+                         'mean', 'std', 'variance', 'min', 'max', 'range', 'peak_to_peak_amplitude',
+                         'mad', 'root_mean_square', 'interquartile_range', 'percentile_75',
+                         'skewness', 'kurtosis', 'zero_crossing_rate', 'energy', 'entropy']
 
         self.headers = [f'{raw_header}_{factor}' for raw_header in self.columns for factor in self.factors]
         self.headers.extend(['action', 'timestamp'])
