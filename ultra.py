@@ -308,7 +308,7 @@ class Training(threading.Thread):
 
         # Flags
         self.shutdown = threading.Event()
-        self.columns = ['flex1', 'flex2', 'yaw', 'pitch', 'roll', 'accX', 'accY', 'accZ']
+        self.columns = ['flex1', 'flex2', 'gx', 'gy', 'gz', 'accX', 'accY', 'accZ']
         
         # defining headers for post processing
         self.factors = ['mean', 'variance', 'median', 'root_mean_square', 'interquartile_range',            
