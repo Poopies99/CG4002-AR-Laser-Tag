@@ -351,9 +351,9 @@ class Training(threading.Thread):
         yaw = random.uniform(-180, 180)
         pitch = random.uniform(-180, 180)
         roll = random.uniform(-180, 180)
-        accX = random.uniform(-9, 9)
-        accY = random.uniform(-9, 9)
-        accZ = random.uniform(-9, 9)
+        accX = random.uniform(-9000, 9000)
+        accY = random.uniform(-9000, 9000)
+        accZ = random.uniform(-9000, 9000)
         flex1 = random.uniform(-1, 1)
         flex2 = random.uniform(-1, 1)
         return [flex1, flex2, yaw, pitch, roll, accX, accY, accZ]
@@ -382,6 +382,7 @@ class Training(threading.Thread):
 
     def preprocess_data(self, data):
         # data = data + 1e-12
+        print(f"processing data: \n{data}\n")
 
         # # Preprocess the data
         # data_smoothed = sig.medfilt(data, kernel_size=3)
@@ -447,6 +448,8 @@ class Training(threading.Thread):
 
         # standard data processing techniques
         mean = np.mean(data)
+        print(f"mean the following data: \n{data}\n")
+        print(f"mean result: {mean}")
         std = np.std(data)
         variance = np.var(data)
         min = np.min(data)
