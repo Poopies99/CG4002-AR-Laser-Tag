@@ -17,6 +17,7 @@ import csv
 import numpy as np
 import pandas as pd
 import pywt 
+import scipy.signal as sig
 from scipy import signal, stats
 from scipy.stats import entropy, kurtosis, skew
 from sklearn.feature_selection import SelectKBest
