@@ -446,7 +446,7 @@ class Training(threading.Thread):
         # all_features = all_features.reshape(1, -1)
 
         # standard data processing techniques
-        mean = np.mean(data)
+        mean = data.mean()
         std = np.std(data)
         variance = np.var(data)
         min = np.min(data)
