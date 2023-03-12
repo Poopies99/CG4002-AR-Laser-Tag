@@ -457,7 +457,7 @@ class Training(threading.Thread):
         kurtosis = stats.kurtosis(data)
         zero_crossing_rate = ((data[:-1] * data[1:]) < 0).sum()
         energy = np.sum(data**2)
-        entropy = entropy(data, base=2)
+        entropy = stats.entropy(data, base=2)
 
         output_array = [mean, std, variance, min, max, range, peak_to_peak_amplitude,
                                 mad, root_mean_square, interquartile_range, percentile_75,
