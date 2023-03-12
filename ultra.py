@@ -351,11 +351,11 @@ class Training(threading.Thread):
         yaw = random.uniform(-180, 180)
         pitch = random.uniform(-180, 180)
         roll = random.uniform(-180, 180)
-        accX = random.uniform(-1000, 1000)
-        accY = random.uniform(-1000, 1000)
-        accZ = random.uniform(-1000, 1000)
-        flex1 = random.uniform(-180, 180)
-        flex2 = random.uniform(-180, 180)
+        accX = random.uniform(-9, 9)
+        accY = random.uniform(-9, 9)
+        accZ = random.uniform(-9, 9)
+        flex1 = random.uniform(-1, 1)
+        flex2 = random.uniform(-1, 1)
         return [flex1, flex2, yaw, pitch, roll, accX, accY, accZ]
     
     # simulate game movement with noise and action
@@ -446,7 +446,7 @@ class Training(threading.Thread):
         # all_features = all_features.reshape(1, -1)
 
         # standard data processing techniques
-        mean = data.mean()
+        mean = np.mean(data)
         std = np.std(data)
         variance = np.var(data)
         min = np.min(data)
