@@ -11,12 +11,21 @@ from Crypto.Util.Padding import pad
 from Crypto.Util.Padding import unpad
 from Crypto import Random
 from queue import Queue
+
 import csv
 import pandas as pd
 import time
 import numpy as np
 from scipy import stats, signal
 import csv
+import PyWavelets as pywt 
+from sklearn.preprocessing import StandardScaler
+from sklearn.feature_selection import SelectKBest
+from scipy.signal import butter
+import scipy.signal as sig
+from scipy.stats import kurtosis, skew, entropy
+import librosa
+
 # import matplotlib.pyplot as plt
 # import pynq
 from pynq import Overlay
@@ -311,9 +320,15 @@ class Training(threading.Thread):
         self.columns = ['flex1', 'flex2', 'gx', 'gy', 'gz', 'accX', 'accY', 'accZ']
         
         # defining headers for post processing
-        self.factors = ['mean', 'variance', 'median', 'root_mean_square', 'interquartile_range',            
-            'percentile_75', 'kurtosis', 'min_max', 'signal_magnitude_area', 'zero_crossing_rate',            
-            'spectral_centroid', 'spectral_entropy', 'spectral_energy', 'principle_frequency']
+        # self.factors = ['mean', 'variance', 'median', 'root_mean_square', 'interquartile_range',            
+        #     'percentile_75', 'kurtosis', 'min_max', 'signal_magnitude_area', 'zero_crossing_rate',            
+        #     'spectral_centroid', 'spectral_entropy', 'spectral_energy', 'principle_frequency']
+        self.factors = ['mean', 'std', 'variance', 'min', 'max', 'range', 'peak_to_peak_amplitude',
+                         'mad', 'root_mean_square', 'interquartile_range', 'percentile_75',
+                         'skewness', 'kurtosis', 'zero_crossing_rate', 'energy', 'entropy',
+                         'kbest10_0', 'kbest10_1', 'kbest10_2', 'kbest10_3', 'kbest10_4', 
+                         'kbest10_5', 'kbest10_6', 'kbest10_7', 'kbest10_8', 'kbest10_9',
+                         'spectral_centroid', 'spectral_spread', 'wavelet_energy', 'wavelet_entropy']
 
         self.headers = [f'{raw_header}_{factor}' for raw_header in self.columns for factor in self.factors]
         self.headers.extend(['action', 'timestamp'])
@@ -364,85 +379,110 @@ class Training(threading.Thread):
 
 
     def preprocess_data(self, df):
-        def compute_mean(data):
-            return np.mean(data)
+        data = data + 1e-12
 
-        def compute_variance(data):
-            return np.var(data)
+        # Preprocess the data
+        data_smoothed = sig.medfilt(data, kernel_size=3)
+        # data_filtered = butter(3, 0.1, 'lowpass', fs=50)(data_smoothed)
+        data_normalized = StandardScaler().fit_transform(data_smoothed.reshape(1, -1))
 
-        def compute_median_absolute_deviation(data):
-            return np.median(data)
+        # Extract features using Fourier transforms
+        data_fft = np.abs(np.fft.fft(data_normalized, axis=1))
+        data_fft = data_fft[:, :data_fft.shape[1]//2]
 
-        def compute_root_mean_square(data):
-            return np.sqrt(np.mean(np.square(data)))
+        # Extract features using wavelet transforms
+        data_dwt = pywt.dwt(data_normalized, 'db1', axis=1)
+        data_dwt = np.concatenate(data_dwt, axis=0)
 
-        def compute_interquartile_range(data):
-            return stats.iqr(data)
+        # Extract statistical features
+        data_kurtosis = np.apply_along_axis(kurtosis, axis=1, arr=data_normalized)
+        data_skewness = np.apply_along_axis(skew, axis=1, arr=data_normalized)
+        data_entropy = np.apply_along_axis(entropy, axis=1, arr=data_normalized)
 
-        def compute_percentile_75(data):
-            return np.percentile(data, 75)
+        # Reshape statistical features to match shape of data_dwt
+        data_kurtosis = np.tile(data_kurtosis, (2, 1)).T
+        data_skewness = np.tile(data_skewness, (2, 1)).T
+        data_entropy = np.tile(data_entropy, (2, 1)).T
 
-        def compute_kurtosis(data):
-            return stats.kurtosis(data)
+        # Combine features into a feature matrix
+        features = np.concatenate((data_fft, data_dwt.reshape(1, -1), data_kurtosis,
+                                    data_skewness, data_entropy),
+                                axis=1)
 
-        def compute_min_max(data):
-            return np.max(data) - np.min(data)
+        # Replace NaN values with the mean of the column
+        # features = np.nan_to_num(features, nan=np.nanmean(features, axis=0))
 
-        def compute_signal_magnitude_area(data):
-            return np.sum(data) / len(data)
+        # Replace True/False values with 1/0
+        features = features.astype(int)
 
-        def compute_zero_crossing_rate(data):
-            return ((data[:-1] * data[1:]) < 0).sum()
+        # Select top 10 features
+        selector = SelectKBest(k=10)
+        features_selected = selector.fit_transform(features, np.zeros(features.shape[0]))
 
-        def compute_spectral_centroid(data):
-            spectrum = np.abs(np.fft.rfft(data))
-            normalized_spectrum = spectrum / np.sum(spectrum)
-            normalized_frequencies = np.linspace(0, 1, len(spectrum))
-            spectral_centroid = np.sum(normalized_frequencies * normalized_spectrum)
-            return spectral_centroid
+        # Flatten to 1d array and return top 10 components
+        top_10_components = features_selected.flatten()[:10]
 
-        def compute_spectral_entropy(data):
-            freqs, power_density = signal.welch(data)
-            return stats.entropy(power_density)
+        # Extract spectral centroid and spread
+        data_normalized_mono = data_normalized[0]
+        stft = librosa.stft(data_normalized_mono)
 
-        def compute_spectral_energy(data):
-            freqs, power_density = signal.welch(data)
-            return np.sum(np.square(power_density))
+        # Extract spectral centroid and spread
+        spectral_centroid = librosa.feature.spectral_centroid(S=np.abs(stft), n_fft=64)
+        spectral_spread = librosa.feature.spectral_bandwidth(S=np.abs(stft), n_fft=64)
 
-        def compute_principle_frequency(data):
-            freqs, power_density = signal.welch(data)
-            return freqs[np.argmax(np.square(power_density))]
+        # Extract wavelet energy and entropy
+        wavelet_coeffs = pywt.wavedec(data_normalized, 'db1', level=5)
+        wavelet_energy = np.sum([np.sum(np.square(c)) for c in wavelet_coeffs])
+        eps = 1e-10
+        wavelet_entropy = np.sum([np.sum(np.square(c) * np.log(np.square(c) + eps)) for c in wavelet_coeffs])
 
+        # Combine all features into a single array
+        all_features = np.concatenate((top_10_components.reshape(-1, 1), spectral_centroid.reshape(-1, 1), spectral_spread.reshape(-1, 1),
+                                        wavelet_energy.reshape(-1, 1), wavelet_entropy.reshape(-1, 1)), axis=0)
+
+        # Return array of features
+        all_features = all_features.reshape(1, -1)
+
+        # standard data processing techniques
+        mean = np.mean(data)
+        std = np.std(data)
+        variance = np.var(data)
+        min = np.min(data)
+        max = np.max(data)
+        range = np.max(data) - np.min(data)
+        peak_to_peak_amplitude = np.abs(np.max(data) - np.min(data))
+        mad = np.median(np.abs(data - np.median(data)))
+        root_mean_square = np.sqrt(np.mean(np.square(data)))
+        interquartile_range = stats.iqr(data)
+        percentile_75 = np.percentile(data, 75)
+        skewness = stats.skew(data)
+        kurtosis = stats.kurtosis(data)
+        zero_crossing_rate = ((data[:-1] * data[1:]) < 0).sum()
+        energy = np.sum(data**2)
+        entropy = entropy(data, base=2)
+
+        output_array = [mean, std, variance, min, max, range, peak_to_peak_amplitude,
+                                mad, root_mean_square, interquartile_range, percentile_75,
+                                skewness, kurtosis, zero_crossing_rate, energy, entropy]
+
+        output_array = np.array(output_array)                        
+
+        combined_array = np.concatenate((all_features.reshape(1, -1), output_array.reshape(1, -1)), axis=1)
+
+        return combined_array
+    
+    def preprocess_dataset(self, df):
         processed_data = []
 
         # Loop through each column and compute features
         for column in df.columns:
             column_data = df[column]
 
-            # Compute features for the column
-            mean = compute_mean(column_data)
-            variance = compute_variance(column_data)
-            median_absolute_deviation = compute_median_absolute_deviation(column_data)
-            root_mean_square = compute_root_mean_square(column_data)
-            interquartile_range = compute_interquartile_range(column_data)
-            percentile_75 = compute_percentile_75(column_data)
-            kurtosis = compute_kurtosis(column_data)
-            min_max = compute_min_max(column_data)
-            signal_magnitude_area = compute_signal_magnitude_area(column_data)
-            zero_crossing_rate = compute_zero_crossing_rate(column_data)
-            spectral_centroid = compute_spectral_centroid(column_data)
-            spectral_entropy = compute_spectral_entropy(column_data)
-            spectral_energy = compute_spectral_energy(column_data)
-            principle_frequency = compute_principle_frequency(column_data)
+            temp_processed = self.preprocess_data(column_data)
 
-            # Store features in list
-            processed_column_data = [mean, variance, median_absolute_deviation, root_mean_square,
-                                     interquartile_range, percentile_75, kurtosis, min_max,
-                                     signal_magnitude_area, zero_crossing_rate, spectral_centroid,
-                                     spectral_entropy, spectral_energy, principle_frequency]
             # print(processed_column_data)
             # Append processed column data to main processed data array
-            processed_data.append(processed_column_data)
+            processed_data.append(temp_processed)
 
         processed_data_arr = np.concatenate(processed_data)
         
@@ -616,7 +656,7 @@ class Training(threading.Thread):
                     i = 0
 
                     # Preprocess data
-                    processed_data = self.preprocess_data(res)
+                    processed_data = self.preprocess_dataset(res)
 
                     # Prompt user for label
                     label = input("Enter label (G = GRENADE, R = RELOAD, S = SHIELD, L = LOGOUT): ")
