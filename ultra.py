@@ -467,7 +467,7 @@ class Training(threading.Thread):
                                 mad, root_mean_square, interquartile_range, percentile_75,
                                 skewness, kurtosis, zero_crossing_rate, energy, entropy]
 
-        # output_array = np.array(output_array)                        
+        output_array = np.array(output_array)                        
 
         # combined_array = np.concatenate((all_features.reshape(1, -1), output_array.reshape(1, -1)), axis=1)
 
