@@ -616,7 +616,7 @@ class Training(threading.Thread):
                     i = 0
 
                     # Preprocess data
-                    processed_data = self.preprocess_data(res_arr)
+                    processed_data = self.preprocess_data(res)
 
                     # Prompt user for label
                     label = input("Enter label (G = GRENADE, R = RELOAD, S = SHIELD, L = LOGOUT): ")
