@@ -12,18 +12,15 @@ from Crypto.Util.Padding import unpad
 from Crypto import Random
 from queue import Queue
 
-import csv
-import pandas as pd
 import time
-import numpy as np
-from scipy import stats, signal
 import csv
+import numpy as np
+import pandas as pd
 import pywt 
-from sklearn.preprocessing import StandardScaler
+from scipy import signal, stats
+from scipy.stats import entropy, kurtosis, skew
 from sklearn.feature_selection import SelectKBest
-from scipy.signal import butter
-import scipy.signal as sig
-from scipy.stats import kurtosis, skew, entropy
+from sklearn.preprocessing import StandardScaler
 import librosa
 
 # import matplotlib.pyplot as plt
@@ -395,9 +392,9 @@ class Training(threading.Thread):
         data_dwt = np.concatenate(data_dwt, axis=0)
 
         # Extract statistical features
-        data_kurtosis = np.apply_along_axis(kurtosis, axis=1, arr=data_normalized)
-        data_skewness = np.apply_along_axis(skew, axis=1, arr=data_normalized)
-        data_entropy = np.apply_along_axis(entropy, axis=1, arr=data_normalized)
+        data_kurtosis = np.apply_along_axis(stats.kurtosis, axis=1, arr=data_normalized)
+        data_skewness = np.apply_along_axis(stats.skew, axis=1, arr=data_normalized)
+        data_entropy = np.apply_along_axis(stats.entropy, axis=1, arr=data_normalized)
 
         # Reshape statistical features to match shape of data_dwt
         data_kurtosis = np.tile(data_kurtosis, (2, 1)).T
