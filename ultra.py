@@ -381,7 +381,7 @@ class Training(threading.Thread):
 
 
     def preprocess_data(self, data):
-        data = data + 1e-12
+        # data = data + 1e-12
 
         # # Preprocess the data
         # data_smoothed = sig.medfilt(data, kernel_size=3)
@@ -480,7 +480,7 @@ class Training(threading.Thread):
         for column in df.columns:
             column_data = df[column]
             # print column1 values
-            print(f"column_data: {column_data}")
+            # print(f"column_data: {column_data}")
 
             temp_processed = self.preprocess_data(column_data)
 
