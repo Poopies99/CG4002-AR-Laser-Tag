@@ -19,9 +19,10 @@ from scipy import stats, signal
 import csv
 # import matplotlib.pyplot as plt
 # import pynq
-# from pynq import Overlay
+from pynq import Overlay
 
 from ble_packet import BLEPacket
+from packet_type import PacketType
 
 from player import Player
 
@@ -82,6 +83,8 @@ class GameEngine(threading.Thread):
 
                 eval_queue.put(json_data)
                 subscribe_queue.put(json_data)
+
+                json_data = json.loads(json_data)
                 laptop_queue.put(json_data)
             except Exception as _:
                 traceback.print_exc()
@@ -132,41 +135,6 @@ class Subscriber(threading.Thread):
                 if input_message == 'q':
                     break
                 self.send_message(input_message)
-            except Exception as _:
-                traceback.print_exc()
-                self.close_connection()
-
-
-class LaptopClient(threading.Thread):
-    def __init__(self, port_num, host_name):
-        super().__init__()
-
-        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-        self.client_socket = client_socket
-        self.connection = client_socket.connect((host_name, port_num))
-
-        # Flags
-        self.shutdown = threading.Event()
-
-    def close_connection(self):
-        self.connection.shutdown(SHUT_RDWR)
-        self.connection.close()
-        self.shutdown.set()
-        self.client_socket.close()
-
-        print("Shutting Down Laptop Client Connection")
-
-    def run(self):
-        while not self.shutdown.is_set():
-            try:
-                input_message = input("Enter Message: ")
-                if input_message == 'q':
-                    break
-
-                self.client_socket.send(input_message.encode())
-
-                print("Sending Message to Laptop:", input_message)
             except Exception as _:
                 traceback.print_exc()
                 self.close_connection()
@@ -272,13 +240,11 @@ class Server(threading.Thread):
         self.data = b''
 
         self.server_socket = server_socket
-        self.connection = None
-        self.secret_key = None
-        self.secret_key_bytes = None
 
         # Flags
         self.shutdown = threading.Event()
 
+        self.packer = BLEPacket()
     def setup(self):
         print('Awaiting Connection from Laptop')
 
@@ -316,6 +282,19 @@ class Server(threading.Thread):
                 raw_queue.put(packet)
                 fpga_queue.put(packet)
 
+                game_state = laptop_queue.get()
+
+                node_id = 0
+                packet_type = PacketType.ACK
+                header = (node_id << 4) | packet_type
+                data = [header,
+                        game_state['p1']['bullets'],
+                        game_state['p1']['hp'],
+                        0, 0, 0, 0, 0, 0, 0]
+
+                self.connection.send(self.packer.pack(data))
+
+                print('Sent back to laptop')
                 if not message:
                     self.close_connection()
             except Exception as _:
@@ -552,15 +531,15 @@ class Training(threading.Thread):
 
         # live integration loop
         # while not self.shutdown.is_set():
-
+        #
         #     df = pd.DataFrame(columns=['flex1', 'flex2', 'yaw', 'pitch', 'roll', 'accX', 'accY', 'accZ'])
         #     # Define the window size and threshold factor
         #     window_size = 11
         #     threshold_factor = 2
-
+        #
         #     # Define N units for flagging movement, 20Hz -> 2s = 40 samples
         #     N = 40
-
+        #
         #     # Initialize empty arrays for data storage
         #     t = []
         #     x = []
@@ -572,97 +551,7 @@ class Training(threading.Thread):
         #     i = 0
         #     timenow = 0
 
-        #     print(f"entering while loop \n")
-
-        #     while True:
-        #         # Create plot window
-        #         # plt.ion()
-        #         # plt.show()
-
-        #         data = self.generate_simulated_data()
-        #         self.sleep(0.05)
-        #         print("Data: ")
-        #         print(" ".join([f"{x:.8g}" for x in data]))
-        #         print("\n")
-
-        #         # Append new data to dataframe
-        #         df.loc[len(df)] = data
-
-        #         # Compute absolute acceleration values
-        #         # x.append(np.abs(data[5:8])) # abs of accX, accY, accZ
-        #         x.append(wave[i]) # abs of accX, accY, accZ
-
-        #         # time
-        #         t.append(timenow)
-
-        #         # Compute moving window median
-        #         if len(x) < window_size:
-        #             filtered.append(0)
-        #         else:
-        #             filtered.append(np.median(x[-window_size:], axis=0))
-
-        #         # Compute threshold using past median data, threshold = mean + k * std
-        #         if len(filtered) < window_size:
-        #             threshold.append(0)
-        #         else:
-        #             past_filtered = filtered[-window_size:]
-        #             threshold.append(np.mean(past_filtered, axis=0) + (threshold_factor * np.std(past_filtered, axis=0)))
-
-        #         # Identify movement
-        #         if len(filtered) > window_size:
-        #             # checking if val is past threshold and if last movement was more than N samples ago
-        #             if np.all(filtered[-1] > threshold[-1]) and len(t) - last_movement_time >= N:
-        #                 movement_detected.append(len(df) - 1)
-        #                 last_movement_time = len(t)  # update last movement time
-        #                 print(f"Movement detected at sample {len(df) - 1}")
-
-        #         # if movement has been detected for more than N samples, preprocess and feed into neural network
-        #         if len(movement_detected) > 0 and len(df) - movement_detected[-1] >= N:
-        #             # extract movement data
-        #             start = movement_detected[-1]
-        #             end = len(df)
-        #             movement_data = df.iloc[start:end, :]
-
-        #             # print the start and end index of the movement
-        #             print(f"Processing movement detected from sample {start} to {end}")
-
-        #             # perform data preprocessing
-        #             preprocessed_data = self.preprocess_data(movement_data)
-
-        #             # print preprocessed data
-        #             print(f"preprocessed data to feed into MLP: \n {preprocessed_data} \n")
-                    
-        #             # feed preprocessed data into neural network
-        #             # output = self.MLP(preprocessed_data) # TODO
-        #             output = self.instantMLP(preprocessed_data)
-                    
-        #             print(f"output from MLP: \n {output} \n") # print output of MLP
-
-        #             np_output = np.array(output)
-        #             largest_index = np_output.argmax()
-
-        #             largest_action = self.action_map[largest_index]
-
-        #             # print largest index and largest action of MLP output
-        #             print(f"largest index: {largest_index} \n")
-        #             print(f"largest action: {largest_action} \n")
-
-        #             # reset movement_detected list
-        #             movement_detected.clear()
-
-        #         i += 1
-        #         timenow += 1
-
-        #         if i == 200:
-        #             i = 0
-
-                # plt.clf()
-                # plt.plot(t, x, label='original signal')
-                # plt.plot(t, filtered, label='filtered signal')
-                # plt.plot(t, threshold, label='threshold function')
-                # plt.legend()
-                # plt.draw()
-                # plt.pause(0.01)
+            # print(f"entering while loop \n")
 
         # data collection loop
         i = 0
@@ -771,19 +660,13 @@ if __name__ == '__main__':
     # eval_client = EvalClient(1234, "localhost")
     # eval_client.start()
 
-    # # Client Connection to Laptop
-    # print("Starting Client Thread to Laptop         ")
-    # laptop_client = LaptopClient(12345, 'localhost')
-
     # Server Connection to Laptop
     print("Starting Server Thread           ")
     laptop_server = Server(8080, "192.168.95.221")
     laptop_server.start()
 
     # AI Model
-    print("Starting AI Model Thread")
-    ai_model = Training()
-    ai_model.start()
+    # print("Starting AI Model Thread")
+    # ai_model = Training()
+    # ai_model.start()
     print('--------------------------------------------')
-
-    # laptop_client.start()
