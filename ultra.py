@@ -636,7 +636,7 @@ class Training(threading.Thread):
                     self.sleep(0.05)
                     i += 1
 
-                    global_flag = False
+                global_flag = False
 
                 # creating df for preview 
                 df = pd.DataFrame(all_data, columns=self.columns)

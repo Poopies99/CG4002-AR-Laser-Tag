@@ -13,4 +13,6 @@ client.on_message = on_message
 
 client.connect("broker.hivemq.com", 1883, 60)
 
+client.publish('CG4002', "Hello")
+
 client.loop_forever()
