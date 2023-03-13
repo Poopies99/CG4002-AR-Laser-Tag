@@ -287,23 +287,24 @@ class Server(threading.Thread):
 
                 # Add to raw queue
                 raw_queue.put(packet)
+
+                # Remove when Training is complete
                 fpga_queue.put(packet)
 
-                game_state = laptop_queue.get()
+                while not laptop_queue.empty():
+                    game_state = laptop_queue.get()
+                    node_id = 0
+                    packet_type = PacketType.ACK
+                    header = (node_id << 4) | packet_type
+                    data = [header, game_state['p1']['bullets'], game_state['p1']['hp'], 0, 0, 0, 0, 0, 0, 0]
+                    data = self.packer.pack(data)
 
-                node_id = 0
-                packet_type = PacketType.ACK
-                header = (node_id << 4) | packet_type
-                data = [header,
-                        game_state['p1']['bullets'],
-                        game_state['p1']['hp'],
-                        0, 0, 0, 0, 0, 0, 0]
+                    self.connection.send(data)
 
-                self.connection.send(self.packer.pack(data))
-
-                print('Sent back to laptop')
+                    print("Sending back to laptop", data)
                 if not message:
-                    self.close_connection()
+                    print('Empty Messsage Received')
+                    # self.close_connection()
             except Exception as _:
                 traceback.print_exc()
                 self.close_connection()
