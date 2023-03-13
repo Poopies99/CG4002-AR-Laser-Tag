@@ -139,7 +139,6 @@ class Subscriber(threading.Thread):
 
         while not self.shutdown.is_set():
             try:
-
                 input_message = subscribe_queue.get()
 
                 print('Publishing to HiveMQ: ', input_message)
@@ -645,7 +644,7 @@ class Training(threading.Thread):
 
                     # # getting data - actl
                     data = fpga_queue.get()
-                    self.packer.unpack(self.data)
+                    self.packer.unpack(data)
                     data = self.packer.get_flex_data() + self.packer.get_euler_data() + self.packer.get_acc_data()
                     print(f"data: {data} \n")
 
