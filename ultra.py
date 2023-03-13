@@ -458,8 +458,8 @@ class Training(threading.Thread):
         root_mean_square = np.sqrt(np.mean(np.square(data)))
         interquartile_range = stats.iqr(data)
         percentile_75 = np.percentile(data, 75)
-        skewness = stats.skew(data)
-        kurtosis = stats.kurtosis(data)
+        skewness = stats.skew(data.reshape(-1, 1))[0]
+        kurtosis = stats.kurtosis(data.reshape(-1, 1))[0]
         zero_crossing_rate = ((data[:-1] * data[1:]) < 0).sum()
         energy = np.sum(data**2)
         entropy = stats.entropy(data, base=2)
@@ -482,7 +482,7 @@ class Training(threading.Thread):
             column_data = df[column].values
             column_data = column_data.reshape(1, -1)
             # print column1 values
-            print(f"column_data: {column_data}")
+            print(f"column_data: {column_data}\n")
             print("Data type of column_data:", type(column_data))
             print("Size of column_data:", column_data.size)
 
