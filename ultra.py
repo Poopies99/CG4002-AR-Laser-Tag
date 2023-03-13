@@ -382,7 +382,7 @@ class Training(threading.Thread):
 
     def preprocess_data(self, data):
         # data = data + 1e-12
-        print(f"processing data: \n{data}\n")
+        # print(f"processing data: \n{data}\n")
 
         # # Preprocess the data
         # data_smoothed = sig.medfilt(data, kernel_size=3)
@@ -465,8 +465,8 @@ class Training(threading.Thread):
         entropy = stats.entropy(data, base=2)
 
         output_array = [mean, std, variance, min, max, range, peak_to_peak_amplitude,
-                                mad, root_mean_square, interquartile_range, percentile_75,
-                                skewness, kurtosis, zero_crossing_rate, energy, entropy]
+                        mad, root_mean_square, interquartile_range, percentile_75,
+                        skewness, kurtosis, zero_crossing_rate, energy, entropy]
 
         output_array = np.array(output_array)                        
 
@@ -479,9 +479,12 @@ class Training(threading.Thread):
 
         # Loop through each column and compute features
         for column in df.columns:
-            column_data = df[column].values.reshape(1, -1)
+            column_data = df[column].values
+            column_data = column_data.reshape(1, -1)
             # print column1 values
             print(f"column_data: {column_data}")
+            print("Data type of column_data:", type(column_data))
+            print("Size of column_data:", column_data.size)
 
             temp_processed = self.preprocess_data(column_data)
 
