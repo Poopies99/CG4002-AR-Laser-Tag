@@ -351,21 +351,6 @@ class Training(threading.Thread):
         # self.overlay = Overlay("design_3.bit")
         # self.dma = self.overlay.axi_dma_0
 
-    def setup(self):
-        print('Awaiting Connection from Laptop')
-
-        # Blocking Function
-        self.connection, client_address = self.server_socket.accept()
-
-        print('Successfully connected to', client_address[0])
-
-    def close_connection(self):
-        self.connection.shutdown(SHUT_RDWR)
-        self.connection.close()
-        self.shutdown.set()
-
-        print("Shutting Down Server")
-
     def sleep(self, seconds):
         start_time = time.time()
         while time.time() - start_time < seconds:
@@ -598,8 +583,6 @@ class Training(threading.Thread):
         print("Shutting Down Connection")
 
     def run(self):
-        self.setup()
-
         all_data = []
 
         # live integration loop
