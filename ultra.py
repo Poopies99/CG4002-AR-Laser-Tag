@@ -275,39 +275,39 @@ class Server(threading.Thread):
 
         while not self.shutdown.is_set():
             try:
+                # Receive up to 64 Bytes of data
+                message = self.connection.recv(64)
+                # Append existing data into new data
+                self.data = self.data + message
+
+                if len(self.data) < 20:
+                    continue
+                packet = self.data[:20]
+                self.data = self.data[20:]
+
+                print("Message Received from Laptop:", packet)
+
+                # Add to raw queue
+                # raw_queue.put(packet)
+
+                # Remove when Training is complete
                 if global_flag:
-                    # Receive up to 64 Bytes of data
-                    message = self.connection.recv(64)
-                    # Append existing data into new data
-                    self.data = self.data + message
-
-                    if len(self.data) < 20:
-                        continue
-                    packet = self.data[:20]
-                    self.data = self.data[20:]
-
-                    print("Message Received from Laptop:", packet)
-
-                    # Add to raw queue
-                    raw_queue.put(packet)
-
-                    # Remove when Training is complete
                     fpga_queue.put(packet)
 
-                    while not laptop_queue.empty():
-                        game_state = laptop_queue.get()
-                        node_id = 0
-                        packet_type = PacketType.ACK
-                        header = (node_id << 4) | packet_type
-                        data = [header, game_state['p1']['bullets'], game_state['p1']['hp'], 0, 0, 0, 0, 0, 0, 0]
-                        data = self.packer.pack(data)
+                while not laptop_queue.empty():
+                    game_state = laptop_queue.get()
+                    node_id = 0
+                    packet_type = PacketType.ACK
+                    header = (node_id << 4) | packet_type
+                    data = [header, game_state['p1']['bullets'], game_state['p1']['hp'], 0, 0, 0, 0, 0, 0, 0]
+                    data = self.packer.pack(data)
 
-                        self.connection.send(data)
+                    self.connection.send(data)
 
-                        print("Sending back to laptop", data)
-                    if not message:
-                        print('Empty Messsage Received')
-                        # self.close_connection()
+                    print("Sending back to laptop", data)
+                if not message:
+                    print('Empty Messsage Received')
+                    # self.close_connection()
             except Exception as _:
                 traceback.print_exc()
                 self.close_connection()
@@ -611,6 +611,7 @@ class Training(threading.Thread):
             try:
                 input("start?")
 
+                global global_flag
                 global_flag = True
                 # start_time = time.time()
 
