@@ -330,7 +330,7 @@ class Training(threading.Thread):
 
         self.factors = ['mean', 'std', 'variance', 'min', 'max', 'range', 'peak_to_peak_amplitude',
                     'mad', 'root_mean_square', 'interquartile_range', 'percentile_75',
-                    'skewness', 'kurtosis', 'zero_crossing_rate', 'energy', 'entropy']
+                    'skewness', 'kurtosis', 'zero_crossing_rate', 'energy']
 
         self.headers = [f'{raw_header}_{factor}' for raw_header in self.columns for factor in self.factors]
         self.headers.extend(['action', 'timestamp'])
@@ -462,11 +462,11 @@ class Training(threading.Thread):
         kurtosis = stats.kurtosis(data.reshape(-1, 1))[0]
         zero_crossing_rate = ((data[:-1] * data[1:]) < 0).sum()
         energy = np.sum(data**2)
-        entropy = stats.entropy(data, base=2)
+        # entropy = stats.entropy(data, base=2)
 
         output_array = [mean, std, variance, min, max, range, peak_to_peak_amplitude,
                         mad, root_mean_square, interquartile_range, percentile_75,
-                        skewness, kurtosis, zero_crossing_rate, energy, entropy]
+                        skewness, kurtosis, zero_crossing_rate, energy]
 
         output_array = np.array(output_array)                        
 
