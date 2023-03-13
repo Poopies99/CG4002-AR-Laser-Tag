@@ -10,7 +10,7 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad
 from Crypto.Util.Padding import unpad
 from Crypto import Random
-from queue import Queue
+import queue
 
 import time
 import csv
@@ -46,12 +46,11 @@ Message Queues:
 3. subscribe_queue from Game Engine to SW Visualizer
 """
 
-raw_queue = Queue()
-eval_queue = Queue()
-subscribe_queue = Queue()
-fpga_queue = Queue()
-laptop_queue = Queue()
-
+raw_queue = queue.Queue()
+eval_queue = queue.Queue()
+subscribe_queue = queue.Queue()
+fpga_queue = queue.Queue()
+laptop_queue = queue.Queue()
 
 class GameEngine(threading.Thread):
     """
@@ -608,18 +607,19 @@ class Training(threading.Thread):
             try:
                 input("start?")
 
+                fpga_queue.clear()
                 # start_time = time.time()
 
                 while i<41:
                     # getting data - simulation
-                    data = self.generate_simulated_data()
-                    print(f"data: {data} \n")
+                    # data = self.generate_simulated_data()
+                    # print(f"data: {data} \n")
 
                     # # getting data - actl
-                    # data = fpga_queue.get()
-                    # unpacker.unpack(data)
-                    # data = unpacker.get_flex_data() + unpacker.get_euler_data() + unpacker.get_acc_data()
-                    # print(f"data: {data} \n")
+                    data = fpga_queue.get()
+                    unpacker.unpack(data)
+                    data = unpacker.get_flex_data() + unpacker.get_euler_data() + unpacker.get_acc_data()
+                    print(f"data: {data} \n")
 
                     if len(data) == 0:
                         print("Invalid data:", data)
@@ -693,13 +693,13 @@ class Training(threading.Thread):
 
 
 if __name__ == '__main__':
+    print('---------------<Announcement>---------------')
     # Game Engine
-    # print('---------------<Announcement>---------------')
     # print("Starting Game Engine Thread        ")
     # GE = GameEngine()
     # GE.start()
 
-    # Software Visualizer Connection via Public Data Broker
+    # Software Visualizer
     # print("Starting Subscriber Thread        ")
     # hive = Subscriber("CG4002")
     # hive.start()
