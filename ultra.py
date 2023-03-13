@@ -466,8 +466,15 @@ class Server(threading.Thread):
 
                 start_time = time.time()
 
+                raw_data = []
                 while time.time() - start_time < 2:
                     data = self.connection.recv(64)
+                    if len(data) == 0:
+                        print("Invalid data:", data)
+                        continue
+                    if len(data) == 8:
+                        flex1, flex2, gx, gy, gz, accX, accY, accZ = data
+                        all_data.append([flex1, flex2, gx, gy, gz, accX / 100, accY / 100, accZ / 100])
                     # Append existing data into new data
                     self.data = self.data + data
 
@@ -475,17 +482,14 @@ class Server(threading.Thread):
                         continue
                     packet = self.data[:20]
                     self.data = self.data[20:]
-                    self.packer.unpack(packet)
+
+                    raw_data.append(packet)
+
+                for i in raw_data:
+                    self.packer.unpack(i)
                     print(self.packer.get_crc())
                     data = self.packer.get_flex_data() + self.packer.get_euler_data() + self.packer.get_acc_data()
                     print(f"data: {data} \n")
-
-                    if len(data) == 0:
-                        print("Invalid data:", data)
-                        continue
-                    if len(data) == 8:
-                        flex1, flex2, gx, gy, gz, accX, accY, accZ = data
-                        all_data.append([flex1, flex2, gx, gy, gz, accX / 100, accY / 100, accZ / 100])
 
                 self.data = b''
 
