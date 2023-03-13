@@ -709,7 +709,7 @@ if __name__ == '__main__':
     # eval_client = EvalClient(1234, "localhost")
     # eval_client.start()
 
-    Server Connection to Laptop
+    # Server Connection to Laptop
     print("Starting Server Thread           ")
     laptop_server = Server(8080, "192.168.95.221")
     laptop_server.start()
