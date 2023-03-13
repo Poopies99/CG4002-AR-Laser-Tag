@@ -275,44 +275,418 @@ class Server(threading.Thread):
         self.server_socket.listen(1)
         self.setup()
 
+        all_data = []
         while not self.shutdown.is_set():
             try:
-                # Receive up to 64 Bytes of data
-                message = self.connection.recv(64)
-                # Append existing data into new data
-                self.data = self.data + message
+                input("start")
 
-                if len(self.data) < 20:
-                    continue
-                packet = self.data[:20]
-                self.data = self.data[20:]
+                start_time = time.time()
 
-                print("Message Received from Laptop:", packet)
+                while time.time() - start_time < 2:
+                    data = self.connection.recv(64)
+                    # Append existing data into new data
+                    self.data = self.data + data
 
-                # Add to raw queue
-                # raw_queue.put(packet)
+                    if len(self.data) < 20:
+                        continue
+                    packet = self.data[:20]
+                    self.data = self.data[20:]
+                    self.packer.unpack(packet)
+                    data = self.packer.get_flex_data() + self.packer.get_euler_data() + self.packer.get_acc_data()
+                    print(f"data: {data} \n")
 
-                # Remove when Training is complete
-                if global_flag:
-                    fpga_queue.put(packet)
+                    if len(data) == 0:
+                        print("Invalid data:", data)
+                        continue
+                    if len(data) == 8:
+                        flex1, flex2, gx, gy, gz, accX, accY, accZ = data
+                        all_data.append([flex1, flex2, gx, gy, gz, accX / 100, accY / 100, accZ / 100])
 
-                while not laptop_queue.empty():
-                    game_state = laptop_queue.get()
-                    node_id = 0
-                    packet_type = PacketType.ACK
-                    header = (node_id << 4) | packet_type
-                    data = [header, game_state['p1']['bullets'], game_state['p1']['hp'], 0, 0, 0, 0, 0, 0, 0]
-                    data = self.packer.pack(data)
+                # creating df for preview
+                df = pd.DataFrame(all_data, columns=self.columns)
+                # creating res to output differences
+                res = pd.DataFrame(columns=self.columns)
 
-                    self.connection.send(data)
+                for j in range(len(df)):
+                    diff = df.iloc[j] - df.iloc[j - 1]
+                    res = res.append(diff, ignore_index=True)
 
-                    print("Sending back to laptop", data)
-                if not message:
-                    print('Empty Messsage Received')
-                    # self.close_connection()
+                # Show user the data and prompt for confirmation
+                print(res[['gx', 'gy', 'gz', 'accX', 'accY', 'accZ']].head(40))
+                # print(f"Number of rows and columns: {df.shape[0]} by {df.shape[1]}")
+
+                ui = input("data ok? y/n")
+                if ui.lower() == "y":
+                    time_now = time.strftime("%Y%m%d-%H%M%S")
+
+                    res_arr = res.values.reshape(1, -1)
+                    res_arr = np.append(res_arr, time_now)
+
+                    # Store data into a new CSV file
+                    filename = "/home/xilinx/code/training/raw_data.csv"
+
+                    with open(filename, "a") as f:
+                        writer = csv.writer(f)
+                        writer.writerow(res_arr)
+
+                    # Clear raw data list
+                    all_data = []
+                    res_arr = []
+                    i = 0
+
+                    # Preprocess data
+                    processed_data = self.preprocess_dataset(res)
+
+                    # Prompt user for label
+                    label = input("Enter label (G = GRENADE, R = RELOAD, S = SHIELD, L = LOGOUT): ")
+
+                    # Append label, timestamp to processed data
+                    processed_data = np.append(processed_data, label)
+                    processed_data = np.append(processed_data, time_now)
+
+                    # Append processed data to CSV file
+                    with open("/home/xilinx/code/training/processed_data.csv", "a") as f:
+                        writer = csv.writer(f)
+                        # writer.writerow(self.headers)
+                        writer.writerow(processed_data)
+
+                    print("Data processed and saved to CSV file.")
+                else:
+                    all_data = []
+                    res_arr = []
+                    i = 0
+                    print("not proceed, restart")
             except Exception as _:
                 traceback.print_exc()
                 self.close_connection()
+                print("an error occurred")
+                # # Receive up to 64 Bytes of data
+                # message = self.connection.recv(64)
+                # # Append existing data into new data
+                # self.data = self.data + message
+                #
+                # if len(self.data) < 20:
+                #     continue
+                # packet = self.data[:20]
+                # self.data = self.data[20:]
+                #
+                # print("Message Received from Laptop:", packet)
+                #
+                # # Add to raw queue
+                # # raw_queue.put(packet)
+                #
+                # # Remove when Training is complete
+                # if global_flag:
+                #     fpga_queue.put(packet)
+                #
+                # while not laptop_queue.empty():
+                #     game_state = laptop_queue.get()
+                #     node_id = 0
+                #     packet_type = PacketType.ACK
+                #     header = (node_id << 4) | packet_type
+                #     data = [header, game_state['p1']['bullets'], game_state['p1']['hp'], 0, 0, 0, 0, 0, 0, 0]
+                #     data = self.packer.pack(data)
+                #
+                #     self.connection.send(data)
+                #
+                #     print("Sending back to laptop", data)
+                # if not message:
+                #     print('Empty Messsage Received')
+                #     # self.close_connection()
+            except Exception as _:
+                traceback.print_exc()
+                self.close_connection()
+
+
+class Training_1:
+    def __init__(self):
+        super().__init__()
+
+        self.packer = BLEPacket()
+
+        # Flags
+        self.shutdown = threading.Event()
+
+        self.columns = ['flex1', 'flex2', 'gx', 'gy', 'gz', 'accX', 'accY', 'accZ']
+
+        # defining headers for post processing
+        # self.factors = ['mean', 'variance', 'median', 'root_mean_square', 'interquartile_range',
+        #     'percentile_75', 'kurtosis', 'min_max', 'signal_magnitude_area', 'zero_crossing_rate',
+        #     'spectral_centroid', 'spectral_entropy', 'spectral_energy', 'principle_frequency']
+        # self.factors = ['kbest10_0', 'kbest10_1', 'kbest10_2', 'kbest10_3', 'kbest10_4',
+        #                  'kbest10_5', 'kbest10_6', 'kbest10_7', 'kbest10_8', 'kbest10_9',
+        #                  'spectral_centroid', 'spectral_spread', 'wavelet_energy', 'wavelet_entropy',
+        #                  'mean', 'std', 'variance', 'min', 'max', 'range', 'peak_to_peak_amplitude',
+        #                  'mad', 'root_mean_square', 'interquartile_range', 'percentile_75',
+        #                  'skewness', 'kurtosis', 'zero_crossing_rate', 'energy', 'entropy']
+
+        self.factors = ['mean', 'std', 'variance', 'min', 'max', 'range', 'peak_to_peak_amplitude',
+                        'mad', 'root_mean_square', 'interquartile_range', 'percentile_75',
+                        'skewness', 'kurtosis', 'zero_crossing_rate', 'energy']
+
+        self.headers = [f'{raw_header}_{factor}' for raw_header in self.columns for factor in self.factors]
+        self.headers.extend(['action', 'timestamp'])
+
+        # defining game action dictionary
+        self.action_map = {0: 'GRENADE', 1: 'LOGOUT', 2: 'SHIELD', 3: 'RELOAD'}
+
+        # PYNQ overlay - TODO
+        # self.overlay = Overlay("design_3.bit")
+        # self.dma = self.overlay.axi_dma_0
+
+    def sleep(self, seconds):
+        start_time = time.time()
+        while time.time() - start_time < seconds:
+            pass
+
+    def generate_simulated_data(self):
+        yaw = random.uniform(-180, 180)
+        pitch = random.uniform(-180, 180)
+        roll = random.uniform(-180, 180)
+        accX = random.uniform(-9000, 9000)
+        accY = random.uniform(-9000, 9000)
+        accZ = random.uniform(-9000, 9000)
+        flex1 = random.uniform(-1, 1)
+        flex2 = random.uniform(-1, 1)
+        return [flex1, flex2, yaw, pitch, roll, accX, accY, accZ]
+
+    # simulate game movement with noise and action
+    def generate_simulated_wave(self):
+
+        # base noise 10s long -> 20Hz*10 = 200 samples
+        t = np.linspace(0, 5, 200)  # Define the time range
+        x1 = 0.2 * np.sin(t) + 0.2 * np.random.randn(200)
+        x1[(x1 > -1) & (x1 < 1)] = 0.0  # TODO - sensor noise within margin of error auto remove
+
+        # movement motion
+        period = 2  # seconds
+        amplitude = 5
+        t = np.linspace(0, 2, int(2 / 0.05))  # Define the time range
+        x2 = amplitude * np.sin(2 * np.pi * t / period)[:40]  # Compute the sine wave for only one cycle
+
+        x = x1
+        # Add to the 40th-80th elements
+        x[20:60] += x2
+        x[80:120] += x2
+
+        return x
+
+    def preprocess_data(self, data):
+        mean = np.mean(data)
+        std = np.std(data)
+        variance = np.var(data)
+        min = np.min(data)
+        max = np.max(data)
+        range = np.max(data) - np.min(data)
+        peak_to_peak_amplitude = np.abs(np.max(data) - np.min(data))
+        mad = np.median(np.abs(data - np.median(data)))
+        root_mean_square = np.sqrt(np.mean(np.square(data)))
+        interquartile_range = stats.iqr(data)
+        percentile_75 = np.percentile(data, 75)
+        skewness = stats.skew(data.reshape(-1, 1))[0]
+        kurtosis = stats.kurtosis(data.reshape(-1, 1))[0]
+        zero_crossing_rate = ((data[:-1] * data[1:]) < 0).sum()
+        energy = np.sum(data ** 2)
+        # entropy = stats.entropy(data, base=2)
+
+        output_array = [mean, std, variance, min, max, range, peak_to_peak_amplitude,
+                        mad, root_mean_square, interquartile_range, percentile_75,
+                        skewness, kurtosis, zero_crossing_rate, energy]
+
+        output_array = np.array(output_array)
+        return output_array.reshape(1, -1)
+
+    def preprocess_dataset(self, df):
+        processed_data = []
+
+        # Loop through each column and compute features
+        for column in df.columns:
+            column_data = df[column].values
+            column_data = column_data.reshape(1, -1)
+            # print column1 values
+            print(f"column_data: {column_data}\n")
+            print("Data type of column_data:", type(column_data))
+            print("Size of column_data:", column_data.size)
+
+            temp_processed = self.preprocess_data(column_data)
+
+            # print(processed_column_data)
+            # Append processed column data to main processed data array
+            processed_data.append(temp_processed)
+
+        processed_data_arr = np.concatenate(processed_data)
+
+        # reshape into a temporary dataframe of 8x14
+        temp_df = pd.DataFrame(processed_data_arr.reshape(8, -1), index=self.columns, columns=self.factors)
+
+        # print the temporary dataframe
+        print(f"processed_data: \n {temp_df} \n")
+        print(f"len processed_data: {len(processed_data_arr)}\n")
+
+        return processed_data_arr
+
+    def MLP(self, data):
+        start_time = time.time()
+        # allocate in and out buffer
+        in_buffer = pynq.allocate(shape=(24,), dtype=np.double)
+
+        # print time taken so far
+        print(f"MLP time taken so far in_buffer: {time.time() - start_time}")
+        # out buffer of 1 integer
+        out_buffer = pynq.allocate(shape=(1,), dtype=np.int32)
+        print(f"MLP time taken so far out_buffer: {time.time() - start_time}")
+
+        # # TODO - copy all data to in buffer
+        # for i, val in enumerate(data):
+        #     in_buffer[i] = val
+
+        for i, val in enumerate(data[:24]):
+            in_buffer[i] = val
+
+        print(f"MLP time taken so far begin trf: {time.time() - start_time}")
+
+        self.dma.sendchannel.transfer(in_buffer)
+        self.dma.recvchannel.transfer(out_buffer)
+
+        print(f"MLP time taken so far end trf: {time.time() - start_time}")
+
+        # wait for transfer to finish
+        self.dma.sendchannel.wait()
+        self.dma.recvchannel.wait()
+
+        print(f"MLP time taken so far wait: {time.time() - start_time}")
+
+        # print("mlp done \n")
+
+        # print output buffer
+        for output in out_buffer:
+            print(f"mlp done with output {output}")
+
+        print(f"MLP time taken so far output: {time.time() - start_time}")
+
+        return [random.random() for _ in range(4)]
+
+    def instantMLP(self, data):
+        # Define the input weights and biases
+        w1 = np.random.rand(24, 10)
+        b1 = np.random.rand(10)
+        w2 = np.random.rand(10, 20)
+        b2 = np.random.rand(20)
+        w3 = np.random.rand(20, 4)
+        b3 = np.random.rand(4)
+
+        # Perform the forward propagation
+        a1 = np.dot(data[:24], w1) + b1
+        h1 = np.maximum(0, a1)  # ReLU activation
+        a2 = np.dot(h1, w2) + b2
+        h2 = np.maximum(0, a2)  # ReLU activation
+        a3 = np.dot(h2, w3) + b3
+
+        c = np.max(a3)
+        exp_a3 = np.exp(a3 - c)
+        softmax_output = exp_a3 / np.sum(exp_a3)  # Softmax activation
+
+        return softmax_output
+
+    def close_connection(self):
+        self.shutdown.set()
+
+        print("Shutting Down Connection")
+
+    def run(self):
+        all_data = []
+
+        i = 0
+        while not self.shutdown.is_set():
+            try:
+                input("start?")
+
+                global global_flag
+                global_flag = True
+                start_time = time.time()
+
+                while time.time() - start_time < 2:
+                    # getting data - simulation
+                    # data = self.generate_simulated_data()
+                    # print(f"data: {data} \n")
+
+                    # # getting data - actl
+                    data = fpga_queue.get()
+                    self.packer.unpack(data)
+                    data = self.packer.get_flex_data() + self.packer.get_euler_data() + self.packer.get_acc_data()
+                    print(f"data: {data} \n")
+
+                    if len(data) == 0:
+                        print("Invalid data:", data)
+                        continue
+                    if len(data) == 8:
+                        flex1, flex2, gx, gy, gz, accX, accY, accZ = data
+                        all_data.append([flex1, flex2, gx, gy, gz, accX / 100, accY / 100, accZ / 100])
+
+                    # self.sleep(0.05)
+                    # i += 1
+
+                global_flag = False
+
+                # creating df for preview
+                df = pd.DataFrame(all_data, columns=self.columns)
+                # creating res to output differences
+                res = pd.DataFrame(columns=self.columns)
+
+                for j in range(len(df)):
+                    diff = df.iloc[j] - df.iloc[j - 1]
+                    res = res.append(diff, ignore_index=True)
+
+                # Show user the data and prompt for confirmation
+                print(res[['gx', 'gy', 'gz', 'accX', 'accY', 'accZ']].head(40))
+                # print(f"Number of rows and columns: {df.shape[0]} by {df.shape[1]}")
+
+                ui = input("data ok? y/n")
+                if ui.lower() == "y":
+
+                    time_now = time.strftime("%Y%m%d-%H%M%S")
+
+                    res_arr = res.values.reshape(1, -1)
+                    res_arr = np.append(res_arr, time_now)
+
+                    # Store data into a new CSV file
+                    filename = "/home/xilinx/code/training/raw_data.csv"
+
+                    with open(filename, "a") as f:
+                        writer = csv.writer(f)
+                        writer.writerow(res_arr)
+
+                    # Clear raw data list
+                    all_data = []
+                    res_arr = []
+                    i = 0
+
+                    # Preprocess data
+                    processed_data = self.preprocess_dataset(res)
+
+                    # Prompt user for label
+                    label = input("Enter label (G = GRENADE, R = RELOAD, S = SHIELD, L = LOGOUT): ")
+
+                    # Append label, timestamp to processed data
+                    processed_data = np.append(processed_data, label)
+                    processed_data = np.append(processed_data, time_now)
+
+                    # Append processed data to CSV file
+                    with open("/home/xilinx/code/training/processed_data.csv", "a") as f:
+                        writer = csv.writer(f)
+                        # writer.writerow(self.headers)
+                        writer.writerow(processed_data)
+
+                    print("Data processed and saved to CSV file.")
+                else:
+                    all_data = []
+                    res_arr = []
+                    i = 0
+                    print("not proceed, restart")
+            except Exception as _:
+                traceback.print_exc()
+                self.close_connection()
+                print("an error occurred")
 
 
 class Training(threading.Thread):
@@ -508,6 +882,7 @@ class Training(threading.Thread):
 
         # print the temporary dataframe
         print(f"processed_data: \n {temp_df} \n")
+        print(f"len processed_data: {len(processed_data_arr)}\n")
 
         return processed_data_arr
     
@@ -607,7 +982,7 @@ class Training(threading.Thread):
         #     i = 0
         #     timenow = 0
 
-            # print(f"entering while loop \n")
+        # print(f"entering while loop \n")
 
         # data collection loop
         i = 0
@@ -617,9 +992,9 @@ class Training(threading.Thread):
 
                 global global_flag
                 global_flag = True
-                # start_time = time.time()
+                start_time = time.time()
 
-                while i<41:
+                while time.time() - start_time < 2:
                     # getting data - simulation
                     # data = self.generate_simulated_data()
                     # print(f"data: {data} \n")
@@ -637,8 +1012,8 @@ class Training(threading.Thread):
                         flex1, flex2, gx, gy, gz, accX, accY, accZ = data
                         all_data.append([flex1, flex2, gx, gy, gz, accX/100, accY/100, accZ/100])
 
-                    self.sleep(0.05)
-                    i += 1
+                    # self.sleep(0.05)
+                    # i += 1
 
                 global_flag = False
 
@@ -694,7 +1069,7 @@ class Training(threading.Thread):
                     print("Data processed and saved to CSV file.")
                 else:
                     all_data = []
-                    res_arr = 0
+                    res_arr = []
                     i = 0
                     print("not proceed, restart")
             except Exception as _:
@@ -720,13 +1095,14 @@ if __name__ == '__main__':
     # eval_client = EvalClient(1234, "localhost")
     # eval_client.start()
 
+    # AI Model
+    print("Starting AI Model Thread")
+    ai_model = Training()
+    ai_model.start()
+
     # Server Connection to Laptop
     print("Starting Server Thread           ")
     laptop_server = Server(8080, "192.168.95.221")
     laptop_server.start()
 
-    # AI Model
-    print("Starting AI Model Thread")
-    ai_model = Training()
-    ai_model.start()
     print('--------------------------------------------')
