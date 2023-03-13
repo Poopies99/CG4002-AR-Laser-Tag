@@ -462,123 +462,126 @@ class Server(threading.Thread):
         i = 0
         while not self.shutdown.is_set():
             try:
-            #     input("start")
-            #
-            #     start_time = time.time()
-            #
-            #     while time.time() - start_time < 2:
-            #         data = self.connection.recv(64)
-            #         # Append existing data into new data
-            #         self.data = self.data + data
-            #
-            #         if len(self.data) < 20:
-            #             continue
-            #         packet = self.data[:20]
-            #         self.data = self.data[20:]
-            #         self.packer.unpack(packet)
-            #         data = self.packer.get_flex_data() + self.packer.get_euler_data() + self.packer.get_acc_data()
-            #         print(f"data: {data} \n")
-            #
-            #         if len(data) == 0:
-            #             print("Invalid data:", data)
-            #             continue
-            #         if len(data) == 8:
-            #             flex1, flex2, gx, gy, gz, accX, accY, accZ = data
-            #             all_data.append([flex1, flex2, gx, gy, gz, accX / 100, accY / 100, accZ / 100])
-            #
-            #     self.data = b''
-            #
-            #     # creating df for preview
-            #     df = pd.DataFrame(all_data, columns=self.columns)
-            #     # creating res to output differences
-            #     res = pd.DataFrame(columns=self.columns)
-            #
-            #     for j in range(len(df)):
-            #         diff = df.iloc[j] - df.iloc[j - 1]
-            #         res = res.append(diff, ignore_index=True)
-            #
-            #     # Show user the data and prompt for confirmation
-            #     print(res[['gx', 'gy', 'gz', 'accX', 'accY', 'accZ']].head(40))
-            #     # print(f"Number of rows and columns: {df.shape[0]} by {df.shape[1]}")
-            #
-            #     ui = input("data ok? y/n")
-            #     if ui.lower() == "y":
-            #         time_now = time.strftime("%Y%m%d-%H%M%S")
-            #
-            #         res_arr = res.values.reshape(1, -1)
-            #         res_arr = np.append(res_arr, time_now)
-            #
-            #         # Store data into a new CSV file
-            #         filename = "/home/xilinx/code/training/raw_data.csv"
-            #
-            #         with open(filename, "a") as f:
-            #             writer = csv.writer(f)
-            #             writer.writerow(res_arr)
-            #
-            #         # Clear raw data list
-            #         all_data = []
-            #         res_arr = []
-            #         i = 0
-            #
-            #         # Preprocess data
-            #         processed_data = self.preprocess_dataset(res)
-            #
-            #         # Prompt user for label
-            #         label = input("Enter label (G = GRENADE, R = RELOAD, S = SHIELD, L = LOGOUT): ")
-            #
-            #         # Append label, timestamp to processed data
-            #         processed_data = np.append(processed_data, label)
-            #         processed_data = np.append(processed_data, time_now)
-            #
-            #         # Append processed data to CSV file
-            #         with open("/home/xilinx/code/training/processed_data.csv", "a") as f:
-            #             writer = csv.writer(f)
-            #             # writer.writerow(self.headers)
-            #             writer.writerow(processed_data)
-            #
-            #         print("Data processed and saved to CSV file.")
-            #     else:
-            #         all_data = []
-            #         res_arr = []
-            #         i = 0
-            #         print("not proceed, restart")
-            # except Exception as _:
-            #     traceback.print_exc()
-            #     self.close_connection()
-            #     print("an error occurred")
-                # Receive up to 64 Bytes of data
-                message = self.connection.recv(64)
-                # Append existing data into new data
-                self.data = self.data + message
+                input("start")
 
-                if len(self.data) < 20:
-                    continue
-                packet = self.data[:20]
-                self.data = self.data[20:]
+                start_time = time.time()
 
-                print("Message Received from Laptop:", packet)
+                while time.time() - start_time < 2:
+                    data = self.connection.recv(64)
+                    # Append existing data into new data
+                    self.data = self.data + data
 
-                # Add to raw queue
-                # raw_queue.put(packet)
+                    if len(self.data) < 20:
+                        continue
+                    packet = self.data[:20]
+                    self.data = self.data[20:]
+                    self.packer.unpack(packet)
+                    print(self.packer.get_crc())
+                    data = self.packer.get_flex_data() + self.packer.get_euler_data() + self.packer.get_acc_data()
+                    print(f"data: {data} \n")
 
-                # Remove when Training is complete
-                if global_flag:
-                    fpga_queue.put(packet)
+                    if len(data) == 0:
+                        print("Invalid data:", data)
+                        continue
+                    if len(data) == 8:
+                        flex1, flex2, gx, gy, gz, accX, accY, accZ = data
+                        all_data.append([flex1, flex2, gx, gy, gz, accX / 100, accY / 100, accZ / 100])
 
-                while not laptop_queue.empty():
-                    game_state = laptop_queue.get()
-                    node_id = 0
-                    packet_type = PacketType.ACK
-                    header = (node_id << 4) | packet_type
-                    data = [header, game_state['p1']['bullets'], game_state['p1']['hp'], 0, 0, 0, 0, 0, 0, 0]
-                    data = self.packer.pack(data)
+                self.data = b''
 
-                    self.connection.send(data)
+                # creating df for preview
+                df = pd.DataFrame(all_data, columns=self.columns)
+                # creating res to output differences
+                res = pd.DataFrame(columns=self.columns)
 
-                    print("Sending back to laptop", data)
-                if not message:
-                    print('Empty Messsage Received')
-                    # self.close_connection()
+                for j in range(len(df)):
+                    diff = df.iloc[j] - df.iloc[j - 1]
+                    res = res.append(diff, ignore_index=True)
+
+                # Show user the data and prompt for confirmation
+                print(res[['gx', 'gy', 'gz', 'accX', 'accY', 'accZ']].head(40))
+                # print(f"Number of rows and columns: {df.shape[0]} by {df.shape[1]}")
+
+                ui = input("data ok? y/n")
+                if ui.lower() == "y":
+                    time_now = time.strftime("%Y%m%d-%H%M%S")
+
+                    res_arr = res.values.reshape(1, -1)
+                    res_arr = np.append(res_arr, time_now)
+
+                    # Store data into a new CSV file
+                    filename = "/home/xilinx/code/training/raw_data.csv"
+
+                    with open(filename, "a") as f:
+                        writer = csv.writer(f)
+                        writer.writerow(res_arr)
+
+                    # Clear raw data list
+                    all_data = []
+                    res_arr = []
+                    i = 0
+
+                    # Preprocess data
+                    processed_data = self.preprocess_dataset(res)
+
+                    # Prompt user for label
+                    label = input("Enter label (G = GRENADE, R = RELOAD, S = SHIELD, L = LOGOUT): ")
+
+                    # Append label, timestamp to processed data
+                    processed_data = np.append(processed_data, label)
+                    processed_data = np.append(processed_data, time_now)
+
+                    # Append processed data to CSV file
+                    with open("/home/xilinx/code/training/processed_data.csv", "a") as f:
+                        writer = csv.writer(f)
+                        # writer.writerow(self.headers)
+                        writer.writerow(processed_data)
+
+                    print("Data processed and saved to CSV file.")
+                else:
+                    all_data = []
+                    res_arr = []
+                    i = 0
+                    print("not proceed, restart")
+            except Exception as _:
+                traceback.print_exc()
+                self.close_connection()
+                print("an error occurred")
+            #     # Receive up to 64 Bytes of data
+            #     message = self.connection.recv(64)
+            #     # Append existing data into new data
+            #     self.data = self.data + message
+            #
+            #     if len(self.data) < 20:
+            #         continue
+            #     packet = self.data[:20]
+            #     self.data = self.data[20:]
+            #
+            #     print("Message Received from Laptop:", packet)
+            #     self.packer.unpack(packet)
+            #     print(self.packer.get_crc())
+            #
+            #     # Add to raw queue
+            #     # raw_queue.put(packet)
+            #
+            #     # Remove when Training is complete
+            #     if global_flag:
+            #         fpga_queue.put(packet)
+            #
+            #     while not laptop_queue.empty():
+            #         game_state = laptop_queue.get()
+            #         node_id = 0
+            #         packet_type = PacketType.ACK
+            #         header = (node_id << 4) | packet_type
+            #         data = [header, game_state['p1']['bullets'], game_state['p1']['hp'], 0, 0, 0, 0, 0, 0, 0]
+            #         data = self.packer.pack(data)
+            #
+            #         self.connection.send(data)
+            #
+            #         print("Sending back to laptop", data)
+            #     if not message:
+            #         print('Empty Messsage Received')
+            #         # self.close_connection()
             except Exception as _:
                 traceback.print_exc()
                 self.close_connection()
