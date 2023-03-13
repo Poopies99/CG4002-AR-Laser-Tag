@@ -314,11 +314,27 @@ class Server(threading.Thread):
 
 
 class Training(threading.Thread):
-    def __init__(self):
+    def __init__(self, host_name, port_num):
         super().__init__()
+
+        # Temp
+        # Create a TCP/IP socket
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # Place Socket into TIME WAIT state
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # Binds socket to specified host and port
+        server_socket.bind((host_name, port_num))
+
+        # Data Buffer
+        self.data = b''
+
+        self.server_socket = server_socket
+
+        self.packer = BLEPacket()
 
         # Flags
         self.shutdown = threading.Event()
+
         self.columns = ['flex1', 'flex2', 'gx', 'gy', 'gz', 'accX', 'accY', 'accZ']
         
         # defining headers for post processing
@@ -345,6 +361,21 @@ class Training(threading.Thread):
         # PYNQ overlay - TODO
         # self.overlay = Overlay("design_3.bit")
         # self.dma = self.overlay.axi_dma_0
+
+    def setup(self):
+        print('Awaiting Connection from Laptop')
+
+        # Blocking Function
+        self.connection, client_address = self.server_socket.accept()
+
+        print('Successfully connected to', client_address[0])
+
+    def close_connection(self):
+        self.connection.shutdown(SHUT_RDWR)
+        self.connection.close()
+        self.shutdown.set()
+
+        print("Shutting Down Server")
 
     def sleep(self, seconds):
         start_time = time.time()
@@ -578,7 +609,9 @@ class Training(threading.Thread):
         print("Shutting Down Connection")
 
     def run(self):
-        unpacker = BLEPacket()
+        self.server_socket.listen(1)
+        self.setup()
+
         all_data = []
 
         # live integration loop
@@ -616,14 +649,26 @@ class Training(threading.Thread):
                 # start_time = time.time()
 
                 while i<41:
+                    # Receive up to 64 Bytes of data
+                    message = self.connection.recv(64)
+                    # Append existing data into new data
+                    self.data = self.data + message
+
+                    if len(self.data) < 20:
+                        continue
+                    packet = self.data[:20]
+                    self.data = self.data[20:]
+
+                    print("Message Received from Laptop:", packet)
+
                     # getting data - simulation
                     # data = self.generate_simulated_data()
                     # print(f"data: {data} \n")
 
                     # # getting data - actl
-                    data = fpga_queue.get()
-                    unpacker.unpack(data)
-                    data = unpacker.get_flex_data() + unpacker.get_euler_data() + unpacker.get_acc_data()
+                    # data = fpga_queue.get()
+                    self.packer.unpack(self.data)
+                    data = self.packer.get_flex_data() + self.packer.get_euler_data() + self.packer.get_acc_data()
                     print(f"data: {data} \n")
 
                     if len(data) == 0:
@@ -717,9 +762,9 @@ if __name__ == '__main__':
     # eval_client.start()
 
     # Server Connection to Laptop
-    print("Starting Server Thread           ")
-    laptop_server = Server(8080, "192.168.95.221")
-    laptop_server.start()
+    # print("Starting Server Thread           ")
+    # laptop_server = Server(8080, "192.168.95.221")
+    # laptop_server.start()
 
     # AI Model
     print("Starting AI Model Thread")
