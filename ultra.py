@@ -20,9 +20,9 @@ import pywt
 import scipy.signal as sig
 from scipy import signal, stats
 from scipy.stats import entropy, kurtosis, skew
-from sklearn.feature_selection import SelectKBest
-from sklearn.preprocessing import StandardScaler
-import librosa
+# from sklearn.feature_selection import SelectKBest
+# from sklearn.preprocessing import StandardScaler
+# import librosa
 
 # import matplotlib.pyplot as plt
 # import pynq
@@ -1280,9 +1280,9 @@ if __name__ == '__main__':
     # eval_client.start()
 
     # AI Model
-    print("Starting AI Model Thread")
-    ai_model = Training()
-    ai_model.start()
+    #print("Starting AI Model Thread")
+    #ai_model = Training()
+    #ai_model.start()
 
     # Server Connection to Laptop
     print("Starting Server Thread           ")
