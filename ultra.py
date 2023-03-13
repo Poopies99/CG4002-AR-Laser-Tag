@@ -768,6 +768,6 @@ if __name__ == '__main__':
 
     # AI Model
     print("Starting AI Model Thread")
-    ai_model = Training()
+    ai_model = Training("")
     ai_model.start()
     print('--------------------------------------------')
