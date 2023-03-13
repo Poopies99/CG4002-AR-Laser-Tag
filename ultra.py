@@ -139,8 +139,11 @@ class Subscriber(threading.Thread):
 
         while not self.shutdown.is_set():
             try:
+
                 input_message = subscribe_queue.get()
-                # print('Publishing to HiveMQ: ', input_message)
+
+                print('Publishing to HiveMQ: ', input_message)
+
                 if input_message == 'q':
                     break
                 self.send_message(input_message)
@@ -314,21 +317,8 @@ class Server(threading.Thread):
 
 
 class Training(threading.Thread):
-    def __init__(self, host_name, port_num):
+    def __init__(self):
         super().__init__()
-
-        # Temp
-        # Create a TCP/IP socket
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # Place Socket into TIME WAIT state
-        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        # Binds socket to specified host and port
-        server_socket.bind((host_name, port_num))
-
-        # Data Buffer
-        self.data = b''
-
-        self.server_socket = server_socket
 
         self.packer = BLEPacket()
 
@@ -649,24 +639,12 @@ class Training(threading.Thread):
                 # start_time = time.time()
 
                 while i<41:
-                    # Receive up to 64 Bytes of data
-                    message = self.connection.recv(64)
-                    # Append existing data into new data
-                    self.data = self.data + message
-
-                    if len(self.data) < 20:
-                        continue
-                    packet = self.data[:20]
-                    self.data = self.data[20:]
-
-                    print("Message Received from Laptop:", packet)
-
                     # getting data - simulation
                     # data = self.generate_simulated_data()
                     # print(f"data: {data} \n")
 
                     # # getting data - actl
-                    # data = fpga_queue.get()
+                    data = fpga_queue.get()
                     self.packer.unpack(self.data)
                     data = self.packer.get_flex_data() + self.packer.get_euler_data() + self.packer.get_acc_data()
                     print(f"data: {data} \n")
@@ -762,12 +740,12 @@ if __name__ == '__main__':
     # eval_client.start()
 
     # Server Connection to Laptop
-    # print("Starting Server Thread           ")
-    # laptop_server = Server(8080, "192.168.95.221")
-    # laptop_server.start()
+    print("Starting Server Thread           ")
+    laptop_server = Server(8080, "192.168.95.221")
+    laptop_server.start()
 
     # AI Model
     print("Starting AI Model Thread")
-    ai_model = Training("")
+    ai_model = Training()
     ai_model.start()
     print('--------------------------------------------')
