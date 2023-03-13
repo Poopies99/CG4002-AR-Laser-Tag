@@ -448,8 +448,6 @@ class Training(threading.Thread):
 
         # standard data processing techniques
         mean = np.mean(data)
-        print(f"mean the following data: \n{data}\n")
-        print(f"mean result: {mean}")
         std = np.std(data)
         variance = np.var(data)
         min = np.min(data)
@@ -481,9 +479,9 @@ class Training(threading.Thread):
 
         # Loop through each column and compute features
         for column in df.columns:
-            column_data = df[column]
+            column_data = df[column].values.reshape(1, -1)
             # print column1 values
-            # print(f"column_data: {column_data}")
+            print(f"column_data: {column_data}")
 
             temp_processed = self.preprocess_data(column_data)
 
