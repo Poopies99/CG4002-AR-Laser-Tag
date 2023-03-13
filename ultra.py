@@ -598,7 +598,6 @@ class Training(threading.Thread):
         print("Shutting Down Connection")
 
     def run(self):
-        self.server_socket.listen(1)
         self.setup()
 
         all_data = []
