@@ -1259,6 +1259,7 @@ if __name__ == '__main__':
     # laptop_server = Server(8080, "192.168.95.221")
     # laptop_server.start()
 
+    print("Starting Web Socket Server Thread")
     laptop_server = WebSocketServer("192.168.95.221", 8080)
     laptop_server.run()
 
