@@ -250,15 +250,17 @@ class WebSocketServer:
 
     async def process_message(self, websocket, path):
         async for message in websocket:
-            self.packer.unpack(message)
+            self.data = self.data + message
+            if len(self.data) < 20:
+                continue
+            packet = self.data[:20]
+            self.data = self.data[20:]
+
+            self.packer.unpack(packet)
             print("CRC: ", self.packer.get_crc())
 
             # # await websocket.send(message)
-            # self.data = self.data + message
-            # if len(self.data) < 20:
-            #     continue
-            # packet = self.data[:20]
-            # self.data = self.data[20:]
+
             #
             # if collection_flag:
             #     training_model_queue.append(packet)
