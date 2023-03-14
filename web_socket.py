@@ -7,6 +7,6 @@ async def echo(websocket, path):
 
 async def start_server():
     async with websockets.serve(echo, "192.168.95.221", 8080):
-        await asyncio.Future()  # run forever
+        await asyncio.Future()
 
 asyncio.run(start_server())
