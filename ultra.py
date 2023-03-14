@@ -259,17 +259,6 @@ class Server(threading.Thread):
 
         self.columns = ['flex1', 'flex2', 'gx', 'gy', 'gz', 'accX', 'accY', 'accZ']
 
-        # defining headers for post processing
-        # self.factors = ['mean', 'variance', 'median', 'root_mean_square', 'interquartile_range',
-        #     'percentile_75', 'kurtosis', 'min_max', 'signal_magnitude_area', 'zero_crossing_rate',
-        #     'spectral_centroid', 'spectral_entropy', 'spectral_energy', 'principle_frequency']
-        # self.factors = ['kbest10_0', 'kbest10_1', 'kbest10_2', 'kbest10_3', 'kbest10_4',
-        #                  'kbest10_5', 'kbest10_6', 'kbest10_7', 'kbest10_8', 'kbest10_9',
-        #                  'spectral_centroid', 'spectral_spread', 'wavelet_energy', 'wavelet_entropy',
-        #                  'mean', 'std', 'variance', 'min', 'max', 'range', 'peak_to_peak_amplitude',
-        #                  'mad', 'root_mean_square', 'interquartile_range', 'percentile_75',
-        #                  'skewness', 'kurtosis', 'zero_crossing_rate', 'energy', 'entropy']
-
         self.factors = ['mean', 'std', 'variance', 'min', 'max', 'range', 'peak_to_peak_amplitude',
                         'mad', 'root_mean_square', 'interquartile_range', 'percentile_75',
                         'skewness', 'kurtosis', 'zero_crossing_rate', 'energy']
@@ -551,26 +540,26 @@ class Server(threading.Thread):
                 traceback.print_exc()
                 self.close_connection()
                 print("an error occurred")
-            #     # Receive up to 64 Bytes of data
-            #     message = self.connection.recv(64)
-            #     # Append existing data into new data
-            #     self.data = self.data + message
-            #
-            #     if len(self.data) < 20:
-            #         continue
-            #     packet = self.data[:20]
-            #     self.data = self.data[20:]
-            #
-            #     print("Message Received from Laptop:", packet)
-            #     self.packer.unpack(packet)
-            #     print(self.packer.get_crc())
-            #
-            #     # Add to raw queue
-            #     # raw_queue.put(packet)
-            #
-            #     # Remove when Training is complete
-            #     if global_flag:
-            #         fpga_queue.put(packet)
+                # # Receive up to 64 Bytes of data
+                # message = self.connection.recv(64)
+                # # Append existing data into new data
+                # self.data = self.data + message
+                #
+                # if len(self.data) < 20:
+                #     continue
+                # packet = self.data[:20]
+                # self.data = self.data[20:]
+                #
+                # print("Message Received from Laptop:", packet)
+                # self.packer.unpack(packet)
+                # print(self.packer.get_crc())
+                #
+                # # Add to raw queue
+                # # raw_queue.put(packet)
+                #
+                # # Remove when Training is complete
+                # if global_flag:
+                #     fpga_queue.put(packet)
             #
             #     while not laptop_queue.empty():
             #         game_state = laptop_queue.get()
