@@ -49,7 +49,7 @@ class GameState:
         final_message = str(len(encrypted_message)) + "_" + encrypted_message
 
         try:
-            remote_socket.sendall(final_message)
+            remote_socket.sendall(final_message.encode("utf-8"))
             # remote_socket.sendall(plaintext.encode("utf-8"))
         except OSError:
             print("Connection terminated")
