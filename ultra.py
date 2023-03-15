@@ -31,6 +31,7 @@ from scipy.stats import entropy, kurtosis, skew
 # import matplotlib.pyplot as plt
 # import pynq
 from pynq import Overlay
+from queue import Queue
 
 from ble_packet import BLEPacket
 from packet_type import PacketType
@@ -54,12 +55,12 @@ raw_queue = deque()
 action_queue = deque()
 ai_queue = deque()
 shot_queue = deque()
-subscribe_queue = deque()
+subscribe_queue = Queue()
 fpga_queue = deque()
 laptop_queue = deque()
 training_model_queue = deque()
 eval_queue = deque()
-feedback_queue = deque()
+feedback_queue = Queue()
 
 collection_flag = False
 
@@ -79,8 +80,8 @@ class GameEngine(threading.Thread):
     def determine_grenade_hit(self):
         while True:
             print("Random")
-            while len(feedback_queue) != 0:
-                data = feedback_queue.popleft()
+            while not feedback_queue.empty():
+                data = feedback_queue.get()
                 if data == "6 hit_grenade#":
                     return True
                 else:
@@ -112,7 +113,7 @@ class GameEngine(threading.Thread):
                         # send to visualizer
                         # send to eval server - eval_queue
                         data = self.eval_client.gamestate._get_data_plain_text()
-                        subscribe_queue.append(data)
+                        subscribe_queue.put(data)
                         # self.eval_client.submit_to_eval()
                         break
 
@@ -120,7 +121,7 @@ class GameEngine(threading.Thread):
                         # receiving the status mqtt topic
                         print("grenade action")
                         if self.p1.throw_grenade():
-                            subscribe_queue.append(self.eval_client.gamestate._get_data_plain_text())
+                            subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
                             self.p1.action = "None"
                             # time.sleep(0.5)
 
@@ -158,7 +159,7 @@ class GameEngine(threading.Thread):
                     self.eval_client.receive_correct_ans()
                     # subscriber queue to sw/feedback queue
 
-                    subscribe_queue.append(self.eval_client.gamestate._get_data_plain_text())
+                    subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
 
             except KeyboardInterrupt as _:
                 traceback.print_exc()
@@ -203,8 +204,8 @@ class SubscriberSend(threading.Thread):
 
         while not self.shutdown.is_set():
             try:
-                if len(subscribe_queue) != 0:
-                    input_message = subscribe_queue.popleft()
+                if not subscribe_queue.empty():
+                    input_message = subscribe_queue.get()
 
                     print('Publishing to HiveMQ: ', input_message)
 
@@ -241,7 +242,7 @@ class SubscriberReceive(threading.Thread):
     def on_message(client, userdata, message):
         # print("Latency: %.4f seconds" % latency)
         print('Received message: ' + message.payload.decode())
-        feedback_queue.append(message.payload.decode())
+        feedback_queue.put(message.payload.decode())
 
     def close_connection(self):
         self.client.disconnect()
