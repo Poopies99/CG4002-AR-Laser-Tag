@@ -2,8 +2,7 @@ import time
 
 from PlayerState import PlayerStateBase
 from player import Player
-from Helper import Actions
-
+from evaluation_server.Helper import Actions
 
 class StateStaff(Player):
     # update the player statistics
