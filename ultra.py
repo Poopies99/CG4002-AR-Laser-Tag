@@ -243,46 +243,46 @@ class EvalClient(threading.Thread):
                 self.close_connection()
 
 
-class WebSocketServer:
-    def __init__(self, host_name, port_num):
-        self.host_name = host_name
-        self.port_num = port_num
+# class WebSocketServer:
+#     def __init__(self, host_name, port_num):
+#         self.host_name = host_name
+#         self.port_num = port_num
+#
+#         self.packer = BLEPacket()
+#
+#         self.data = b''
+#
+#     async def process_message(self, websocket, path):
+#         async for message in websocket:
+#             # self.data = self.data + message
+#             # if len(self.data) < 20:
+#             #     continue
+#             # packet = self.data[:20]
+#             # self.data = self.data[20:]
+#             #
+#             # self.packer.unpack(packet)
+#             # print("CRC: ", self.packer.get_crc())
+#
+#             # # await websocket.send(message)
+#
+#             #
+#             # if collection_flag:
+#             #     training_model_queue.append(packet)
+#
+#     async def start_server(self):
+#         async with websockets.serve(self.process_message, self.host_name, self.port_num):
+#             await asyncio.Future()
+#
+#     def run(self):
+#         asyncio.run(self.start_server())
 
-        self.packer = BLEPacket()
 
-        self.data = b''
-
-    async def process_message(self, websocket, path):
-        async for message in websocket:
-            # self.data = self.data + message
-            # if len(self.data) < 20:
-            #     continue
-            # packet = self.data[:20]
-            # self.data = self.data[20:]
-            #
-            # self.packer.unpack(packet)
-            # print("CRC: ", self.packer.get_crc())
-
-            # # await websocket.send(message)
-
-            #
-            # if collection_flag:
-            #     training_model_queue.append(packet)
-
-    async def start_server(self):
-        async with websockets.serve(self.process_message, self.host_name, self.port_num):
-            await asyncio.Future()
-
-    def run(self):
-        asyncio.run(self.start_server())
-
-
-class Processing(threading.Thread):
-    shot_flag = False
-    def __init__(self):
-        super().__init__()
-
-    def
+# class Processing(threading.Thread):
+#     shot_flag = False
+#     def __init__(self):
+#         super().__init__()
+#
+#     def
 
 
 
@@ -349,7 +349,6 @@ class Server(threading.Thread):
 
                 packet = self.data[:20]
                 self.data = self.data[20:]
-
                 self.packer.unpack(packet)
 
                 if self.packer.get_beetle_id() == 1:
@@ -370,7 +369,8 @@ class Server(threading.Thread):
                 # if global_flag:
                 #     fpga_queue.put(packet)
 
-                while len(laptop_queue) != 0 :
+                # Sends data back into the relay laptop
+                if len(laptop_queue) != 0 :
                     game_state = laptop_queue.popleft()
                     node_id = 0
                     packet_type = PacketType.ACK
