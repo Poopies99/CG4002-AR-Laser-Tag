@@ -78,6 +78,7 @@ class GameEngine(threading.Thread):
 
     def determine_grenade_hit(self):
         while True:
+            print("Random")
             while len(feedback_queue) != 0:
                 data = feedback_queue.popleft()
                 if data == "6 hit_grenade#":
@@ -117,7 +118,7 @@ class GameEngine(threading.Thread):
 
                     if action_data == "grenade" or action_data == "G":
                         # receiving the status mqtt topic
-
+                        print("grenade action")
                         if self.p1.throw_grenade():
                             subscribe_queue.append(self.eval_client.gamestate._get_data_plain_text())
                             self.p1.action = "None"
@@ -1100,12 +1101,12 @@ if __name__ == '__main__':
 
     # Software Visualizer
     # print("Starting Subscriber Thread        ")
-    # hive = SubscriberSend("CG4002")
-    # hive.start()
+    hive = SubscriberSend("CG4002")
+    hive.start()
 
     # Starting Visualizer Receive
-    # viz = SubscriberReceive("gamestate")
-    # viz.start()
+    viz = SubscriberReceive("gamestate")
+    viz.start()
 
     # Client Connection to Evaluation Server
     print("Starting Client Thread           ")
