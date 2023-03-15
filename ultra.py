@@ -1136,6 +1136,9 @@ if __name__ == '__main__':
     # print("Starting Web Socket Server Thread")
     # laptop_server = WebSocketServer("192.168.95.221", 8080)
     # laptop_server.run()
-    input("y")
-    action_queue.append(['shoot', True])
+
     print('--------------------------------------------')
+
+    while True:
+        action = input("Action")
+        action_queue.append([action, True])

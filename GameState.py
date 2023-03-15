@@ -92,6 +92,9 @@ class GameState:
 
             self.player_1.initialize_from_dict(game_state_received['p1'])
             self.player_2.initialize_from_dict(game_state_received['p2'])
+
+            print("Player 1 Updated Stats:", self.player_1.get_dict())
+
             success = True
             break
         return success

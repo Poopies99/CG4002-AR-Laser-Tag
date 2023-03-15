@@ -107,7 +107,6 @@ class Player:
         return True
 
     def shoot(self):
-
         if self.bullets >= 1:
             self.bullets -= 1                
             self.action = "shoot"
@@ -163,7 +162,7 @@ class Player:
     def activate_shield(self):
         self.action = "shield"
         if self.num_shield == 0 or self.check_shield():
-            self.action = "invalid"
+            self.action = "shield"
             return "Shield is Active"
         else:
             self.num_shield -= 1
@@ -174,9 +173,8 @@ class Player:
             
                         
     def reload(self):
-        
         if self.bullets > 0:
-            self.action = "invalid"
+            self.action = "reload"
         else:
             self.action = "reload"
             self.bullets = self.magazine_size
