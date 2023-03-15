@@ -48,16 +48,19 @@ Message Queues:
 3. subscribe_queue from Game Engine to SW Visualizer
 """
 
-raw_queue = queue.Queue()
-eval_queue = queue.Queue()
-subscribe_queue = queue.Queue()
-fpga_queue = queue.Queue()
-laptop_queue = queue.Queue()
-
+raw_queue = deque()
+action_queue = deque()
+ai_queue = deque()
+shot_queue = deque()
+subscribe_queue = deque()
+fpga_queue = deque()
+laptop_queue = deque()
 training_model_queue = deque()
+eval_queue = deque()
 
 collection_flag = False
 
+# Multithread this Chris
 class GameEngine(threading.Thread):
     """
     1 Player Game Engine
@@ -88,16 +91,15 @@ class GameEngine(threading.Thread):
     def run(self):
         while not self.shutdown.is_set():
             try:
-                input_message = raw_queue.get()
+                action = action_queue.popleft() # ['G', False]
 
                 with open('example.json', 'r') as f:
                     json_data = f.read()
 
-                eval_queue.put(json_data)
-                subscribe_queue.put(json_data)
+                eval_queue.append(json_data)
+                subscribe_queue.append(json_data)
 
                 json_data = json.loads(json_data)
-                laptop_queue.put(json_data)
             except Exception as _:
                 traceback.print_exc()
 
@@ -220,7 +222,7 @@ class EvalClient(threading.Thread):
 
         while not self.shutdown.is_set():
             try:
-                input_message = eval_queue.get()
+                input_message = eval_queue.popleft()
                 if input_message == 'q':
                     break
 
@@ -231,9 +233,11 @@ class EvalClient(threading.Thread):
 
                 self.client_socket.sendall(final_message.encode())
 
-                self.client_socket.recvfrom()
+                message = self.client_socket.recvfrom()
 
-                # print("Sending Message to Eval Client:", input_message)
+                laptop_queue.append(message)
+
+                print("Sending Message to Eval Client:", input_message)
             except Exception as _:
                 traceback.print_exc()
                 self.close_connection()
@@ -250,14 +254,14 @@ class WebSocketServer:
 
     async def process_message(self, websocket, path):
         async for message in websocket:
-            self.data = self.data + message
-            if len(self.data) < 20:
-                continue
-            packet = self.data[:20]
-            self.data = self.data[20:]
-
-            self.packer.unpack(packet)
-            print("CRC: ", self.packer.get_crc())
+            # self.data = self.data + message
+            # if len(self.data) < 20:
+            #     continue
+            # packet = self.data[:20]
+            # self.data = self.data[20:]
+            #
+            # self.packer.unpack(packet)
+            # print("CRC: ", self.packer.get_crc())
 
             # # await websocket.send(message)
 
@@ -273,7 +277,20 @@ class WebSocketServer:
         asyncio.run(self.start_server())
 
 
+class Processing(threading.Thread):
+    shot_flag = False
+    def __init__(self):
+        super().__init__()
+
+    def
+
+
+
+
+
 class Server(threading.Thread):
+    shot_flag = False
+
     def __init__(self, port_num, host_name):
         super().__init__()
 
@@ -294,18 +311,6 @@ class Server(threading.Thread):
 
         self.packer = BLEPacket()
 
-        self.columns = ['flex1', 'flex2', 'gx', 'gy', 'gz', 'accX', 'accY', 'accZ']
-
-        self.factors = ['mean', 'std', 'variance', 'min', 'max', 'range', 'peak_to_peak_amplitude',
-                        'mad', 'root_mean_square', 'interquartile_range', 'percentile_75',
-                        'skewness', 'kurtosis', 'zero_crossing_rate', 'energy']
-
-        self.headers = [f'{raw_header}_{factor}' for raw_header in self.columns for factor in self.factors]
-        self.headers.extend(['action', 'timestamp'])
-
-        # defining game action dictionary
-        self.action_map = {0: 'GRENADE', 1: 'LOGOUT', 2: 'SHIELD', 3: 'RELOAD'}
-
     def setup(self):
         print('Awaiting Connection from Laptop')
 
@@ -314,6 +319,12 @@ class Server(threading.Thread):
 
         print('Successfully connected to', client_address[0])
 
+    def check_shot(self):
+        start_time = time.time()
+        while time.time() - start_time < 0.7:
+            Server.shot_flag = True
+        Server.shot_flag = False
+
     def close_connection(self):
         self.connection.shutdown(SHUT_RDWR)
         self.connection.close()
@@ -321,293 +332,55 @@ class Server(threading.Thread):
 
         print("Shutting Down Server")
 
-    def sleep(self, seconds):
-        start_time = time.time()
-        while time.time() - start_time < seconds:
-            pass
-
-    def generate_simulated_data(self):
-        yaw = random.uniform(-180, 180)
-        pitch = random.uniform(-180, 180)
-        roll = random.uniform(-180, 180)
-        accX = random.uniform(-9000, 9000)
-        accY = random.uniform(-9000, 9000)
-        accZ = random.uniform(-9000, 9000)
-        flex1 = random.uniform(-1, 1)
-        flex2 = random.uniform(-1, 1)
-        return [flex1, flex2, yaw, pitch, roll, accX, accY, accZ]
-
-        # simulate game movement with noise and action
-
-    def generate_simulated_wave(self):
-
-        # base noise 10s long -> 20Hz*10 = 200 samples
-        t = np.linspace(0, 5, 200)  # Define the time range
-        x1 = 0.2 * np.sin(t) + 0.2 * np.random.randn(200)
-        x1[(x1 > -1) & (x1 < 1)] = 0.0  # TODO - sensor noise within margin of error auto remove
-
-        # movement motion
-        period = 2  # seconds
-        amplitude = 5
-        t = np.linspace(0, 2, int(2 / 0.05))  # Define the time range
-        x2 = amplitude * np.sin(2 * np.pi * t / period)[:40]  # Compute the sine wave for only one cycle
-
-        x = x1
-        # Add to the 40th-80th elements
-        x[20:60] += x2
-        x[80:120] += x2
-
-        return x
-
-    def preprocess_data(self, data):
-        mean = np.mean(data)
-        std = np.std(data)
-        variance = np.var(data)
-        min = np.min(data)
-        max = np.max(data)
-        range = np.max(data) - np.min(data)
-        peak_to_peak_amplitude = np.abs(np.max(data) - np.min(data))
-        mad = np.median(np.abs(data - np.median(data)))
-        root_mean_square = np.sqrt(np.mean(np.square(data)))
-        interquartile_range = stats.iqr(data)
-        percentile_75 = np.percentile(data, 75)
-        skewness = stats.skew(data.reshape(-1, 1))[0]
-        kurtosis = stats.kurtosis(data.reshape(-1, 1))[0]
-        zero_crossing_rate = ((data[:-1] * data[1:]) < 0).sum()
-        energy = np.sum(data ** 2)
-        # entropy = stats.entropy(data, base=2)
-
-        output_array = [mean, std, variance, min, max, range, peak_to_peak_amplitude,
-                        mad, root_mean_square, interquartile_range, percentile_75,
-                        skewness, kurtosis, zero_crossing_rate, energy]
-
-        output_array = np.array(output_array)
-        return output_array.reshape(1, -1)
-
-    def preprocess_dataset(self, df):
-        processed_data = []
-
-        # Loop through each column and compute features
-        for column in df.columns:
-            column_data = df[column].values
-            column_data = column_data.reshape(1, -1)
-            print(f"column_data: {column_data}\n")
-            print("Data type of column_data:", type(column_data))
-            print("Size of column_data:", column_data.size)
-
-            temp_processed = self.preprocess_data(column_data)
-
-            # print(processed_column_data)
-            # Append processed column data to main processed data array
-            processed_data.append(temp_processed)
-
-        processed_data_arr = np.concatenate(processed_data)
-
-        # reshape into a temporary dataframe of 8x14
-        temp_df = pd.DataFrame(processed_data_arr.reshape(8, -1), index=self.columns, columns=self.factors)
-
-        # print the temporary dataframe
-        print(f"processed_data: \n {temp_df} \n")
-        print(f"len processed_data: {len(processed_data_arr)}\n")
-
-        return processed_data_arr
-
-    def MLP(self, data):
-        start_time = time.time()
-        # allocate in and out buffer
-        in_buffer = pynq.allocate(shape=(24,), dtype=np.double)
-
-        # print time taken so far
-        print(f"MLP time taken so far in_buffer: {time.time() - start_time}")
-        # out buffer of 1 integer
-        out_buffer = pynq.allocate(shape=(1,), dtype=np.int32)
-        print(f"MLP time taken so far out_buffer: {time.time() - start_time}")
-
-        # # TODO - copy all data to in buffer
-        # for i, val in enumerate(data):
-        #     in_buffer[i] = val
-
-        for i, val in enumerate(data[:24]):
-            in_buffer[i] = val
-
-        print(f"MLP time taken so far begin trf: {time.time() - start_time}")
-
-        self.dma.sendchannel.transfer(in_buffer)
-        self.dma.recvchannel.transfer(out_buffer)
-
-        print(f"MLP time taken so far end trf: {time.time() - start_time}")
-
-        # wait for transfer to finish
-        self.dma.sendchannel.wait()
-        self.dma.recvchannel.wait()
-
-        print(f"MLP time taken so far wait: {time.time() - start_time}")
-
-        # print("mlp done \n")
-
-        # print output buffer
-        for output in out_buffer:
-            print(f"mlp done with output {output}")
-
-        print(f"MLP time taken so far output: {time.time() - start_time}")
-
-        return [random.random() for _ in range(4)]
-
-    def instantMLP(self, data):
-        # Define the input weights and biases
-        w1 = np.random.rand(24, 10)
-        b1 = np.random.rand(10)
-        w2 = np.random.rand(10, 20)
-        b2 = np.random.rand(20)
-        w3 = np.random.rand(20, 4)
-        b3 = np.random.rand(4)
-
-        # Perform the forward propagation
-        a1 = np.dot(data[:24], w1) + b1
-        h1 = np.maximum(0, a1)  # ReLU activation
-        a2 = np.dot(h1, w2) + b2
-        h2 = np.maximum(0, a2)  # ReLU activation
-        a3 = np.dot(h2, w3) + b3
-
-        c = np.max(a3)
-        exp_a3 = np.exp(a3 - c)
-        softmax_output = exp_a3 / np.sum(exp_a3)  # Softmax activation
-
-        return softmax_output
-
     def run(self):
         self.server_socket.listen(1)
         self.setup()
 
-        all_data = []
-
-        i = 0
         while not self.shutdown.is_set():
             try:
-                input("start")
+                # Receive up to 64 Bytes of data
+                data = self.connection.recv(64)
 
-                start_time = time.time()
+                # Append existing data into new data
+                self.data = self.data + data
 
-                raw_data = []
-                while time.time() - start_time < 2:
-                    data = self.connection.recv(64)
-                    if len(data) == 0:
-                        print("Invalid data:", data)
-                        continue
-                    if len(data) == 8:
-                        flex1, flex2, gx, gy, gz, accX, accY, accZ = data
-                        all_data.append([flex1, flex2, gx, gy, gz, accX / 100, accY / 100, accZ / 100])
-                    # Append existing data into new data
-                    self.data = self.data + data
+                if len(self.data) < 20:
+                    continue
 
-                    if len(self.data) < 20:
-                        continue
-                    packet = self.data[:20]
-                    self.data = self.data[20:]
+                packet = self.data[:20]
+                self.data = self.data[20:]
 
-                    raw_data.append(packet)
+                self.packer.unpack(packet)
 
-                for i in raw_data:
-                    self.packer.unpack(i)
-                    print(self.packer.get_crc())
-                    data = self.packer.get_flex_data() + self.packer.get_euler_data() + self.packer.get_acc_data()
-                    print(f"data: {data} \n")
+                if self.packer.get_beetle_id() == 1:
+                    self.check_shot()
 
-                self.data = b''
-
-                # creating df for preview
-                df = pd.DataFrame(all_data, columns=self.columns)
-                # creating res to output differences
-                res = pd.DataFrame(columns=self.columns)
-
-                for j in range(len(df)):
-                    diff = df.iloc[j] - df.iloc[j - 1]
-                    res = res.append(diff, ignore_index=True)
-
-                # Show user the data and prompt for confirmation
-                print(res[['gx', 'gy', 'gz', 'accX', 'accY', 'accZ']].head(40))
-                # print(f"Number of rows and columns: {df.shape[0]} by {df.shape[1]}")
-
-                ui = input("data ok? y/n")
-                if ui.lower() == "y":
-                    time_now = time.strftime("%Y%m%d-%H%M%S")
-
-                    res_arr = res.values.reshape(1, -1)
-                    res_arr = np.append(res_arr, time_now)
-
-                    # Store data into a new CSV file
-                    filename = "/home/xilinx/code/training/raw_data.csv"
-
-                    with open(filename, "a") as f:
-                        writer = csv.writer(f)
-                        writer.writerow(res_arr)
-
-                    # Clear raw data list
-                    all_data = []
-                    res_arr = []
-                    i = 0
-
-                    # Preprocess data
-                    processed_data = self.preprocess_dataset(res)
-
-                    # Prompt user for label
-                    label = input("Enter label (G = GRENADE, R = RELOAD, S = SHIELD, L = LOGOUT): ")
-
-                    # Append label, timestamp to processed data
-                    processed_data = np.append(processed_data, label)
-                    processed_data = np.append(processed_data, time_now)
-
-                    # Append processed data to CSV file
-                    with open("/home/xilinx/code/training/processed_data.csv", "a") as f:
-                        writer = csv.writer(f)
-                        # writer.writerow(self.headers)
-                        writer.writerow(processed_data)
-
-                    print("Data processed and saved to CSV file.")
+                    continue
+                elif self.packer.get_beetle_id() == 2:
+                    action_queue.append(["shoot", Server.shot_flag])
+                    continue
+                elif self.packer.get_beetle_id() == 3:
+                    packet = self.packer.get_euler_data() + self.packer.get_acc_data()
+                    ai_queue.append(packet)
+                    continue
                 else:
-                    all_data = []
-                    res_arr = []
-                    i = 0
-                    print("not proceed, restart")
-            except Exception as _:
-                traceback.print_exc()
-                self.close_connection()
-                print("an error occurred")
-            #     # Receive up to 64 Bytes of data
-            #     message = self.connection.recv(64)
-            #     # Append existing data into new data
-            #     self.data = self.data + message
-            #
-            #     if len(self.data) < 20:
-            #         continue
-            #     packet = self.data[:20]
-            #     self.data = self.data[20:]
-            #
-            #     print("Message Received from Laptop:", packet)
-            #     self.packer.unpack(packet)
-            #     print(self.packer.get_crc())
-            #
-            #     # Add to raw queue
-            #     # raw_queue.put(packet)
-            #
-            #     # Remove when Training is complete
-            #     if global_flag:
-            #         fpga_queue.put(packet)
-            #
-            #     while not laptop_queue.empty():
-            #         game_state = laptop_queue.get()
-            #         node_id = 0
-            #         packet_type = PacketType.ACK
-            #         header = (node_id << 4) | packet_type
-            #         data = [header, game_state['p1']['bullets'], game_state['p1']['hp'], 0, 0, 0, 0, 0, 0, 0]
-            #         data = self.packer.pack(data)
-            #
-            #         self.connection.send(data)
-            #
-            #         print("Sending back to laptop", data)
-            #     if not message:
-            #         print('Empty Messsage Received')
-            #         # self.close_connection()
+                    print('Unknown Beetle ID')
+
+                # # Remove when Training is complete
+                # if global_flag:
+                #     fpga_queue.put(packet)
+
+                while len(laptop_queue) != 0 :
+                    game_state = laptop_queue.popleft()
+                    node_id = 0
+                    packet_type = PacketType.ACK
+                    header = (node_id << 4) | packet_type
+                    data = [header, game_state['p1']['bullets'], game_state['p1']['hp'], 0, 0, 0, 0, 0, 0, 0]
+                    data = self.packer.pack(data)
+
+                    self.connection.send(data)
+
+                    print("Sending back to laptop", data)
             except Exception as _:
                 traceback.print_exc()
                 self.close_connection()
@@ -842,34 +615,24 @@ class TrainingModel(threading.Thread):
                 print("An Error Occurred")
 
 
-class Training(threading.Thread):
+class AI(threading.Thread):
     def __init__(self):
         super().__init__()
-
-        self.packer = BLEPacket()
 
         # Flags
         self.shutdown = threading.Event()
 
-        self.columns = ['flex1', 'flex2', 'gx', 'gy', 'gz', 'accX', 'accY', 'accZ']
-        
-        # defining headers for post processing
-        # self.factors = ['mean', 'variance', 'median', 'root_mean_square', 'interquartile_range',            
-        #     'percentile_75', 'kurtosis', 'min_max', 'signal_magnitude_area', 'zero_crossing_rate',            
-        #     'spectral_centroid', 'spectral_entropy', 'spectral_energy', 'principle_frequency']
-        # self.factors = ['kbest10_0', 'kbest10_1', 'kbest10_2', 'kbest10_3', 'kbest10_4', 
-        #                  'kbest10_5', 'kbest10_6', 'kbest10_7', 'kbest10_8', 'kbest10_9',
-        #                  'spectral_centroid', 'spectral_spread', 'wavelet_energy', 'wavelet_entropy', 
-        #                  'mean', 'std', 'variance', 'min', 'max', 'range', 'peak_to_peak_amplitude',
-        #                  'mad', 'root_mean_square', 'interquartile_range', 'percentile_75',
-        #                  'skewness', 'kurtosis', 'zero_crossing_rate', 'energy', 'entropy']
+        self.columns = ['gx', 'gy', 'gz', 'accX', 'accY', 'accZ']
 
-        self.factors = ['mean', 'std', 'variance', 'min', 'max', 'range', 'peak_to_peak_amplitude',
-                    'mad', 'root_mean_square', 'interquartile_range', 'percentile_75',
-                    'skewness', 'kurtosis', 'zero_crossing_rate', 'energy']
+        self.factors = ['mean', 'std', 'variance', 'range', 'peak_to_peak_amplitude',
+                        'mad', 'root_mean_square', 'interquartile_range', 'percentile_75',
+                        'energy']
 
-        self.headers = [f'{raw_header}_{factor}' for raw_header in self.columns for factor in self.factors]
-        self.headers.extend(['action', 'timestamp'])
+        self.num_groups = 8
+        self.headers = [f'grp_{i + 1}_{column}_{factor}' for i in range(self.num_groups)
+                        for column in self.columns for factor in self.factors]
+
+        self.headers.extend(['action'])
 
         # defining game action dictionary
         self.action_map = {0: 'GRENADE', 1: 'LOGOUT', 2: 'SHIELD', 3: 'RELOAD'}
@@ -884,167 +647,100 @@ class Training(threading.Thread):
             pass
 
     def generate_simulated_data(self):
-        yaw = random.uniform(-180, 180)
-        pitch = random.uniform(-180, 180)
-        roll = random.uniform(-180, 180)
+        gx = random.uniform(-180, 180)
+        gy = random.uniform(-180, 180)
+        gz = random.uniform(-180, 180)
         accX = random.uniform(-9000, 9000)
         accY = random.uniform(-9000, 9000)
         accZ = random.uniform(-9000, 9000)
-        flex1 = random.uniform(-1, 1)
-        flex2 = random.uniform(-1, 1)
-        return [flex1, flex2, yaw, pitch, roll, accX, accY, accZ]
-    
+        return [gx, gy, gz, accX, accY, accZ]
+
     # simulate game movement with noise and action
     def generate_simulated_wave(self):
 
         # base noise 10s long -> 20Hz*10 = 200 samples
-        t = np.linspace(0, 5, 200) # Define the time range
-        x1 = 0.2 * np.sin(t) + 0.2 * np.random.randn(200) 
-        x1[(x1 > -1) & (x1 < 1)] = 0.0 # TODO - sensor noise within margin of error auto remove
-        
+        t = np.linspace(0, 5, 200)  # Define the time range
+        x1 = 0.2 * np.sin(t) + 0.2 * np.random.randn(200)
+        x1[(x1 > -1) & (x1 < 1)] = 0.0  # TODO - sensor noise within margin of error auto remove
+
         # movement motion
         period = 2  # seconds
         amplitude = 5
-        t = np.linspace(0, 2, int(2 / 0.05)) # Define the time range
-        x2 = amplitude * np.sin(2 * np.pi * t / period)[:40] # Compute the sine wave for only one cycle
+        t = np.linspace(0, 2, int(2 / 0.05))  # Define the time range
+        x2 = amplitude * np.sin(2 * np.pi * t / period)[:40]  # Compute the sine wave for only one cycle
 
-        x = x1 
+        x = x1
         # Add to the 40th-80th elements
         x[20:60] += x2
         x[80:120] += x2
 
         return x
 
-
+    # 10 features
     def preprocess_data(self, data):
-        # data = data + 1e-12
-        # print(f"processing data: \n{data}\n")
-
-        # # Preprocess the data
-        # data_smoothed = sig.medfilt(data, kernel_size=3)
-        # # data_filtered = butter(3, 0.1, 'lowpass', fs=50)(data_smoothed)
-        # data_normalized = StandardScaler().fit_transform(data_smoothed.reshape(1, -1))
-
-        # # Extract features using Fourier transforms
-        # data_fft = np.abs(np.fft.fft(data_normalized, axis=1))
-        # data_fft = data_fft[:, :data_fft.shape[1]//2]
-
-        # # Extract features using wavelet transforms
-        # data_dwt = pywt.dwt(data_normalized, 'db1', axis=1)
-        # data_dwt = np.concatenate(data_dwt, axis=0)
-
-        # # Extract statistical features
-        # data_kurtosis = np.apply_along_axis(stats.kurtosis, axis=1, arr=data_normalized)
-        # data_skewness = np.apply_along_axis(stats.skew, axis=1, arr=data_normalized)
-        # data_entropy = np.apply_along_axis(stats.entropy, axis=1, arr=data_normalized)
-
-        # # Reshape statistical features to match shape of data_dwt
-        # data_kurtosis = np.tile(data_kurtosis, (2, 1)).T
-        # data_skewness = np.tile(data_skewness, (2, 1)).T
-        # data_entropy = np.tile(data_entropy, (2, 1)).T
-
-        # # Combine features into a feature matrix
-        # features = np.concatenate((data_fft, data_dwt.reshape(1, -1), data_kurtosis,
-        #                             data_skewness, data_entropy),
-        #                         axis=1)
-
-        # # Replace NaN values with the mean of the column
-        # # features = np.nan_to_num(features, nan=np.nanmean(features, axis=0))
-
-        # # Replace True/False values with 1/0
-        # features = features.astype(int)
-
-        # # Select top 10 features
-        # selector = SelectKBest(k=10)
-        # features_selected = selector.fit_transform(features, np.zeros(features.shape[0]))
-
-        # # Flatten to 1d array and return top 10 components
-        # top_10_components = features_selected.flatten()[:10]
-
-        # # Extract spectral centroid and spread
-        # data_normalized_mono = data_normalized[0]
-        # stft = librosa.stft(data_normalized_mono)
-
-        # # Extract spectral centroid and spread
-        # spectral_centroid = librosa.feature.spectral_centroid(S=np.abs(stft), n_fft=64)
-        # spectral_spread = librosa.feature.spectral_bandwidth(S=np.abs(stft), n_fft=64)
-
-        # # Extract wavelet energy and entropy
-        # wavelet_coeffs = pywt.wavedec(data_normalized, 'db1', level=5)
-        # wavelet_energy = np.sum([np.sum(np.square(c)) for c in wavelet_coeffs])
-        # eps = 1e-10
-        # wavelet_entropy = np.sum([np.sum(np.square(c) * np.log(np.square(c) + eps)) for c in wavelet_coeffs])
-
-        # # Combine all features into a single array
-        # all_features = np.concatenate((top_10_components.reshape(-1, 1), spectral_centroid.reshape(-1, 1), spectral_spread.reshape(-1, 1),
-        #                                 wavelet_energy.reshape(-1, 1), wavelet_entropy.reshape(-1, 1)), axis=0)
-
-        # # Return array of features
-        # all_features = all_features.reshape(1, -1)
-
         # standard data processing techniques
         mean = np.mean(data)
         std = np.std(data)
         variance = np.var(data)
-        min = np.min(data)
-        max = np.max(data)
         range = np.max(data) - np.min(data)
         peak_to_peak_amplitude = np.abs(np.max(data) - np.min(data))
         mad = np.median(np.abs(data - np.median(data)))
         root_mean_square = np.sqrt(np.mean(np.square(data)))
         interquartile_range = stats.iqr(data)
         percentile_75 = np.percentile(data, 75)
-        skewness = stats.skew(data.reshape(-1, 1))[0]
-        kurtosis = stats.kurtosis(data.reshape(-1, 1))[0]
-        zero_crossing_rate = ((data[:-1] * data[1:]) < 0).sum()
-        energy = np.sum(data**2)
-        # entropy = stats.entropy(data, base=2)
-
-        output_array = [mean, std, variance, min, max, range, peak_to_peak_amplitude,
+        # skewness = stats.skew(data.reshape(-1, 1))[0]
+        # kurtosis = stats.kurtosis(data.reshape(-1, 1))[0]
+        energy = np.sum(data ** 2)
+        output_array = [mean, std, variance, range, peak_to_peak_amplitude,
                         mad, root_mean_square, interquartile_range, percentile_75,
-                        skewness, kurtosis, zero_crossing_rate, energy]
+                        energy]
 
-        output_array = np.array(output_array)                        
-
-        # combined_array = np.concatenate((all_features.reshape(1, -1), output_array.reshape(1, -1)), axis=1)
+        output_array = np.array(output_array)
 
         return output_array.reshape(1, -1)
-    
+
     def preprocess_dataset(self, df):
         processed_data = []
 
-        # Loop through each column and compute features
-        for column in df.columns:
-            column_data = df[column].values
-            column_data = column_data.reshape(1, -1)
-            # print column1 values
-            print(f"column_data: {column_data}\n")
-            print("Data type of column_data:", type(column_data))
-            print("Size of column_data:", column_data.size)
+        # Set the window size for the median filter
+        window_size = 7
 
-            temp_processed = self.preprocess_data(column_data)
+        # Apply the median filter to each column of the DataFrame
+        df_filtered = df.rolling(window_size, min_periods=1, center=True).median()
 
-            # print(processed_column_data)
-            # Append processed column data to main processed data array
-            processed_data.append(temp_processed)
+        df = df_filtered
 
+        # Split the rows into 8 groups
+        group_size = 5
+        data_groups = [df.iloc[i:i + group_size, :] for i in range(0, len(df), group_size)]
+
+        # Loop through each group and column, and compute features
+        for group in data_groups:
+            group_data = []
+            for column in df.columns:
+                column_data = group[column].values
+                column_data = column_data.reshape(1, -1)
+
+                temp_processed = self.preprocess_data(column_data)
+                temp_processed = temp_processed.flatten()
+
+                group_data.append(temp_processed)
+
+            processed_data.append(np.concatenate(group_data))
+
+        # Combine the processed data for each group into a single array
         processed_data_arr = np.concatenate(processed_data)
-        
-        # reshape into a temporary dataframe of 8x14
-        temp_df = pd.DataFrame(processed_data_arr.reshape(8, -1), index=self.columns, columns=self.factors)
 
-        # print the temporary dataframe
-        print(f"processed_data: \n {temp_df} \n")
-        print(f"len processed_data: {len(processed_data_arr)}\n")
+        print(f"len processed_data_arr={len(processed_data_arr)}\n")
 
         return processed_data_arr
-    
+
     def MLP(self, data):
         start_time = time.time()
         # allocate in and out buffer
         in_buffer = pynq.allocate(shape=(24,), dtype=np.double)
 
-        # print time taken so far 
+        # print time taken so far
         print(f"MLP time taken so far in_buffer: {time.time() - start_time}")
         # out buffer of 1 integer
         out_buffer = pynq.allocate(shape=(1,), dtype=np.int32)
@@ -1064,46 +760,64 @@ class Training(threading.Thread):
 
         print(f"MLP time taken so far end trf: {time.time() - start_time}")
 
-
         # wait for transfer to finish
         self.dma.sendchannel.wait()
         self.dma.recvchannel.wait()
 
         print(f"MLP time taken so far wait: {time.time() - start_time}")
 
-
         # print("mlp done \n")
 
         # print output buffer
         for output in out_buffer:
             print(f"mlp done with output {output}")
-        
+
         print(f"MLP time taken so far output: {time.time() - start_time}")
 
         return [random.random() for _ in range(4)]
-    
+
     def instantMLP(self, data):
         # Define the input weights and biases
-        w1 = np.random.rand(24, 10)
-        b1 = np.random.rand(10)
-        w2 = np.random.rand(10, 20)
-        b2 = np.random.rand(20)
-        w3 = np.random.rand(20, 4)
-        b3 = np.random.rand(4)
+        # w1 = np.random.rand(24, 10)
+        # b1 = np.random.rand(10)
+        # w2 = np.random.rand(10, 20)
+        # b2 = np.random.rand(20)
+        # w3 = np.random.rand(20, 4)
+        # b3 = np.random.rand(4)
 
-        # Perform the forward propagation
-        a1 = np.dot(data[:24], w1) + b1
-        h1 = np.maximum(0, a1)  # ReLU activation
-        a2 = np.dot(h1, w2) + b2
-        h2 = np.maximum(0, a2)  # ReLU activation
-        a3 = np.dot(h2, w3) + b3
+        # # Perform the forward propagation
+        # a1 = np.dot(data[:24], w1) + b1
+        # h1 = np.maximum(0, a1)  # ReLU activation
+        # a2 = np.dot(h1, w2) + b2
+        # h2 = np.maximum(0, a2)  # ReLU activation
+        # a3 = np.dot(h2, w3) + b3
 
-        c = np.max(a3)
-        exp_a3 = np.exp(a3 - c)
-        softmax_output = exp_a3 / np.sum(exp_a3)  # Softmax activation
-        
-        return softmax_output
+        # c = np.max(a3)
+        # exp_a3 = np.exp(a3 - c)
+        # softmax_output = exp_a3 / np.sum(exp_a3)  # Softmax activation
 
+        # return softmax_output
+
+        # Load the model from file and preproessing
+        # localhost
+        mlp = joblib.load('mlp_model.joblib')
+        scaler = joblib.load('scaler.joblib')
+        pca = joblib.load('pca.joblib')
+
+        # board
+        # mlp = joblib.load('/home/xilinx/mlp_model.joblib')
+        # scaler = joblib.load('/home/xilinx/scaler.joblib')
+        # pca = joblib.load('/home/xilinx/pca.joblib')
+
+        test_data_std = scaler.transform(data.reshape(1, -1))
+        test_data_pca = pca.transform(test_data_std)
+
+        # Use the loaded MLP model to predict labels for the test data
+        predicted_labels = mlp.predict(test_data_pca)
+
+        predicted_label = str(predicted_labels[0].item())  # convert to single char
+
+        return predicted_label
 
     def close_connection(self):
         self.shutdown.set()
@@ -1111,124 +825,123 @@ class Training(threading.Thread):
         print("Shutting Down Connection")
 
     def run(self):
-        all_data = []
 
         # live integration loop
         # while not self.shutdown.is_set():
-        #
-        #     df = pd.DataFrame(columns=['flex1', 'flex2', 'yaw', 'pitch', 'roll', 'accX', 'accY', 'accZ'])
-        #     # Define the window size and threshold factor
-        #     window_size = 11
-        #     threshold_factor = 2
-        #
-        #     # Define N units for flagging movement, 20Hz -> 2s = 40 samples
-        #     N = 40
-        #
-        #     # Initialize empty arrays for data storage
-        #     t = []
-        #     x = []
-        #     filtered = []
-        #     threshold = []
-        #     movement_detected = []
-        #     last_movement_time = -N  # set last movement time to negative N seconds ago
-        #     wave = self.generate_simulated_wave()
-        #     i = 0
-        #     timenow = 0
+        f = True
+        while f:
+            f = False
 
-        # print(f"entering while loop \n")
+            df = pd.DataFrame(columns=self.columns)
+            # Define the window size and threshold factor
+            window_size = 11
+            threshold_factor = 2
 
-        # data collection loop
-        i = 0
-        while not self.shutdown.is_set():
-            try:
-                input("start?")
+            # Define N units for flagging movement, 20Hz -> 2s = 40 samples
+            N = 40
 
-                global global_flag
-                global_flag = True
-                start_time = time.time()
+            # Initialize empty arrays for data storage
+            t = []
+            x = []
+            filtered = []
+            threshold = []
+            movement_detected = []
+            last_movement_time = -N  # set last movement time to negative N seconds ago
+            wave = self.generate_simulated_wave()
+            i = 0
+            timenow = 0
 
-                while time.time() - start_time < 2:
-                    # getting data - simulation
-                    # data = self.generate_simulated_data()
-                    # print(f"data: {data} \n")
+            print(f"entering while loop \n")
 
-                    # # getting data - actl
-                    data = fpga_queue.get()
-                    self.packer.unpack(data)
-                    data = self.packer.get_flex_data() + self.packer.get_euler_data() + self.packer.get_acc_data()
-                    print(f"data: {data} \n")
+            while True:
+                # Create plot window
+                # plt.ion()
+                # plt.show()
 
-                    if len(data) == 0:
-                        print("Invalid data:", data)
-                        continue
-                    if len(data) == 8:
-                        flex1, flex2, gx, gy, gz, accX, accY, accZ = data
-                        all_data.append([flex1, flex2, gx, gy, gz, accX/100, accY/100, accZ/100])
+                data = ai_queue.popleft()
+                # self.sleep(0.05)
+                print("Data: ")
+                print(" ".join([f"{x:.8g}" for x in data]))
+                print("\n")
 
-                    # self.sleep(0.05)
-                    # i += 1
+                # Append new data to dataframe
+                df.loc[len(df)] = data
 
-                global_flag = False
+                # Compute absolute acceleration values
+                # x.append(np.abs(data[5:8])) # abs of accX, accY, accZ
+                x.append(wave[i])  # abs of accX, accY, accZ
 
-                # creating df for preview 
-                df = pd.DataFrame(all_data, columns=self.columns)
-                # creating res to output differences 
-                res = pd.DataFrame(columns=self.columns)
+                # time
+                t.append(timenow)
 
-                for j in range(len(df)):
-                    diff = df.iloc[j] - df.iloc[j-1]
-                    res = res.append(diff, ignore_index=True)
-
-                # Show user the data and prompt for confirmation
-                print(res[['gx', 'gy', 'gz', 'accX', 'accY', 'accZ']].head(40))
-                # print(f"Number of rows and columns: {df.shape[0]} by {df.shape[1]}")
-
-                ui = input("data ok? y/n")
-                if ui.lower() == "y":
-
-                    time_now = time.strftime("%Y%m%d-%H%M%S")
-                    
-                    res_arr = res.values.reshape(1,-1)
-                    res_arr = np.append(res_arr, time_now)
-
-                    # Store data into a new CSV file
-                    filename = "/home/xilinx/code/training/raw_data.csv"
-
-                    with open(filename, "a") as f:
-                        writer = csv.writer(f)
-                        writer.writerow(res_arr)
-
-                    # Clear raw data list
-                    all_data = []
-                    res_arr = []
-                    i = 0
-
-                    # Preprocess data
-                    processed_data = self.preprocess_dataset(res)
-
-                    # Prompt user for label
-                    label = input("Enter label (G = GRENADE, R = RELOAD, S = SHIELD, L = LOGOUT): ")
-
-                    # Append label, timestamp to processed data
-                    processed_data = np.append(processed_data, label)
-                    processed_data = np.append(processed_data, time_now)
-
-                    # Append processed data to CSV file
-                    with open("/home/xilinx/code/training/processed_data.csv", "a") as f:
-                        writer = csv.writer(f)
-                        # writer.writerow(self.headers)
-                        writer.writerow(processed_data)
-
-                    print("Data processed and saved to CSV file.")
+                # Compute moving window median
+                if len(x) < window_size:
+                    filtered.append(0)
                 else:
-                    all_data = []
-                    res_arr = []
+                    filtered.append(np.median(x[-window_size:], axis=0))
+
+                # Compute threshold using past median data, threshold = mean + k * std
+                if len(filtered) < window_size:
+                    threshold.append(0)
+                else:
+                    past_filtered = filtered[-window_size:]
+                    threshold.append(
+                        np.mean(past_filtered, axis=0) + (threshold_factor * np.std(past_filtered, axis=0)))
+
+                # Identify movement
+                if len(filtered) > window_size:
+                    # checking if val is past threshold and if last movement was more than N samples ago
+                    if np.all(filtered[-1] > threshold[-1]) and len(t) - last_movement_time >= N:
+                        movement_detected.append(len(df) - 1)
+                        last_movement_time = len(t)  # update last movement time
+                        print(f"Movement detected at sample {len(df) - 1}")
+
+                # if movement has been detected for more than N samples, preprocess and feed into neural network
+                if len(movement_detected) > 0 and len(df) - movement_detected[-1] >= N:
+                    # extract movement data
+                    start = movement_detected[-1]
+                    end = len(df)
+                    movement_data = df.iloc[start:end, :]
+
+                    # print the start and end index of the movement
+                    print(f"Processing movement detected from sample {start} to {end}")
+
+                    # perform data preprocessing
+                    preprocessed_data = self.preprocess_dataset(movement_data)
+
+                    # print preprocessed data
+                    print(f"preprocessed data to feed into MLP: \n {preprocessed_data} \n")
+
+                    # feed preprocessed data into neural network
+                    # output = self.MLP(preprocessed_data)
+                    predicted_label = self.instantMLP(preprocessed_data)
+
+                    action_queue.append([predicted_label, False]) # G, L, R, S
+
+                    print(f"output from MLP: \n {predicted_label} \n")  # print output of MLP
+
+                    # np_output = np.array(output)
+                    # largest_index = np_output.argmax()
+
+                    # largest_action = self.action_map[largest_index]
+
+                    # print largest index and largest action of MLP output
+                    # print(f"largest index: {largest_index} \n")
+                    # print(f"largest action: {largest_action} \n")
+
+                    # reset movement_detected list
+                    movement_detected.clear()
+
+                i += 1
+                timenow += 1
+
+                if i == 200:
                     i = 0
-                    print("not proceed, restart")
-            except Exception as _:
-                traceback.print_exc()
-                self.close_connection()
-                print("an error occurred")
+
+            # except Exception as _:
+            #     traceback.print_exc()
+            #     self.close_connection()
+            #     print("an error occurred")
 
 
 if __name__ == '__main__':
@@ -1255,12 +968,12 @@ if __name__ == '__main__':
     #ai_model.start()
 
     # Server Connection to Laptop
-    # print("Starting Server Thread           ")
-    # laptop_server = Server(8080, "192.168.95.221")
-    # laptop_server.start()
+    print("Starting Server Thread           ")
+    laptop_server = Server(8080, "192.168.95.221")
+    laptop_server.start()
 
-    print("Starting Web Socket Server Thread")
-    laptop_server = WebSocketServer("192.168.95.221", 8080)
-    laptop_server.run()
+    # print("Starting Web Socket Server Thread")
+    # laptop_server = WebSocketServer("192.168.95.221", 8080)
+    # laptop_server.run()
 
     print('--------------------------------------------')
