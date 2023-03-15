@@ -15,7 +15,7 @@ from Crypto.Util.Padding import unpad
 from Crypto import Random
 import queue
 import asyncio
-import websockets
+# import websockets
 import time
 import csv
 import numpy as np
@@ -878,7 +878,7 @@ class AI(threading.Thread):
         # Combine the processed data for each group into a single array
         processed_data_arr = np.concatenate(processed_data)
 
-        print(f"len processed_data_arr={len(processed_data_arr)}\n")
+        # print(f"len processed_data_arr={len(processed_data_arr)}\n")
 
         return processed_data_arr
 
@@ -902,9 +902,9 @@ class AI(threading.Thread):
         self.dma.recvchannel.wait()
 
         # print output buffer
-        print("mlp done with output: " + " ".join(str(x) for x in out_buffer))
+        # print("mlp done with output: " + " ".join(str(x) for x in out_buffer))
 
-        print(f"MLP time taken so far output: {time.time() - start_time}")
+        # print(f"MLP time taken so far output: {time.time() - start_time}")
 
         return out_buffer
 
@@ -929,7 +929,7 @@ class AI(threading.Thread):
         predicted_label = str(predicted_labels[0].item())  # return single char
 
         # print predicted label of MLP predicted_label
-        print(f"MLP lib predicted: {predicted_label} \n")
+        # print(f"MLP lib predicted: {predicted_label} \n")
 
         predicted_labels = self.PCA_MLP(test_data_pca)  # return 1x4 softmax array
 
@@ -987,16 +987,16 @@ class AI(threading.Thread):
                 if len(ai_queue) != 0:
                     data = ai_queue.popleft()
                     # self.sleep(0.05)
-                    print("Data: ")
-                    print(" ".join([f"{x:.8g}" for x in data]))
-                    print("\n")
+                    # print("Data: ")
+                    # print(" ".join([f"{x:.8g}" for x in data]))
+                    # print("\n")
 
                     # Append new data to dataframe
                     df.loc[len(df)] = data
 
                     # Compute absolute acceleration values
-                    # x.append(np.abs(data[5:8])) # abs of accX, accY, accZ
-                    x.append(wave[i])  # abs of accX, accY, accZ
+                    x.append(np.abs(data[3:6]))  # abs of accX, accY, accZ
+                    # x.append(wave[i])  # abs of accX, accY, accZ
 
                     # time
                     t.append(timenow)
@@ -1035,9 +1035,6 @@ class AI(threading.Thread):
 
                         # perform data preprocessing
                         preprocessed_data = self.preprocess_dataset(movement_data)
-
-                        # print preprocessed data
-                        print(f"preprocessed data to feed into MLP: \n {preprocessed_data} \n")
 
                         # feed preprocessed data into neural network
                         # output = self.MLP(preprocessed_data)
