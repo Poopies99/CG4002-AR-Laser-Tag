@@ -37,8 +37,8 @@ class Client(threading.Thread):
         while not self.shutdown.is_set():
             try:
                 message = input("Enter message to be sent: ")
+
                 if message == 'q':
-                    self.close_connection()
                     break
 
                 self.client_socket.send(message.encode())
