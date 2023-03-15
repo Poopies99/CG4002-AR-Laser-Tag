@@ -104,7 +104,7 @@ class GameEngine(threading.Thread):
                 traceback.print_exc()
 
 
-class Subscriber(threading.Thread):
+class SubscriberSend(threading.Thread):
     def __init__(self, topic):
         super().__init__()
 
@@ -144,16 +144,21 @@ class Subscriber(threading.Thread):
 
         while not self.shutdown.is_set():
             try:
-                input_message = subscribe_queue.get()
+                if len(subscribe_queue) != 0:
+                    input_message = subscribe_queue.popleft()
 
-                print('Publishing to HiveMQ: ', input_message)
+                    print('Publishing to HiveMQ: ', input_message)
 
-                if input_message == 'q':
-                    break
-                self.send_message(input_message)
-            except Exception as _:
+                    # if input_message == 'q':
+                    #     break
+                    self.send_message(input_message)
+
+            except KeyboardInterrupt as _:
                 traceback.print_exc()
                 self.close_connection()
+            except Exception as _:
+                traceback.print_exc()
+                continue
 
 
 class EvalClient(threading.Thread):
@@ -223,8 +228,11 @@ class EvalClient(threading.Thread):
         while not self.shutdown.is_set():
             try:
                 input_message = eval_queue.popleft()
-                if input_message == 'q':
-                    break
+
+                print("Sending Message to Eval Client:", input_message)
+
+                # if input_message == 'q':
+                #     break
 
                 encrypted_message = self.encrypt_message(input_message)
 
@@ -233,14 +241,22 @@ class EvalClient(threading.Thread):
 
                 self.client_socket.sendall(final_message.encode())
 
-                message = self.client_socket.recvfrom()
+                message_length = self.client_socket.recv(64)
+                message = self.client_socket.recv(512)
 
-                laptop_queue.append(message)
+                correct_status = json.loads(message[0].decode())
+                action_queue.append(['update', correct_status])
 
-                print("Sending Message to Eval Client:", input_message)
-            except Exception as _:
+                laptop_queue.append(correct_status) # Server thread queue to send back to relay laptop
+                subscribe_queue.append(correct_status) # Subscribe thread queue to update visualizer
+
+                print('Append to Laptop Queue')
+            except KeyboardInterrupt as _:
                 traceback.print_exc()
                 self.close_connection()
+            except Exception as _:
+                traceback.print_exc()
+                continue
 
 
 # class WebSocketServer:
@@ -283,9 +299,6 @@ class EvalClient(threading.Thread):
 #         super().__init__()
 #
 #     def
-
-
-
 
 
 class Server(threading.Thread):
@@ -381,9 +394,12 @@ class Server(threading.Thread):
                     self.connection.send(data)
 
                     print("Sending back to laptop", data)
-            except Exception as _:
+            except KeyboardInterrupt as _:
                 traceback.print_exc()
                 self.close_connection()
+            except Exception as _:
+                traceback.print_exc()
+                continue
 
 class TrainingModel(threading.Thread):
     def __init__(self):
@@ -609,10 +625,9 @@ class TrainingModel(threading.Thread):
                     raw_data = []
                     i = 0
                     print("not proceed, restart")
-
             except Exception as _:
                 traceback.print_exc()
-                print("An Error Occurred")
+                continue
 
 
 class AI(threading.Thread):
@@ -953,14 +968,14 @@ if __name__ == '__main__':
     # GE.start()
 
     # Software Visualizer
-    # print("Starting Subscriber Thread        ")
-    # hive = Subscriber("CG4002")
-    # hive.start()
+    print("Starting Subscriber Thread        ")
+    hive = SubscriberSend("CG4002")
+    hive.start()
 
-    # # Client Connection to Evaluation Server
-    # print("Starting Client Thread           ")
-    # eval_client = EvalClient(1234, "localhost")
-    # eval_client.start()
+    # Client Connection to Evaluation Server
+    print("Starting Client Thread           ")
+    eval_client = EvalClient(1234, "localhost")
+    eval_client.start()
 
     # AI Model
     #print("Starting AI Model Thread")
