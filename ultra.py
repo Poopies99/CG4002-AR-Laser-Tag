@@ -501,8 +501,6 @@ class Server(threading.Thread):
                 if self.packer.get_beetle_id() == 1:
                     action_queue.append(["shoot", True])
                     continue
-                elif self.packer.get_beetle_id() == 2:
-                    print("Someone has been shot")
                     # action_queue.append(["shoot", Server.shot_flag])
                     # continue
                 elif self.packer.get_beetle_id() == 3:
@@ -510,7 +508,7 @@ class Server(threading.Thread):
                     ai_queue.append(packet)
                     continue
                 else:
-                    print('Unknown Beetle ID')
+                    continue
 
                 # # Remove when Training is complete
                 # if global_flag:
