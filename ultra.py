@@ -59,52 +59,108 @@ fpga_queue = deque()
 laptop_queue = deque()
 training_model_queue = deque()
 eval_queue = deque()
+feedback_queue = deque()
 
 collection_flag = False
 
+
 # Multithread this Chris
 class GameEngine(threading.Thread):
-    """
-    1 Player Game Engine
-    """
-    def __init__(self):
+    def __init__(self, eval_client):
         super().__init__()
 
-        # Create Player
-        self.player = Player()
+        # queue to receive status from sw
+        self.eval_client = eval_client
+        self.p1 = self.eval_client.gamestate.player_1
+        self.p2 = self.eval_client.gamestate.player_2
 
-        # Flags
         self.shutdown = threading.Event()
 
-    def update(self, action):
-        try:
-            if action == 'shoot':
-                return self.player.shoot()
-            elif action == 'grenade':
-                return self.player.throw_grenade()
-            elif action == 'shield':
-                return self.player.activate_shield()
-            elif action == 'reload':
-                return self.player.reload()
-            self.player.update_json()
-        except Exception as _:
-            self.shutdown.set()
+    def determine_grenade_hit(self):
+        while True:
+            while len(feedback_queue) != 0:
+                data = feedback_queue.popleft()
+                if data == "6 hit_grenade#":
+                    return True
+                else:
+                    return False
+
+    # one approach is to put it in action queue and continue processing/ or do we want to wait for the grenade actions
+    def random_ai_action(self, data):
+        actions = ["shoot", "grenade", "shield", "reload", "invalid"]
+        action_queue.put(([random.choice(actions)], ["False"]))
 
     def run(self):
+
         while not self.shutdown.is_set():
             try:
-                action = action_queue.popleft() # ['G', False]
+                if len(action_queue) != 0:
+                    action_data, status = action_queue.popleft()
 
-                with open('example.json', 'r') as f:
-                    json_data = f.read()
+                    print(f"Receive action data by Game Engine: {action_data}")
+                    # assuming action_data to be [[p1_action], [p2_status]]
 
-                eval_queue.append(json_data)
-                subscribe_queue.append(json_data)
+                    if self.p1.shield_status:
+                        self.p1.update_shield()
 
-                json_data = json.loads(json_data)
-            except Exception as _:
+                    if self.p2.shield_status:
+                        self.p2.update_shield()
+
+                    if action_data == "logout" or action_data.lower() == 'l':
+                        self.p1.action = "logout"
+                        # send to visualizer
+                        # send to eval server - eval_queue
+                        data = self.eval_client.gamestate._get_data_plain_text()
+                        subscribe_queue.append(data)
+                        # self.eval_client.submit_to_eval()
+                        break
+
+                    if action_data == "grenade" or action_data == "G":
+                        # receiving the status mqtt topic
+
+                        if self.p1.throw_grenade():
+                            subscribe_queue.append(self.eval_client.gamestate._get_data_plain_text())
+                            self.p1.action = "None"
+                            # time.sleep(0.5)
+
+                    elif action_data == "shield" or action_data == "S":
+                        print("Entered shield action")
+                        self.p1.activate_shield()
+
+                    elif action_data == "shoot":
+                        print("Entered shoot action")
+                        if self.p1.shoot() and status:
+                            self.p2.got_shot()
+
+                    elif action_data == "reload" or action_data == "R":
+                        self.p1.reload()
+
+                    if action_data == "grenade" or action_data == "G":
+                        if self.p1.grenades >= 0:
+                            if self.determine_grenade_hit():
+                                self.p2.got_hit_grenade()
+
+                                # If health drops to 0 then everything resets except for number of deaths
+                    if self.p2.hp <= 0:
+                        self.p2.hp = 100
+                        self.p2.action = "none"
+                        self.p2.bullets = 6
+                        self.p2.grenades = 2
+                        self.p2.shield_time = 0
+                        self.p2.shield_health = 0
+                        self.p2.num_shield = 3
+                        self.p2.num_deaths += 1
+
+                    # gamestate to eval_server
+                    self.eval_client.submit_to_eval()
+                    # eval server to subscriber queue
+                    self.eval_client.receive_correct_ans()
+                    # subscriber queue to sw/feedback queue
+
+                    subscribe_queue.append(self.eval_client.gamestate._get_data_plain_text())
+
+            except KeyboardInterrupt as _:
                 traceback.print_exc()
-
 
 class SubscriberSend(threading.Thread):
     def __init__(self, topic):
@@ -161,6 +217,46 @@ class SubscriberSend(threading.Thread):
             except Exception as _:
                 traceback.print_exc()
                 continue
+
+
+class SubscriberReceive(threading.Thread):
+    def __init__(self, topic):
+        super().__init__()
+
+        # Create a MQTT client
+        client = mqtt.Client()
+        client.connect("broker.hivemq.com")
+        client.subscribe(topic)
+
+        client.on_message = self.on_message
+
+        self.client = client
+        self.topic = topic
+
+        # Flags
+        self.shutdown = threading.Event()
+
+    @staticmethod
+    def on_message(client, userdata, message):
+        # print("Latency: %.4f seconds" % latency)
+        print('Received message: ' + message.payload.decode())
+        feedback_queue.append(message.payload.decode())
+
+    def close_connection(self):
+        self.client.disconnect()
+        self.shutdown.set()
+
+        print("Shutting Down Connection to HiveMQ")
+
+    def run(self):
+
+        while not self.shutdown.is_set():
+            try:
+                self.client.loop_forever()
+
+            except Exception as e:
+                print(e)
+                self.close_connection()
 
 
 class EvalClient:
@@ -405,12 +501,12 @@ class Server(threading.Thread):
                 self.packer.unpack(packet)
 
                 if self.packer.get_beetle_id() == 1:
-                    self.check_shot()
-
+                    action_queue.append(["shoot", True])
                     continue
                 elif self.packer.get_beetle_id() == 2:
-                    action_queue.append(["shoot", Server.shot_flag])
-                    continue
+                    print("Someone has been shot")
+                    # action_queue.append(["shoot", Server.shot_flag])
+                    # continue
                 elif self.packer.get_beetle_id() == 3:
                     packet = self.packer.get_euler_data() + self.packer.get_acc_data()
                     ai_queue.append(packet)
@@ -1002,26 +1098,30 @@ class AI(threading.Thread):
 if __name__ == '__main__':
     print('---------------<Announcement>---------------')
 
-    # Game Engine
-    # print("Starting Game Engine Thread        ")
-    # GE = GameEngine()
-    # GE.start()
-
     # Software Visualizer
-    print("Starting Subscriber Thread        ")
-    hive = SubscriberSend("CG4002")
-    hive.start()
+    # print("Starting Subscriber Thread        ")
+    # hive = SubscriberSend("CG4002")
+    # hive.start()
+
+    # Starting Visualizer Receive
+    # viz = SubscriberReceive("gamestate")
+    # viz.start()
 
     # Client Connection to Evaluation Server
     print("Starting Client Thread           ")
     eval_client = EvalClient(1234, "localhost")
     eval_client.connect_to_eval()
-    input("block")
-    eval_client.submit_to_eval()
-    eval_client.receive_correct_ans()
-    eval_client.change()
-    eval_client.submit_to_eval()
-    eval_client.receive_correct_ans()
+    # input("block")
+    # eval_client.submit_to_eval()
+    # eval_client.receive_correct_ans()
+    # eval_client.change()
+    # eval_client.submit_to_eval()
+    # eval_client.receive_correct_ans()
+
+    # Game Engine
+    print("Starting Game Engine Thread        ")
+    GE = GameEngine(eval_client=eval_client)
+    GE.start()
 
     # AI Model
     #print("Starting AI Model Thread")
@@ -1029,12 +1129,13 @@ if __name__ == '__main__':
     #ai_model.start()
 
     # Server Connection to Laptop
-    print("Starting Server Thread           ")
-    laptop_server = Server(8080, "192.168.95.221")
-    laptop_server.start()
+    # print("Starting Server Thread           ")
+    # laptop_server = Server(8080, "192.168.95.221")
+    # laptop_server.start()
 
     # print("Starting Web Socket Server Thread")
     # laptop_server = WebSocketServer("192.168.95.221", 8080)
     # laptop_server.run()
+    action_queue.append(['shoot', True])
 
     print('--------------------------------------------')

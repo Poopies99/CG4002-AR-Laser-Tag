@@ -5,10 +5,7 @@ import sys
 import threading
 import traceback
 from _socket import SHUT_RDWR
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import pad
-from Crypto.Util.Padding import unpad
-from Crypto import Random
+
 import time
 
 class Client(threading.Thread):
@@ -207,7 +204,7 @@ if __name__ == '__main__':
 
     # client = Client(8080, 'localhost')
     # client.start()
-    client = EvalClient(8080, 'localhost')
+    client = Client(8080, 'localhost')
     client.start()
     # server = Server(8080, 'localhost')
     # server.start()
