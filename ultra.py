@@ -290,10 +290,6 @@ class EvalClient:
         self.gamestate.recv_and_update(self.client_socket)
         print(self.gamestate._get_data_plain_text())
 
-    def change(self):
-        print('Changing Player stats')
-        self.gamestate.init_player(1, 'reload', 50, 3, 1, 0, 0, 2, 1)
-
     def close_connection(self):
         self.client_socket.close()
         print("Shutting Down EvalClient Connection")
@@ -521,17 +517,17 @@ class Server(threading.Thread):
                 #     fpga_queue.put(packet)
 
                 # Sends data back into the relay laptop
-                if len(laptop_queue) != 0 :
-                    game_state = laptop_queue.popleft()
-                    node_id = 0
-                    packet_type = PacketType.ACK
-                    header = (node_id << 4) | packet_type
-                    data = [header, game_state['p1']['bullets'], game_state['p1']['hp'], 0, 0, 0, 0, 0, 0, 0]
-                    data = self.packer.pack(data)
-
-                    self.connection.send(data)
-
-                    print("Sending back to laptop", data)
+                # if len(laptop_queue) != 0 :
+                #     game_state = laptop_queue.popleft()
+                #     node_id = 0
+                #     packet_type = PacketType.ACK
+                #     header = (node_id << 4) | packet_type
+                #     data = [header, game_state['p1']['bullets'], game_state['p1']['hp'], 0, 0, 0, 0, 0, 0, 0]
+                #     data = self.packer.pack(data)
+                #
+                #     self.connection.send(data)
+                #
+                #     print("Sending back to laptop", data)
             except KeyboardInterrupt as _:
                 traceback.print_exc()
                 self.close_connection()
@@ -788,11 +784,11 @@ class AI(threading.Thread):
         self.headers.extend(['action'])
 
         # defining game action dictionary
-        self.action_map = {0: 'GRENADE', 1: 'LOGOUT', 2: 'SHIELD', 3: 'RELOAD'}
+        self.action_map = {0: 'G', 1: 'L', 2: 'R', 3: 'S'}
 
-        # PYNQ overlay - TODO
-        # self.overlay = Overlay("design_3.bit")
-        # self.dma = self.overlay.axi_dma_0
+        # PYNQ overlay
+        self.overlay = Overlay("pca_mlp_1.bit")
+        self.dma = self.overlay.axi_dma_0
 
     def sleep(self, seconds):
         start_time = time.time()
@@ -888,88 +884,68 @@ class AI(threading.Thread):
 
         return processed_data_arr
 
-    def MLP(self, data):
+    def PCA_MLP(self, data):
         start_time = time.time()
         # allocate in and out buffer
-        in_buffer = pynq.allocate(shape=(24,), dtype=np.double)
+        in_buffer = pynq.allocate(shape=(35,), dtype=np.double)  # 1x35 PCA input
+        out_buffer = pynq.allocate(shape=(4,), dtype=np.double)  # 1x4 softmax output
 
-        # print time taken so far
-        print(f"MLP time taken so far in_buffer: {time.time() - start_time}")
-        # out buffer of 1 integer
-        out_buffer = pynq.allocate(shape=(1,), dtype=np.int32)
-        print(f"MLP time taken so far out_buffer: {time.time() - start_time}")
+        # reshape data to match in_buffer shape
+        data = np.reshape(data, (35,))
 
-        # # TODO - copy all data to in buffer
-        # for i, val in enumerate(data):
-        #     in_buffer[i] = val
-
-        for i, val in enumerate(data[:24]):
+        for i, val in enumerate(data):
             in_buffer[i] = val
-
-        print(f"MLP time taken so far begin trf: {time.time() - start_time}")
 
         self.dma.sendchannel.transfer(in_buffer)
         self.dma.recvchannel.transfer(out_buffer)
-
-        print(f"MLP time taken so far end trf: {time.time() - start_time}")
 
         # wait for transfer to finish
         self.dma.sendchannel.wait()
         self.dma.recvchannel.wait()
 
-        print(f"MLP time taken so far wait: {time.time() - start_time}")
-
-        # print("mlp done \n")
-
         # print output buffer
-        for output in out_buffer:
-            print(f"mlp done with output {output}")
+        print("mlp done with output: " + " ".join(str(x) for x in out_buffer))
 
         print(f"MLP time taken so far output: {time.time() - start_time}")
 
-        return [random.random() for _ in range(4)]
+        return out_buffer
 
     def instantMLP(self, data):
-        # Define the input weights and biases
-        # w1 = np.random.rand(24, 10)
-        # b1 = np.random.rand(10)
-        # w2 = np.random.rand(10, 20)
-        # b2 = np.random.rand(20)
-        # w3 = np.random.rand(20, 4)
-        # b3 = np.random.rand(4)
-
-        # # Perform the forward propagation
-        # a1 = np.dot(data[:24], w1) + b1
-        # h1 = np.maximum(0, a1)  # ReLU activation
-        # a2 = np.dot(h1, w2) + b2
-        # h2 = np.maximum(0, a2)  # ReLU activation
-        # a3 = np.dot(h2, w3) + b3
-
-        # c = np.max(a3)
-        # exp_a3 = np.exp(a3 - c)
-        # softmax_output = exp_a3 / np.sum(exp_a3)  # Softmax activation
-
-        # return softmax_output
-
         # Load the model from file and preproessing
         # localhost
-        mlp = joblib.load('mlp_model.joblib')
-        scaler = joblib.load('scaler.joblib')
-        pca = joblib.load('pca.joblib')
+        # mlp = joblib.load('mlp_model.joblib')
+        # scaler = joblib.load('scaler.joblib')
+        # pca = joblib.load('pca.joblib')
 
         # board
-        # mlp = joblib.load('/home/xilinx/mlp_model.joblib')
-        # scaler = joblib.load('/home/xilinx/scaler.joblib')
-        # pca = joblib.load('/home/xilinx/pca.joblib')
+        mlp = joblib.load('/home/xilinx/mlp_model.joblib')
+        scaler = joblib.load('/home/xilinx/scaler.joblib')
+        pca = joblib.load('/home/xilinx/pca.joblib')
 
+        # Preprocess data
         test_data_std = scaler.transform(data.reshape(1, -1))
         test_data_pca = pca.transform(test_data_std)
 
-        # Use the loaded MLP model to predict labels for the test data
+        # Use MLP
         predicted_labels = mlp.predict(test_data_pca)
+        predicted_label = str(predicted_labels[0].item())  # return single char
 
-        predicted_label = str(predicted_labels[0].item())  # convert to single char
+        # print predicted label of MLP predicted_label
+        print(f"MLP lib predicted: {predicted_label} \n")
 
+        predicted_labels = self.PCA_MLP(test_data_pca)  # return 1x4 softmax array
+
+        np_output = np.array(predicted_labels)
+        largest_index = np_output.argmax()
+
+        # predicted_label = self.action_map[largest_index]
+        predicted_label = self.action_map[largest_index]
+
+        # print largest index and largest action of MLP output
+        # print(f"largest index: {largest_index} \n")
+        print(f"MLP overlay predicted: {predicted_label} \n")
+
+        # output is a single char
         return predicted_label
 
     def close_connection(self):
@@ -1010,102 +986,92 @@ class AI(threading.Thread):
                 # Create plot window
                 # plt.ion()
                 # plt.show()
+                if len(ai_queue) != 0:
+                    data = ai_queue.popleft()
+                    # self.sleep(0.05)
+                    print("Data: ")
+                    print(" ".join([f"{x:.8g}" for x in data]))
+                    print("\n")
 
-                data = ai_queue.popleft()
-                # self.sleep(0.05)
-                print("Data: ")
-                print(" ".join([f"{x:.8g}" for x in data]))
-                print("\n")
+                    # Append new data to dataframe
+                    df.loc[len(df)] = data
 
-                # Append new data to dataframe
-                df.loc[len(df)] = data
+                    # Compute absolute acceleration values
+                    # x.append(np.abs(data[5:8])) # abs of accX, accY, accZ
+                    x.append(wave[i])  # abs of accX, accY, accZ
 
-                # Compute absolute acceleration values
-                # x.append(np.abs(data[5:8])) # abs of accX, accY, accZ
-                x.append(wave[i])  # abs of accX, accY, accZ
+                    # time
+                    t.append(timenow)
 
-                # time
-                t.append(timenow)
+                    # Compute moving window median
+                    if len(x) < window_size:
+                        filtered.append(0)
+                    else:
+                        filtered.append(np.median(x[-window_size:], axis=0))
 
-                # Compute moving window median
-                if len(x) < window_size:
-                    filtered.append(0)
-                else:
-                    filtered.append(np.median(x[-window_size:], axis=0))
+                    # Compute threshold using past median data, threshold = mean + k * std
+                    if len(filtered) < window_size:
+                        threshold.append(0)
+                    else:
+                        past_filtered = filtered[-window_size:]
+                        threshold.append(
+                            np.mean(past_filtered, axis=0) + (threshold_factor * np.std(past_filtered, axis=0)))
 
-                # Compute threshold using past median data, threshold = mean + k * std
-                if len(filtered) < window_size:
-                    threshold.append(0)
-                else:
-                    past_filtered = filtered[-window_size:]
-                    threshold.append(
-                        np.mean(past_filtered, axis=0) + (threshold_factor * np.std(past_filtered, axis=0)))
+                    # Identify movement
+                    if len(filtered) > window_size:
+                        # checking if val is past threshold and if last movement was more than N samples ago
+                        if np.all(filtered[-1] > threshold[-1]) and len(t) - last_movement_time >= N:
+                            movement_detected.append(len(df) - 1)
+                            last_movement_time = len(t)  # update last movement time
+                            print(f"Movement detected at sample {len(df) - 1}")
 
-                # Identify movement
-                if len(filtered) > window_size:
-                    # checking if val is past threshold and if last movement was more than N samples ago
-                    if np.all(filtered[-1] > threshold[-1]) and len(t) - last_movement_time >= N:
-                        movement_detected.append(len(df) - 1)
-                        last_movement_time = len(t)  # update last movement time
-                        print(f"Movement detected at sample {len(df) - 1}")
+                    # if movement has been detected for more than N samples, preprocess and feed into neural network
+                    if len(movement_detected) > 0 and len(df) - movement_detected[-1] >= N:
+                        # extract movement data
+                        start = movement_detected[-1]
+                        end = len(df)
+                        movement_data = df.iloc[start:end, :]
 
-                # if movement has been detected for more than N samples, preprocess and feed into neural network
-                if len(movement_detected) > 0 and len(df) - movement_detected[-1] >= N:
-                    # extract movement data
-                    start = movement_detected[-1]
-                    end = len(df)
-                    movement_data = df.iloc[start:end, :]
+                        # print the start and end index of the movement
+                        print(f"Processing movement detected from sample {start} to {end}")
 
-                    # print the start and end index of the movement
-                    print(f"Processing movement detected from sample {start} to {end}")
+                        # perform data preprocessing
+                        preprocessed_data = self.preprocess_dataset(movement_data)
 
-                    # perform data preprocessing
-                    preprocessed_data = self.preprocess_dataset(movement_data)
+                        # print preprocessed data
+                        print(f"preprocessed data to feed into MLP: \n {preprocessed_data} \n")
 
-                    # print preprocessed data
-                    print(f"preprocessed data to feed into MLP: \n {preprocessed_data} \n")
+                        # feed preprocessed data into neural network
+                        # output = self.MLP(preprocessed_data)
+                        predicted_label = self.instantMLP(preprocessed_data)
 
-                    # feed preprocessed data into neural network
-                    # output = self.MLP(preprocessed_data)
-                    predicted_label = self.instantMLP(preprocessed_data)
+                        print(f"output from MLP: \n {predicted_label} \n")  # print output of MLP
 
-                    action_queue.append([predicted_label, False]) # G, L, R, S
+                        # reset movement_detected list
+                        movement_detected.clear()
 
-                    print(f"output from MLP: \n {predicted_label} \n")  # print output of MLP
+                    i += 1
+                    timenow += 1
 
-                    # np_output = np.array(output)
-                    # largest_index = np_output.argmax()
+                    if i == 200:
+                        i = 0
 
-                    # largest_action = self.action_map[largest_index]
-
-                    # print largest index and largest action of MLP output
-                    # print(f"largest index: {largest_index} \n")
-                    # print(f"largest action: {largest_action} \n")
-
-                    # reset movement_detected list
-                    movement_detected.clear()
-
-                i += 1
-                timenow += 1
-
-                if i == 200:
-                    i = 0
-
-            # except Exception as _:
-            #     traceback.print_exc()
-            #     self.close_connection()
-            #     print("an error occurred")
+                # except Exception as _:
+                #     traceback.print_exc()
+                #     self.close_connection()
+                #     print("an error occurred")
 
 
 if __name__ == '__main__':
     print('---------------<Announcement>---------------')
 
     # Software Visualizer
-    # print("Starting Subscriber Thread        ")
+    print("Starting Subscriber Send Thread        ")
     hive = SubscriberSend("CG4002")
     hive.start()
 
     # Starting Visualizer Receive
+    print("Starting Subscribe Receive")
     viz = SubscriberReceive("gamestate")
     viz.start()
 
@@ -1113,10 +1079,10 @@ if __name__ == '__main__':
     print("Starting Client Thread           ")
     eval_client = EvalClient(1234, "localhost")
     eval_client.connect_to_eval()
+
     # input("block")
     # eval_client.submit_to_eval()
     # eval_client.receive_correct_ans()
-    # eval_client.change()
     # eval_client.submit_to_eval()
     # eval_client.receive_correct_ans()
 
@@ -1126,21 +1092,17 @@ if __name__ == '__main__':
     GE.start()
 
     # AI Model
-    #print("Starting AI Model Thread")
-    #ai_model = Training()
-    #ai_model.start()
+    print("Starting AI Model Thread")
+    ai_model = AI()
+    ai_model.start()
 
     # Server Connection to Laptop
-    # print("Starting Server Thread           ")
-    # laptop_server = Server(8080, "192.168.95.221")
-    # laptop_server.start()
+    print("Starting Server Thread           ")
+    laptop_server = Server(8080, "192.168.95.221")
+    laptop_server.start()
 
     # print("Starting Web Socket Server Thread")
     # laptop_server = WebSocketServer("192.168.95.221", 8080)
     # laptop_server.run()
 
     print('--------------------------------------------')
-
-    while True:
-        action = input("Action: ")
-        action_queue.append([action, True])
