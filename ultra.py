@@ -6,7 +6,8 @@ import base64
 import threading
 import traceback
 import random
-from evaluation_server import GameState
+from GameState import GameState
+from StateStaff import StateStaff
 from _socket import SHUT_RDWR
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad

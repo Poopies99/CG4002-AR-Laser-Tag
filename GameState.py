@@ -35,6 +35,45 @@ class GameState:
             print("Connection terminated")
             success = False
         return success
+    
+    # recv the game state json from remote host and update the object
+    def recv_and_update(self, remote_socket):
+        success = False
+        while True:
+            # recv length followed by '_' followed by cypher
+            data = b''
+            while not data.endswith(b'_'):
+                _d = remote_socket.recv(1)
+                if not _d:
+                    data = b''
+                    break
+                data += _d
+            if len(data) == 0:
+                print('no more data from', remote_socket)
+                break
+
+            data = data.decode("utf-8")
+            length = int(data[:-1])
+
+            data = b''
+            while len(data) < length:
+                _d = remote_socket.recv(length - len(data))
+                if not _d:
+                    data = b''
+                    break
+                data += _d
+            if len(data) == 0:
+                print('no more data from', remote_socket)
+                break
+            msg = data.decode("utf8")  # Decode raw bytes to UTF-8
+            msg = msg.split('#')[0]
+            game_state_received = json.loads(msg)
+
+            self.player_1.initialize_from_dict(game_state_received['p1'])
+            self.player_2.initialize_from_dict(game_state_received['p2'])
+            success = True
+            break
+        return success
 
     def init_player (self, player_id, action, hp, bullets_remaining, grenades_remaining,
                      shield_time_remaining, shield_health, num_unused_shield, num_deaths):
@@ -64,3 +103,5 @@ class GameState:
     def init_players (self, player_1: PlayerStateBase, player_2: PlayerStateBase):
         self.player_1.initialize_from_player_state(player_1)
         self.player_2.initialize_from_player_state(player_2)
+        
+

@@ -19,12 +19,13 @@ class Player:
         self.action         = "none"
         self.bullets        = self.magazine_size
         self.grenades       = self.max_grenades
-        self.shield_time    = 0
-        self.shield_health  = 0
         self.num_shield     = self.max_shields
         self.num_deaths     = 0
-
-        self.shield_start_time = time.time()-30
+        
+        self.shield_time    = 0
+        self.shield_health  = 0
+        self.shield_timer = 0
+        self.shield_status = False
 
     def update_json(self):
         with open('example.json', 'w') as f:
@@ -85,9 +86,8 @@ class Player:
     """
     Function checks if shield is active
     """
-    @staticmethod
-    def check_shield():
-        return False
+    def check_shield(self):
+        return self.shield_status
 
     """
     Function checks if Player is in Screen
@@ -97,45 +97,76 @@ class Player:
         return True
 
     def shoot(self):
-        self.action = "shoot"
-        if self.bullets == 0:
-            return "Please Reload"
-        elif self.check_sensor():  # If True, Player has been shot
-            if self.shield_health > 0:
-                self.shield_health -= self.bullet_hp
-            else:
-                self.hp -= self.bullet_hp
-        self.bullets -= 1
-        return self.check_hp()
+
+        if self.bullets >= 1:
+            self.bullets -= 1                
+            self.action = "shoot"
+            return True
+        else:
+            self.action = "invalid"
+            return False
+        
+    def got_shot(self):
+        if self.shield_status:
+            self.shield_health -= 10
+        else:
+            self.hp -= 10
+    
+    def update_shield(self):
+        if self.shield_status:
+            self.shield_time = 10 - (int(time.time() - self.shield_timer))
+            if (self.shield_time <= 0 or self.shield_health  <= 0):
+                self.shield_status = False
+                self.shield_time = 0
+                self.shield_health = 0
+                               
+                
+        # if self.bullets == 0:
+        #     return "Please Reload"
+        # elif self.check_sensor():  # If True, Player has been shot
+        #     if self.shield_health > 0:
+        #         self.shield_health -= self.bullet_hp
+        #     else:
+        #         self.hp -= self.bullet_hp
+        # self.bullets -= 1
+        # return self.check_hp()
 
     def throw_grenade(self):
-        self.action = "grenades"
-        if self.grenades == 0:
-            return "No Grenades"
-        elif not self.check_grenade_hit():
-            if not self.shield_health:
-                self.hp -= self.grenade_hp
-            elif self.shield_health < 30:  # Player is shielded but grenade will break through shield
-                diff = self.grenade_hp - self.shield_health
-                self.shield_health = 0
-                self.hp -= diff
-        self.grenades -= 1
-        return self.check_hp()
+       
+        if self.grenades <= 0:
+            self.action = "invalid"
+            return False
+        else:
+            self.action = "grenade"
+            self.grenades -= 1
+            return True
+    
+    def got_hit_grenade(self):
+        
+        if not self.shield_status or not self.shield_health:
+            self.hp -= self.grenade_hp
+        elif self.shield_health < 30:  # Player is shielded but grenade will break through shield
+            diff = self.grenade_hp - self.shield_health
+            self.shield_health = 0
+            self.hp -= diff
 
     def activate_shield(self):
         self.action = "shield"
-        if self.num_shield == 0:
-            return "No Shields Left"
-        elif self.check_shield():
+        if self.num_shield == 0 or self.check_shield():
+            self.action = "invalid"
             return "Shield is Active"
         else:
-            self.shield_health = self.shield_health_max
-            self.shield_time = self.shield_max_time
             self.num_shield -= 1
-
+            self.shield_status = True
+            self.shield_health = 30
+            self.shield_timer = time.time()
+            self.shield_time = 10 - int(time.time() - self.shield_timer)
+            
+                        
     def reload(self):
-        self.action = "reload"
-        if self.bullets != 0:
-            return "Cannot reload when there magazine is not empty"
+        
+        if self.bullets > 0:
+            self.action = "invalid"
         else:
+            self.action = "reload"
             self.bullets = self.magazine_size
