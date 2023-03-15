@@ -75,7 +75,7 @@ class GameState:
             break
         return success
 
-    def init_player (self, player_id, action, hp, bullets_remaining, grenades_remaining,
+    def init_player(self, player_id, action, hp, bullets_remaining, grenades_remaining,
                      shield_time_remaining, shield_health, num_unused_shield, num_deaths):
         if player_id == 1:
             player = self.player_1

@@ -164,7 +164,7 @@ class SubscriberSend(threading.Thread):
 
 
 class EvalClient:
-    def __init__(self, host_name, port_num):
+    def __init__(self, port_num, host_name):
         super().__init__()
 
         # Create a TCP/IP socket
@@ -191,6 +191,10 @@ class EvalClient:
         print(f'[EvalClient] Received and update global gamestate')
         self.gamestate.recv_and_update(self.client_socket)
         print(self.gamestate._get_data_plain_text())
+
+    def change(self):
+        print('Changing Player stats')
+        self.gamestate.init_player(1, 'reload', 50, 3, 1, 0, 0, 2, 1)
 
     def close_connection(self):
         self.client_socket.close()
@@ -1012,6 +1016,10 @@ if __name__ == '__main__':
     print("Starting Client Thread           ")
     eval_client = EvalClient(1234, "localhost")
     eval_client.connect_to_eval()
+    input("block")
+    eval_client.submit_to_eval()
+    eval_client.receive_correct_ans()
+    eval_client.change()
     eval_client.submit_to_eval()
     eval_client.receive_correct_ans()
 
