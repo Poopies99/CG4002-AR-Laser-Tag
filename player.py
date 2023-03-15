@@ -123,7 +123,7 @@ class Player:
     
     def update_shield(self):
         if self.shield_status:
-            self.shield_time = 10 - (int(time.time() - self.shield_timer))
+            self.shield_time = 10 - (float(time.time() - self.shield_timer))
             if (self.shield_time <= 0 or self.shield_health  <= 0):
                 self.shield_status = False
                 self.shield_time = 0

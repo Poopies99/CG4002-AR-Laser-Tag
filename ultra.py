@@ -1140,5 +1140,5 @@ if __name__ == '__main__':
     print('--------------------------------------------')
 
     while True:
-        action = input("Action")
+        action = input("Action: ")
         action_queue.append([action, True])
