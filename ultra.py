@@ -1,42 +1,27 @@
 from collections import deque
 import paho.mqtt.client as mqtt
-import json
 import socket
-import base64
 import threading
 import traceback
 import random
 from GameState import GameState
-from StateStaff import StateStaff
 from _socket import SHUT_RDWR
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import pad
-from Crypto.Util.Padding import unpad
-from Crypto import Random
-import queue
-import asyncio
 # import websockets
 import time
 import csv
 import numpy as np
 import pandas as pd
-import pywt 
-import scipy.signal as sig
-from scipy import signal, stats
-from scipy.stats import entropy, kurtosis, skew
+from scipy import stats
 # from sklearn.feature_selection import SelectKBest
 # from sklearn.preprocessing import StandardScaler
 # import librosa
-
+import joblib
 # import matplotlib.pyplot as plt
 # import pynq
-from pynq import Overlay
+# from pynq import Overlay
 from queue import Queue
 
 from ble_packet import BLEPacket
-from packet_type import PacketType
-
-from player import Player
 
 """
 Threads: 
@@ -78,6 +63,7 @@ class GameEngine(threading.Thread):
         self.shutdown = threading.Event()
 
     def determine_grenade_hit(self):
+        '''
         while True:
             print("Random")
             while not feedback_queue.empty():
@@ -86,7 +72,8 @@ class GameEngine(threading.Thread):
                     return True
                 else:
                     return False
-
+        '''
+        return True
     # one approach is to put it in action queue and continue processing/ or do we want to wait for the grenade actions
     def random_ai_action(self, data):
         actions = ["shoot", "grenade", "shield", "reload", "invalid"]
@@ -122,7 +109,7 @@ class GameEngine(threading.Thread):
                         print("grenade action")
                         if self.p1.throw_grenade():
                             subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
-                            self.p1.action = "None"
+                        
                             # time.sleep(0.5)
 
                     elif action_data == "shield" or action_data == "S":
@@ -482,33 +469,48 @@ class Server(threading.Thread):
     def run(self):
         self.server_socket.listen(1)
         self.setup()
+        
+        start_time = time.time()
 
         while not self.shutdown.is_set():
             try:
-                # Receive up to 64 Bytes of data
-                data = self.connection.recv(64)
-
-                # Append existing data into new data
-                self.data = self.data + data
-
-                if len(self.data) < 20:
+                
+                if time.time() - start_time > 6:
+                    action_queue.append(['grenade', True])
+                    start_time = time.time()
                     continue
+                else:
+                    action_queue.append(['shoot', True])
+                    '''
+                    # Receive up to 64 Bytes of data
+                    data = self.connection.recv(64)
+                    # Append existing data into new data
+                    self.data = self.data + data
 
-                packet = self.data[:20]
-                self.data = self.data[20:]
-                self.packer.unpack(packet)
+                    if len(self.data) < 20:
+                        continue
 
-                if self.packer.get_beetle_id() == 1:
-                    action_queue.append(["shoot", True])
-                    continue
+                    packet = self.data[:20]
+                    self.data = self.data[20:]
+                    self.packer.unpack(packet)
+                
+                    if self.packer.get_beetle_id() == 1:
+                        action_queue.append(["shoot", True])
+                        start_time = time.time() 
                     # action_queue.append(["shoot", Server.shot_flag])
                     # continue
+                    '''
+                '''
+
                 elif self.packer.get_beetle_id() == 3:
                     packet = self.packer.get_euler_data() + self.packer.get_acc_data()
                     ai_queue.append(packet)
                     continue
                 else:
                     continue
+                '''
+                #action_queue.append(["shoot", True])
+                #action_queue.append(["grenade", True])
 
                 # # Remove when Training is complete
                 # if global_flag:
@@ -785,8 +787,8 @@ class AI(threading.Thread):
         self.action_map = {0: 'G', 1: 'L', 2: 'R', 3: 'S'}
 
         # PYNQ overlay
-        self.overlay = Overlay("pca_mlp_1.bit")
-        self.dma = self.overlay.axi_dma_0
+        # self.overlay = Overlay("pca_mlp_1.bit")
+        # self.dma = self.overlay.axi_dma_0
 
     def sleep(self, seconds):
         start_time = time.time()
@@ -916,28 +918,31 @@ class AI(threading.Thread):
         # pca = joblib.load('pca.joblib')
 
         # board
-        mlp = joblib.load('/home/xilinx/mlp_model.joblib')
-        scaler = joblib.load('/home/xilinx/scaler.joblib')
-        pca = joblib.load('/home/xilinx/pca.joblib')
-
+        mlp = joblib.load('/home/xilinx/gunnit_test/mlp_model.joblib')
+        scaler = joblib.load('/home/xilinx/gunnit_test/scaler.joblib')
+        pca = joblib.load('/home/xilinx/gunnit_test/pca.joblib')
+        
+        print("enter MLP function")
         # Preprocess data
         test_data_std = scaler.transform(data.reshape(1, -1))
         test_data_pca = pca.transform(test_data_std)
 
+        print("data processed, feeding into mlp")
         # Use MLP
         predicted_labels = mlp.predict(test_data_pca)
         predicted_label = str(predicted_labels[0].item())  # return single char
-
+        
+        print("MLP done")
         # print predicted label of MLP predicted_label
         # print(f"MLP lib predicted: {predicted_label} \n")
 
-        predicted_labels = self.PCA_MLP(test_data_pca)  # return 1x4 softmax array
+        # predicted_labels = self.PCA_MLP(test_data_pca)  # return 1x4 softmax array
 
-        np_output = np.array(predicted_labels)
-        largest_index = np_output.argmax()
+        # np_output = np.array(predicted_labels)
+        # largest_index = np_output.argmax()
 
         # predicted_label = self.action_map[largest_index]
-        predicted_label = self.action_map[largest_index]
+        # predicted_label = self.action_map[largest_index]
 
         # print largest index and largest action of MLP output
         # print(f"largest index: {largest_index} \n")
@@ -955,11 +960,11 @@ class AI(threading.Thread):
 
         # live integration loop
         # while not self.shutdown.is_set():
-        f = True
-        while f:
-            f = False
+        
+        if 1 == 1:
+            
 
-            df = pd.DataFrame(columns=self.columns)
+            df = pd.DataFrame(np.zeros((500, len(self.columns))), columns=self.columns)
             # Define the window size and threshold factor
             window_size = 11
             threshold_factor = 2
@@ -977,6 +982,7 @@ class AI(threading.Thread):
             wave = self.generate_simulated_wave()
             i = 0
             timenow = 0
+            buffer_index = 0
 
             print(f"entering while loop \n")
 
@@ -992,7 +998,13 @@ class AI(threading.Thread):
                     # print("\n")
 
                     # Append new data to dataframe
-                    df.loc[len(df)] = data
+                    # Append new data to dataframe
+                    df.iloc[buffer_index] = data
+
+                    # Increment buffer index and reset to zero if we reach the end of the buffer
+                    buffer_index += 1
+                    if buffer_index >= 500:
+                        buffer_index = 0
 
                     # Compute absolute acceleration values
                     x.append(np.abs(data[3:6]))  # abs of accX, accY, accZ
@@ -1017,17 +1029,17 @@ class AI(threading.Thread):
 
                     # Identify movement
                     if len(filtered) > window_size:
-                        # checking if val is past threshold and if last movement was more than N samples ago
-                        if np.all(filtered[-1] > threshold[-1]) and len(t) - last_movement_time >= N:
-                            movement_detected.append(len(df) - 1)
-                            last_movement_time = len(t)  # update last movement time
-                            print(f"Movement detected at sample {len(df) - 1}")
+                    # checking if val is past threshold and if last movement was more than N samples ago
+                        if np.all(filtered[-1] > threshold[-1]) and len(filtered) - last_movement_time >= N:
+                            movement_detected.append(buffer_index)
+                            last_movement_time = len(filtered)  # update last movement time
+                            print(f"Movement detected at sample {buffer_index}")
 
                     # if movement has been detected for more than N samples, preprocess and feed into neural network
-                    if len(movement_detected) > 0 and len(df) - movement_detected[-1] >= N:
+                    if len(movement_detected) > 0 and buffer_index - movement_detected[-1] >= N:
                         # extract movement data
                         start = movement_detected[-1]
-                        end = len(df)
+                        end = buffer_index if buffer_index > start else buffer_index + 500
                         movement_data = df.iloc[start:end, :]
 
                         # print the start and end index of the movement
@@ -1035,7 +1047,6 @@ class AI(threading.Thread):
 
                         # perform data preprocessing
                         preprocessed_data = self.preprocess_dataset(movement_data)
-
                         # feed preprocessed data into neural network
                         # output = self.MLP(preprocessed_data)
                         predicted_label = self.instantMLP(preprocessed_data)
@@ -1072,6 +1083,7 @@ if __name__ == '__main__':
 
     # Client Connection to Evaluation Server
     print("Starting Client Thread           ")
+    #eval_client = EvalClient(9999, "137.132.92.184")
     eval_client = EvalClient(1234, "localhost")
     eval_client.connect_to_eval()
 
@@ -1087,9 +1099,9 @@ if __name__ == '__main__':
     GE.start()
 
     # AI Model
-    print("Starting AI Model Thread")
-    ai_model = AI()
-    ai_model.start()
+    #print("Starting AI Model Thread")
+    #ai_model = AI()
+    #ai_model.start()
 
     # Server Connection to Laptop
     print("Starting Server Thread           ")

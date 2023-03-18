@@ -1,14 +1,10 @@
 import paho.mqtt.client as mqtt
-import json
 import socket
-import base64
 import threading
 import traceback
 import random
-from _socket import SHUT_RDWR
 from queue import Queue
 import time
-import numpy as np
 from GameState import GameState
 
 imu_queue = Queue()

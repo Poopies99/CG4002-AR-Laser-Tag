@@ -112,7 +112,6 @@ class Player:
             self.action = "shoot"
             return True
         else:
-            self.action = "invalid"
             return False
         
     def got_shot(self):
@@ -143,7 +142,6 @@ class Player:
     def throw_grenade(self):
        
         if self.grenades <= 0:
-            self.action = "invalid"
             return False
         else:
             self.action = "grenade"

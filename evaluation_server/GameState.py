@@ -1,7 +1,7 @@
 import json
 import random
-from StateStaff import StateStaff
-from PlayerState import PlayerStateBase
+from evaluation_server.StateStaff import StateStaff
+from evaluation_server.PlayerState import PlayerStateBase
 
 
 class GameState:
