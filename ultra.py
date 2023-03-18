@@ -5,6 +5,8 @@ import numpy as np
 import websockets
 import threading
 import traceback
+import constants
+import asyncio
 import socket
 import random
 import joblib
@@ -290,6 +292,7 @@ class WebSocketServer:
 
     async def process_message(self, websocket, path):
         async for message in websocket:
+            await websocket.send(message)
             # self.data = self.data + message
             # if len(self.data) < 20:
             #     continue
@@ -311,6 +314,7 @@ class WebSocketServer:
 
     def run(self):
         asyncio.run(self.start_server())
+
 
 class Server(threading.Thread):
     shot_flag = False
@@ -971,7 +975,7 @@ if __name__ == '__main__':
     # Client Connection to Evaluation Server
     # print("Starting Client Thread           ")
     # eval_client = EvalClient(9999, "137.132.92.184")
-    # eval_client = EvalClient(1234, "localhost")
+    # eval_client = EvalClient(constants.eval_port_num, "localhost")
     # eval_client.connect_to_eval()
 
     # input("block")
@@ -991,12 +995,12 @@ if __name__ == '__main__':
     #ai_model.start()
 
     # Server Connection to Laptop
-    print("Starting Server Thread           ")
-    laptop_server = Server(8080, "192.168.95.221")
-    laptop_server.start()
+    # print("Starting Server Thread           ")
+    # laptop_server = Server(constants.xilinx_port_num, constants.xilinx_server)
+    # laptop_server.start()
 
-    # print("Starting Web Socket Server Thread")
-    # laptop_server = WebSocketServer("192.168.95.221", 8080)
-    # laptop_server.run()
+    print("Starting Web Socket Server Thread")
+    laptop_server = WebSocketServer("192.168.95.221", 8080)
+    laptop_server.run()
 
     print('--------------------------------------------')

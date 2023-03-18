@@ -55,9 +55,9 @@ class Server(threading.Thread):
 
 
 if __name__ == '__main__':
-    server = Server(constants.xilinx_comms_port, 'localhost')
+    server = Server(constants.xilinx_port_num, 'localhost')
     server.start()
 
-    # server = Server(constants.xilinx_comms_port, '192.168.95.221')
+    # server = Server(constants.xilinx_port_num, '192.168.95.221')
     # server.start()
 

@@ -8,7 +8,7 @@ async def echo(websocket, path):
         await websocket.send(message)
 
 async def start_server():
-    async with websockets.serve(echo, constants.xilinx_server, constants.xilinx_comms_port):
+    async with websockets.serve(echo, constants.xilinx_server, constants.xilinx_port_num):
         await asyncio.Future()
 
 asyncio.run(start_server())

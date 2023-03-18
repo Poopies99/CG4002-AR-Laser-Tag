@@ -43,6 +43,6 @@ async def start_client():
             time_taken = end_time - start_time
             res.append(time_taken)
 
-        print('Data sent and received in {:.4f} seconds.'.format(sum(res) / len(res)))
+        print('Average Data sent and received in {:.4f} seconds.'.format(sum(res) / len(res)))
 
 asyncio.run(start_client())
