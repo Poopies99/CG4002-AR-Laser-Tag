@@ -1,27 +1,26 @@
-from collections import deque
+# import matplotlib.pyplot as plt
 import paho.mqtt.client as mqtt
-import socket
+import pandas as pd
+import numpy as np
+import websockets
 import threading
 import traceback
+import socket
 import random
-from GameState import GameState
-from _socket import SHUT_RDWR
-# import websockets
+import joblib
 import time
 import csv
-import numpy as np
-import pandas as pd
-from scipy import stats
+# import pynq
+# import librosa
 # from sklearn.feature_selection import SelectKBest
 # from sklearn.preprocessing import StandardScaler
-# import librosa
-import joblib
-# import matplotlib.pyplot as plt
-# import pynq
-# from pynq import Overlay
+from GameState import GameState
+from _socket import SHUT_RDWR
+from scipy import stats
 from queue import Queue
-
+from collections import deque
 from ble_packet import BLEPacket
+# from pynq import Overlay
 
 """
 Threads: 
@@ -129,7 +128,7 @@ class GameEngine(threading.Thread):
                             if self.determine_grenade_hit():
                                 self.p2.got_hit_grenade()
 
-                                # If health drops to 0 then everything resets except for number of deaths
+                    # If health drops to 0 then everything resets except for number of deaths
                     if self.p2.hp <= 0:
                         self.p2.hp = 100
                         self.p2.action = "none"
@@ -150,6 +149,7 @@ class GameEngine(threading.Thread):
 
             except KeyboardInterrupt as _:
                 traceback.print_exc()
+
 
 class SubscriberSend(threading.Thread):
     def __init__(self, topic):
@@ -196,8 +196,6 @@ class SubscriberSend(threading.Thread):
 
                     print('Publishing to HiveMQ: ', input_message)
 
-                    # if input_message == 'q':
-                    #     break
                     self.send_message(input_message)
 
             except KeyboardInterrupt as _:
@@ -228,7 +226,7 @@ class SubscriberReceive(threading.Thread):
     @staticmethod
     def on_message(client, userdata, message):
         # print("Latency: %.4f seconds" % latency)
-        print('Received message: ' + message.payload.decode())
+        # print('Received message: ' + message.payload.decode())
         feedback_queue.put(message.payload.decode())
 
     def close_connection(self):
@@ -238,7 +236,6 @@ class SubscriberReceive(threading.Thread):
         print("Shutting Down Connection to HiveMQ")
 
     def run(self):
-
         while not self.shutdown.is_set():
             try:
                 self.client.loop_forever()
@@ -268,12 +265,12 @@ class EvalClient:
         print("[EvalClient] connected to eval server")
 
     def submit_to_eval(self):
-        print(f"[EvalClient] Sending plain text gamestate data to the eval server")
+        # print(f"[EvalClient] Sending plain text gamestate data to the eval server")
         self.gamestate.send_plaintext(self.client_socket)
         print(self.gamestate._get_data_plain_text())
 
     def receive_correct_ans(self):
-        print(f'[EvalClient] Received and update global gamestate')
+        # print(f'[EvalClient] Received and update global gamestate')
         self.gamestate.recv_and_update(self.client_socket)
         print(self.gamestate._get_data_plain_text())
 
@@ -281,146 +278,39 @@ class EvalClient:
         self.client_socket.close()
         print("Shutting Down EvalClient Connection")
 
-# class EvalClient(threading.Thread):
-#     def __init__(self, port_num, host_name):
-#         super().__init__()
-#
-#         # Create a TCP/IP socket
-#         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#
-#         self.client_socket = client_socket
-#         self.connection = client_socket.connect((host_name, port_num))
-#         self.secret_key = None
-#         self.secret_key_bytes = None
-#
-#         # Flags
-#         self.shutdown = threading.Event()
-#
-#     def setup(self):
-#         print('Defaulting Secret Key to chrisisdabest123')
-#
-#         # # Blocking Function
-#         secret_key = 'chrisisdabest123'
-#
-#         self.secret_key = secret_key
-#         self.secret_key_bytes = bytes(str(self.secret_key), encoding='utf-8')
-#
-#     def close_connection(self):
-#         self.connection.shutdown(SHUT_RDWR)
-#         self.connection.close()
-#         self.shutdown.set()
-#         self.client_socket.close()
-#
-#         print("Shutting Down EvalClient Connection")
-#
-#     def decrypt_message(self, message):
-#         # Decode from Base64 to Byte Object
-#         decode_message = base64.b64decode(message)
-#         # Initialization Vector
-#         iv = decode_message[:AES.block_size]
-#
-#         # Create Cipher Object
-#         cipher = AES.new(self.secret_key_bytes, AES.MODE_CBC, iv)
-#
-#         # Obtain Message using Cipher Decrypt
-#         decrypted_message_bytes = cipher.decrypt(decode_message[AES.block_size:])
-#         # Unpad Message due to AES 16 bytes property
-#         decrypted_message_bytes = unpad(decrypted_message_bytes, AES.block_size)
-#         # Decode Bytes into utf-8
-#         decrypted_message = decrypted_message_bytes.decode("utf-8")
-#
-#         return decrypted_message
-#
-#     def encrypt_message(self, message):
-#         padded_message = pad(bytes(message, 'utf-8'), AES.block_size)
-#
-#         iv = Random.new().read(AES.block_size)
-#
-#         cipher = AES.new(self.secret_key_bytes, AES.MODE_CBC, iv)
-#         encrypted_message = iv + cipher.encrypt(padded_message)
-#
-#         encoded_message = base64.b64encode(encrypted_message).decode('utf-8')
-#         return encoded_message
-#
-#     def run(self):
-#         self.setup()
-#
-#         while not self.shutdown.is_set():
-#             try:
-#                 if eval_queue:
-#                     input_message = eval_queue.popleft()
-#
-#                     print("Sending Message to Eval Client:", input_message)
-#
-#                     # if input_message == 'q':
-#                     #     break
-#
-#                     encrypted_message = self.encrypt_message(input_message)
-#
-#                     # Format String for Eval Server Byte Sequence Process
-#                     final_message = str(len(encrypted_message)) + "_" + encrypted_message
-#
-#                     self.client_socket.sendall(final_message.encode())
-#
-#                     message_length = self.client_socket.recv(64)
-#                     message = self.client_socket.recv(512)
-#
-#                     correct_status = json.loads(message[0].decode()) # Dictionary Value
-#                     action_queue.append(['update', correct_status])
-#
-#                     laptop_queue.append(correct_status) # Server thread queue to send back to relay laptop
-#                     subscribe_queue.append(correct_status) # Subscribe thread queue to update visualizer
-#
-#                     print('Append to Laptop Queue')
-#             except KeyboardInterrupt as _:
-#                 traceback.print_exc()
-#                 self.close_connection()
-#             except Exception as _:
-#                 traceback.print_exc()
-#                 continue
 
+class WebSocketServer:
+    def __init__(self, host_name, port_num):
+        self.host_name = host_name
+        self.port_num = port_num
 
-# class WebSocketServer:
-#     def __init__(self, host_name, port_num):
-#         self.host_name = host_name
-#         self.port_num = port_num
-#
-#         self.packer = BLEPacket()
-#
-#         self.data = b''
-#
-#     async def process_message(self, websocket, path):
-#         async for message in websocket:
-#             # self.data = self.data + message
-#             # if len(self.data) < 20:
-#             #     continue
-#             # packet = self.data[:20]
-#             # self.data = self.data[20:]
-#             #
-#             # self.packer.unpack(packet)
-#             # print("CRC: ", self.packer.get_crc())
-#
-#             # # await websocket.send(message)
-#
-#             #
-#             # if collection_flag:
-#             #     training_model_queue.append(packet)
-#
-#     async def start_server(self):
-#         async with websockets.serve(self.process_message, self.host_name, self.port_num):
-#             await asyncio.Future()
-#
-#     def run(self):
-#         asyncio.run(self.start_server())
+        self.packer = BLEPacket()
 
+        self.data = b''
 
-# class Processing(threading.Thread):
-#     shot_flag = False
-#     def __init__(self):
-#         super().__init__()
-#
-#     def
+    async def process_message(self, websocket, path):
+        async for message in websocket:
+            # self.data = self.data + message
+            # if len(self.data) < 20:
+            #     continue
+            # packet = self.data[:20]
+            # self.data = self.data[20:]
+            #
+            # self.packer.unpack(packet)
+            # print("CRC: ", self.packer.get_crc())
 
+            # # await websocket.send(message)
+
+            #
+            # if collection_flag:
+            #     training_model_queue.append(packet)
+
+    async def start_server(self):
+        async with websockets.serve(self.process_message, self.host_name, self.port_num):
+            await asyncio.Future()
+
+    def run(self):
+        asyncio.run(self.start_server())
 
 class Server(threading.Thread):
     shot_flag = False
@@ -534,6 +424,7 @@ class Server(threading.Thread):
             except Exception as _:
                 traceback.print_exc()
                 continue
+
 
 class TrainingModel(threading.Thread):
     def __init__(self):
@@ -957,13 +848,9 @@ class AI(threading.Thread):
         print("Shutting Down Connection")
 
     def run(self):
-
         # live integration loop
         # while not self.shutdown.is_set():
-        
         if 1 == 1:
-            
-
             df = pd.DataFrame(np.zeros((500, len(self.columns))), columns=self.columns)
             # Define the window size and threshold factor
             window_size = 11
@@ -1072,20 +959,20 @@ if __name__ == '__main__':
     print('---------------<Announcement>---------------')
 
     # Software Visualizer
-    print("Starting Subscriber Send Thread        ")
-    hive = SubscriberSend("CG4002")
-    hive.start()
+    # print("Starting Subscriber Send Thread        ")
+    # hive = SubscriberSend("CG4002")
+    # hive.start()
 
     # Starting Visualizer Receive
-    print("Starting Subscribe Receive")
-    viz = SubscriberReceive("gamestate")
-    viz.start()
+    # print("Starting Subscribe Receive")
+    # viz = SubscriberReceive("gamestate")
+    # viz.start()
 
     # Client Connection to Evaluation Server
-    print("Starting Client Thread           ")
-    #eval_client = EvalClient(9999, "137.132.92.184")
-    eval_client = EvalClient(1234, "localhost")
-    eval_client.connect_to_eval()
+    # print("Starting Client Thread           ")
+    # eval_client = EvalClient(9999, "137.132.92.184")
+    # eval_client = EvalClient(1234, "localhost")
+    # eval_client.connect_to_eval()
 
     # input("block")
     # eval_client.submit_to_eval()
@@ -1094,9 +981,9 @@ if __name__ == '__main__':
     # eval_client.receive_correct_ans()
 
     # Game Engine
-    print("Starting Game Engine Thread        ")
-    GE = GameEngine(eval_client=eval_client)
-    GE.start()
+    # print("Starting Game Engine Thread        ")
+    # GE = GameEngine(eval_client=eval_client)
+    # GE.start()
 
     # AI Model
     #print("Starting AI Model Thread")

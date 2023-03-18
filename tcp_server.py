@@ -1,6 +1,8 @@
 import threading
 import socket
+import traceback
 from _socket import SHUT_RDWR
+import constants
 import time
 
 
@@ -45,14 +47,17 @@ class Server(threading.Thread):
         while not self.shutdown.is_set():
             try:
                 message = self.connection.recv(64)
-                print(message)
 
                 self.connection.sendall(message)
-            except:
+            except Exception as _:
+                traceback.print_exc()
                 print('Server crash')
 
 
 if __name__ == '__main__':
-    server = Server(8080, 'localhost')
+    server = Server(constants.xilinx_comms_port, 'localhost')
     server.start()
+
+    # server = Server(constants.xilinx_comms_port, '192.168.95.221')
+    # server.start()
 

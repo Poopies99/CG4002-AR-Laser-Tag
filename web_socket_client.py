@@ -1,30 +1,48 @@
 import asyncio
 import websockets
+import time
 
 SERVER_ADDRESS = "ws://localhost:8080"
 BUFFER_SIZE = 1024
-DATA_TO_SEND = b'x' * 1024 * 1024 # 1 MB of data
+DATA_TO_SEND = b'x' * 20 * 16 # 1 MB of data
 
 
-class Client:
-    def __init__(self, server_address):
-        super().__init__()
-        self.server_address = server_address
+async def start_client():
+    async with websockets.connect(SERVER_ADDRESS) as websocket:
+        res = []
+        print('Client connected. Sending data...')
 
-    async def send(self):
-        async with websockets.connect(self.server_address) as websocket:
-            print('Connected to server.')
-            while True:
+        for i in range(21):
+            start_time = time.time()
+
+            # Send the data to the server in chunks
+            total_sent = 0
+            while total_sent < len(DATA_TO_SEND):
                 try:
-                    sent = await websocket.send("Hello".encode())
+                    data = DATA_TO_SEND[total_sent:]
+                    sent = await websocket.send(data)
                 except websockets.exceptions.ConnectionClosedError:
                     print('Server closed the connection prematurely.')
                     return
 
-    async def run(self):
-        await self.send()
+                if not sent:
+                    break
+                total_sent += sent
 
+            # Wait for the server to send the data back
+            received_data = b''
+            while len(received_data) < len(DATA_TO_SEND):
+                data = await websocket.recv()
+                if not data:
+                    break
+                received_data += data
 
-if __name__ == "__main__":
-    client = Client(SERVER_ADDRESS)
-    asyncio.run(client.run())
+            end_time = time.time()
+
+            # Calculate the time taken to send and receive the data
+            time_taken = end_time - start_time
+            res.append(time_taken)
+
+        print('Data sent and received in {:.4f} seconds.'.format(sum(res) / len(res)))
+
+asyncio.run(start_client())
