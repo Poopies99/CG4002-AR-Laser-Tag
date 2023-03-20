@@ -930,7 +930,7 @@ class WebSocketServer:
 
     async def echo(self, websocket, path):
         async for message in websocket:
-            print(f'Message Received {message}')
+            print(f'Message Received: {message}'.ljust(40))
             # await websocket.send(message)
 
     async def start_server(self):
