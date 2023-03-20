@@ -123,11 +123,9 @@ class GameEngine(threading.Thread):
                     
                     print(f"Receive action data by Game Engine: {action_data}")
 
-                    if self.p1.shield_status:
-                        self.p1.update_shield()
-
-                    if self.p2.shield_status:
-                        self.p2.update_shield()
+                
+                    self.p1.update_shield()
+                    self.p2.update_shield()
 
                     valid_action_p1 = self.p1.action_is_valid(action_data)
 
@@ -146,7 +144,6 @@ class GameEngine(threading.Thread):
                             subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
 
                         elif action_data == "shield":
-                            print("Entered shield action")
                             self.p1.activate_shield()
 
                         elif action_data == "shoot":
