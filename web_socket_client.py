@@ -6,44 +6,60 @@ SERVER_ADDRESS = "ws://localhost:8080"
 BUFFER_SIZE = 1024
 DATA_TO_SEND = b'x' * 20 * 16 # 1 MB of data
 
+class WebSocketClient:
+    async def send_message(self, message):
+        async with websockets.connect(SERVER_ADDRESS) as websocket:
+            print(f'Sending message: {message}'.ljust(40))
+            await websocket.send(message)
+            response = await websocket.recv()
+            print(f'Response received: {response}'.ljust(40))
 
-async def start_client():
-    async with websockets.connect(SERVER_ADDRESS) as websocket:
-        res = []
-        print('Client connected. Sending data...')
+async def main():
+    client = WebSocketClient()
+    while True:
+        data = input("Message: ")
+        await client.send_message(data)
 
-        for i in range(21):
-            start_time = time.time()
+if __name__ == '__main__':
+    asyncio.run(main())
 
-            # Send the data to the server in chunks
-            total_sent = 0
-            while total_sent < len(DATA_TO_SEND):
-                try:
-                    # data = DATA_TO_SEND[total_sent:]
-                    data = input("Input: ")
-                    sent = await websocket.send(data)
-                except websockets.exceptions.ConnectionClosedError:
-                    print('Server closed the connection prematurely.')
-                    return
-
-                if not sent:
-                    break
-                total_sent += sent
-
-            # Wait for the server to send the data back
-            received_data = b''
-            while len(received_data) < len(DATA_TO_SEND):
-                data = await websocket.recv()
-                if not data:
-                    break
-                received_data += data
-
-            end_time = time.time()
-
-            # Calculate the time taken to send and receive the data
-            time_taken = end_time - start_time
-            res.append(time_taken)
-
-        print('Average Data sent and received in {:.4f} seconds.'.format(sum(res) / len(res)))
-
-asyncio.run(start_client())
+# async def start_client():
+#     async with websockets.connect(SERVER_ADDRESS) as websocket:
+#         res = []
+#         print('Client connected. Sending data...')
+#
+#         for i in range(21):
+#             start_time = time.time()
+#
+#             # Send the data to the server in chunks
+#             total_sent = 0
+#             while total_sent < len(DATA_TO_SEND):
+#                 try:
+#                     # data = DATA_TO_SEND[total_sent:]
+#                     data = input("Input: ")
+#                     sent = await websocket.send(data)
+#                 except websockets.exceptions.ConnectionClosedError:
+#                     print('Server closed the connection prematurely.')
+#                     return
+#
+#                 if not sent:
+#                     break
+#                 total_sent += sent
+#
+#             # Wait for the server to send the data back
+#             received_data = b''
+#             while len(received_data) < len(DATA_TO_SEND):
+#                 data = await websocket.recv()
+#                 if not data:
+#                     break
+#                 received_data += data
+#
+#             end_time = time.time()
+#
+#             # Calculate the time taken to send and receive the data
+#             time_taken = end_time - start_time
+#             res.append(time_taken)
+#
+#         print('Average Data sent and received in {:.4f} seconds.'.format(sum(res) / len(res)))
+#
+# asyncio.run(start_client())
