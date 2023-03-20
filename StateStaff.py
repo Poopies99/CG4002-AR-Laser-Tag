@@ -87,7 +87,7 @@ class StateStaff(Player):
         ret = True
         # check if the shield has to reduced
         if action_self == Actions.shield:
-            if self.shield_time > 0:
+            if self.shield_time > 0 or self.num_shield == 0:
                 # invalid
                 ret = False
         elif action_self == Actions.shoot:

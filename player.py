@@ -107,7 +107,6 @@ class Player:
 
     def shoot(self):
         self.bullets -= 1                
-        self.action = "shoot"
 
     def got_shot(self):
         if self.shield_status:
@@ -127,7 +126,6 @@ class Player:
         self.grenades -= 1
  
     def got_hit_grenade(self):
-        
         if not self.shield_status or not self.shield_health:
             self.hp -= self.grenade_hp
         elif self.shield_health < 30:  # Player is shielded but grenade will break through shield
