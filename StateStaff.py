@@ -1,5 +1,8 @@
 import time
+<<<<<<< HEAD
 
+=======
+>>>>>>> c07ed4a (removed unecessary filed)
 from player import Player
 from evaluation_server.Helper import Actions
 
@@ -101,5 +104,8 @@ class StateStaff(Player):
             if self.bullets > 0:
                 # invalid
                 ret = False
-
+        self.action = action_self
         return ret
+    
+    def update_invalid_action(self):
+        self.action = "invalid"

@@ -1,7 +1,7 @@
 import json
 import random
 from StateStaff import StateStaff
-from PlayerState import PlayerStateBase
+from player import Player
 from Crypto.Cipher import AES
 import base64
 from Crypto import Random
@@ -124,8 +124,7 @@ class GameState:
                              num_deaths, num_unused_shield,
                              shield_health, shield_time_remaining)
 
-    def init_players (self, player_1: PlayerStateBase, player_2: PlayerStateBase):
+    def init_players (self, player_1: Player, player_2: Player):
         self.player_1.initialize_from_player_state(player_1)
         self.player_2.initialize_from_player_state(player_2)
         
-
