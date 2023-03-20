@@ -931,7 +931,7 @@ class WebSocketServer:
     async def echo(self, websocket, path):
         async for message in websocket:
             print(f'Message Received: {message}'.ljust(40))
-            # await websocket.send(message)
+            await websocket.send(message)
 
     async def start_server(self):
         async with websockets.serve(self.echo, constants.xilinx_server, constants.xilinx_port_num):
