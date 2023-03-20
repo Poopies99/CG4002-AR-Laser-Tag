@@ -48,16 +48,31 @@ class Server(threading.Thread):
             try:
                 message = self.connection.recv(64)
 
+                print(f'Message Received: {message}'.ljust(80), end='\r')
+
                 self.connection.sendall(message)
             except Exception as _:
                 traceback.print_exc()
                 print('Server crash')
 
 
+class AnyOlHow(threading.Thread):
+    def __init__(self):
+        super().__init__()
+
+    def run(self):
+        while True:
+            print('Spamming Hello'.ljust(80), end='\r')
+
+            time.sleep(2)
+
+
 if __name__ == '__main__':
     server = Server(constants.xilinx_port_num, 'localhost')
     server.start()
 
+    any = AnyOlHow()
+    any.start()
     # server = Server(constants.xilinx_port_num, '192.168.95.221')
     # server.start()
 

@@ -11,18 +11,20 @@ import socket
 import random
 import joblib
 import time
+import json
 import csv
 # import pynq
 # import librosa
-# from sklearn.feature_selection import SelectKBest
-# from sklearn.preprocessing import StandardScaler
+# from pynq import Overlay
 from GameState import GameState
 from _socket import SHUT_RDWR
 from scipy import stats
 from queue import Queue
 from collections import deque
 from ble_packet import BLEPacket
-# from pynq import Overlay
+from packet_type import PacketType
+# from sklearn.feature_selection import SelectKBest
+# from sklearn.preprocessing import StandardScaler
 
 """
 Threads: 
@@ -51,7 +53,31 @@ feedback_queue = Queue()
 collection_flag = False
 
 
-# Multithread this Chris
+class ShootEngine(threading.Thread):
+    def __init__(self):
+        super().__init__()
+
+        # Flags
+        self.gun_shot = False
+        self.vest_shot = False
+
+    def handle_gun_shot(self):
+        self.gun_shot = True
+
+    def handle_vest_shot(self):
+        self.vest_shot = True
+
+    def run(self):
+        while True:
+            if self.gun_shot:
+                self.gun_shot = False
+                time.sleep(0.5)
+                if self.vest_shot:
+                    action_queue.append(['shoot', True])
+                else:
+                    action_queue.append(['shoot', False])
+
+
 class GameEngine(threading.Thread):
     def __init__(self, eval_client):
         super().__init__()
@@ -81,7 +107,6 @@ class GameEngine(threading.Thread):
         action_queue.put(([random.choice(actions)], ["False"]))
 
     def run(self):
-
         while not self.shutdown.is_set():
             try:
                 if len(action_queue) != 0:
@@ -256,7 +281,7 @@ class EvalClient:
         self.port_num = port_num
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        self.secret_key = 'chrisisdabest123'
+        self.secret_key = 'ilovecg4002profs'
         self.secret_key_bytes = bytes(str(self.secret_key), encoding='utf-8')
 
         # Create Player
@@ -267,14 +292,12 @@ class EvalClient:
         print("[EvalClient] connected to eval server")
 
     def submit_to_eval(self):
-        # print(f"[EvalClient] Sending plain text gamestate data to the eval server")
+        print(f'[EvalClient] Sent Game State: {self.gamestate._get_data_plain_text()}'.ljust(80), end='\r')
         self.gamestate.send_plaintext(self.client_socket)
-        print(self.gamestate._get_data_plain_text())
 
     def receive_correct_ans(self):
-        # print(f'[EvalClient] Received and update global gamestate')
+        print(f'[EvalClient] Received Game State: {self.gamestate._get_data_plain_text()}'.ljust(80), end='\r')
         self.gamestate.recv_and_update(self.client_socket)
-        print(self.gamestate._get_data_plain_text())
 
     def close_connection(self):
         self.client_socket.close()
@@ -294,15 +317,17 @@ class Server(threading.Thread):
         # Binds socket to specified host and port
         server_socket.bind((host_name, port_num))
 
+        self.server_socket = server_socket
+
+        self.packer = BLEPacket()
+
+        self.shoot_engine = ShootEngine()
+
         # Data Buffer
         self.data = b''
 
-        self.server_socket = server_socket
-
         # Flags
         self.shutdown = threading.Event()
-
-        self.packer = BLEPacket()
 
     def setup(self):
         print('Awaiting Connection from Laptop')
@@ -311,12 +336,6 @@ class Server(threading.Thread):
         self.connection, client_address = self.server_socket.accept()
 
         print('Successfully connected to', client_address[0])
-
-    def check_shot(self):
-        start_time = time.time()
-        while time.time() - start_time < 0.7:
-            Server.shot_flag = True
-        Server.shot_flag = False
 
     def close_connection(self):
         self.connection.shutdown(SHUT_RDWR)
@@ -328,65 +347,50 @@ class Server(threading.Thread):
     def run(self):
         self.server_socket.listen(1)
         self.setup()
-        
-        start_time = time.time()
 
         while not self.shutdown.is_set():
             try:
-                if time.time() - start_time > 6:
-                    action_queue.append(['grenade', True])
-                    start_time = time.time()
+                # Receive up to 64 Bytes of data
+                data = self.connection.recv(64)
+                # Append existing data into new data
+                self.data = self.data + data
+
+                if len(self.data) < 20:
                     continue
-                else:
-                    action_queue.append(['shoot', True])
-                    '''
-                    # Receive up to 64 Bytes of data
-                    data = self.connection.recv(64)
-                    # Append existing data into new data
-                    self.data = self.data + data
 
-                    if len(self.data) < 20:
-                        continue
+                packet = self.data[:20]
+                self.data = self.data[20:]
+                self.packer.unpack(packet)
 
-                    packet = self.data[:20]
-                    self.data = self.data[20:]
-                    self.packer.unpack(packet)
-                
-                    if self.packer.get_beetle_id() == 1:
-                        action_queue.append(["shoot", True])
-                        start_time = time.time() 
-                    # action_queue.append(["shoot", Server.shot_flag])
-                    # continue
-                    '''
-                '''
+                packet_id = self.packer.get_beetle_id()
 
-                elif self.packer.get_beetle_id() == 3:
+                if packet_id == 1:
+                    self.shoot_engine.handle_gun_shot()
+                elif packet_id == 2:
+                    self.shoot_engine.handle_vest_shot()
+                elif packet_id == 3:
                     packet = self.packer.get_euler_data() + self.packer.get_acc_data()
                     ai_queue.append(packet)
-                    continue
                 else:
-                    continue
-                '''
-                #action_queue.append(["shoot", True])
-                #action_queue.append(["grenade", True])
+                    print("Invalid Beetle ID")
 
                 # # Remove when Training is complete
                 # if global_flag:
                 #     fpga_queue.put(packet)
 
                 # Sends data back into the relay laptop
-                # if len(laptop_queue) != 0 :
-                #     game_state = laptop_queue.popleft()
-                #     node_id = 0
-                #     packet_type = PacketType.ACK
-                #     header = (node_id << 4) | packet_type
-                #     data = [header, game_state['p1']['bullets'], game_state['p1']['hp'], 0, 0, 0, 0, 0, 0, 0]
-                # #     data = [header, game_state['p1']['bullets'], game_state['p1']['hp'], game_state['p2']['bullets'], game_state['p2']['hp'], 0, 0, 0, 0, 0]
-                #     data = self.packer.pack(data)
-                #
-                #     self.connection.send(data)
-                #
-                #     print("Sending back to laptop", data)
+                if len(laptop_queue) != 0 :
+                    game_state = laptop_queue.popleft()
+                    node_id = 0
+                    packet_type = PacketType.ACK
+                    header = (node_id << 4) | packet_type
+                    data = [header, game_state['p1']['bullets'], game_state['p1']['hp'], 0, 0, 0, 0, 0, 0, 0]
+                    # data = [header, game_state['p1']['bullets'], game_state['p1']['hp'], game_state['p2']['bullets'], game_state['p2']['hp'], 0, 0, 0, 0, 0]
+                    data = self.packer.pack(data)
+
+                    self.connection.send(data)
+
+                    print("Sending back to laptop", data)
             except KeyboardInterrupt as _:
                 traceback.print_exc()
                 self.close_connection()
@@ -624,7 +628,7 @@ class TrainingModel(threading.Thread):
                 continue
 
 
-class AI(threading.Thread):
+class AIModel(threading.Thread):
     def __init__(self):
         super().__init__()
 
@@ -646,9 +650,25 @@ class AI(threading.Thread):
         # defining game action dictionary
         self.action_map = {0: 'G', 1: 'L', 2: 'R', 3: 'S'}
 
+        # load PCA model
+        # read the contents of the arrays.txt file
+        with open("arrays.txt", "r") as f:
+            data = json.load(f)
+
+        # extract the weights and bias arrays
+        self.scaling_factor = data['scaling_factor']
+        self.mean = data['mean']
+        self.variance = data['variance']
+        self.pca_eigvecs_list = data['pca_eigvecs_list']
+
+        self.pca_eigvecs_transposed = [list(row) for row in zip(*self.pca_eigvecs_list)]
         # PYNQ overlay
-        # self.overlay = Overlay("pca_mlp_1.bit")
-        # self.dma = self.overlay.axi_dma_0
+        self.overlay = Overlay("pca_mlp_1.bit")
+        self.dma = self.overlay.axi_dma_0
+
+        # Allocate input and output buffers once
+        self.in_buffer = pynq.allocate(shape=(35,), dtype=np.float32)
+        self.out_buffer = pynq.allocate(shape=(4,), dtype=np.float32)
 
     def sleep(self, seconds):
         start_time = time.time()
@@ -656,12 +676,12 @@ class AI(threading.Thread):
             pass
 
     def generate_simulated_data(self):
-        gx = random.uniform(-180, 180)
-        gy = random.uniform(-180, 180)
-        gz = random.uniform(-180, 180)
-        accX = random.uniform(-9000, 9000)
-        accY = random.uniform(-9000, 9000)
-        accZ = random.uniform(-9000, 9000)
+        gx = random.uniform(-9, 9)  # TODO - assumption: gyro x,y,z change btwn -9 to 9
+        gy = random.uniform(-9, 9)
+        gz = random.uniform(-9, 9)
+        accX = random.uniform(-9, 9)
+        accY = random.uniform(-9, 9)
+        accZ = random.uniform(-9, 9)
         return [gx, gy, gz, accX, accY, accZ]
 
     # simulate game movement with noise and action
@@ -740,72 +760,73 @@ class AI(threading.Thread):
         # Combine the processed data for each group into a single array
         processed_data_arr = np.concatenate(processed_data)
 
-        # print(f"len processed_data_arr={len(processed_data_arr)}\n")
+        print(f"len processed_data_arr={len(processed_data_arr)}\n")
 
         return processed_data_arr
 
     def PCA_MLP(self, data):
         start_time = time.time()
-        # allocate in and out buffer
-        in_buffer = pynq.allocate(shape=(35,), dtype=np.double)  # 1x35 PCA input
-        out_buffer = pynq.allocate(shape=(4,), dtype=np.double)  # 1x4 softmax output
 
         # reshape data to match in_buffer shape
         data = np.reshape(data, (35,))
 
-        for i, val in enumerate(data):
-            in_buffer[i] = val
+        self.in_buffer[:] = data
 
-        self.dma.sendchannel.transfer(in_buffer)
-        self.dma.recvchannel.transfer(out_buffer)
+        self.dma.sendchannel.transfer(self.in_buffer)
+        self.dma.recvchannel.transfer(self.out_buffer)
 
         # wait for transfer to finish
         self.dma.sendchannel.wait()
         self.dma.recvchannel.wait()
 
         # print output buffer
-        # print("mlp done with output: " + " ".join(str(x) for x in out_buffer))
+        print("mlp done with output: " + " ".join(str(x) for x in self.out_buffer))
 
-        # print(f"MLP time taken so far output: {time.time() - start_time}")
+        print(f"MLP time taken so far output: {time.time() - start_time}")
 
-        return out_buffer
+        return self.out_buffer
 
     def instantMLP(self, data):
         # Load the model from file and preproessing
         # localhost
         # mlp = joblib.load('mlp_model.joblib')
-        # scaler = joblib.load('scaler.joblib')
-        # pca = joblib.load('pca.joblib')
 
         # board
-        mlp = joblib.load('/home/xilinx/gunnit_test/mlp_model.joblib')
-        scaler = joblib.load('/home/xilinx/gunnit_test/scaler.joblib')
-        pca = joblib.load('/home/xilinx/gunnit_test/pca.joblib')
-        
-        print("enter MLP function")
-        # Preprocess data
-        test_data_std = scaler.transform(data.reshape(1, -1))
-        test_data_pca = pca.transform(test_data_std)
+        mlp = joblib.load('/home/xilinx/mlp_model.joblib')
 
-        print("data processed, feeding into mlp")
-        # Use MLP
-        predicted_labels = mlp.predict(test_data_pca)
-        predicted_label = str(predicted_labels[0].item())  # return single char
-        
-        print("MLP done")
-        # print predicted label of MLP predicted_label
-        # print(f"MLP lib predicted: {predicted_label} \n")
+        # sample data for sanity check
+        test_input = np.array([0.1, 0.2, 0.3, 0.4] * 120).reshape(1, -1)
 
-        # predicted_labels = self.PCA_MLP(test_data_pca)  # return 1x4 softmax array
+        # Scaler
+        test_input_rescaled = (data - self.mean) / np.sqrt(self.variance) # TODO - use this for real data
+        # test_input_rescaled = (test_input - self.mean) / np.sqrt(self.variance)
+        print(f"test_input_rescaled: {test_input_rescaled}\n")
 
-        # np_output = np.array(predicted_labels)
-        # largest_index = np_output.argmax()
+        # PCA
+        test_input_math_pca = np.dot(test_input_rescaled, self.pca_eigvecs_transposed)
+        print(f"test_input_math_pca: {test_input_math_pca}\n")
 
-        # predicted_label = self.action_map[largest_index]
-        # predicted_label = self.action_map[largest_index]
+        # arr = np.array([-9.20434773, -4.93421279, -0.7165668, -5.35652778, 1.16597442, 0.83953718,
+        #         2.46925983, 0.55131264, -0.1671036, 0.82080829, -1.87265269, 3.34199444,
+        #         0.09530707, -3.77394007, 1.68183889, 1.97630386, 1.48839111, -3.00986825,
+        #         4.13786954, 1.46723819, 8.08842927, 10.94846901, 2.22280215, -1.85681443,
+        #         4.47327707, 3.15918201, -0.77879694, -0.11557772, 0.21580221, -2.62405631,
+        #         -3.42924226, -7.01213438, 7.75544419, -3.72408571, 3.46613566])
+
+        # assert np.allclose(test_input_math_pca, arr)
+        # MLP
+        predicted_labels = self.PCA_MLP(test_input_math_pca)  # return 1x4 softmax array
+        print(f"MLP pynq overlay predicted: {predicted_labels} \n")
+        # predicted_lib_labels = mlp.predict(test_input_math_pca.reshape(1, -1))
+        # print(f"MLP lib overlay predicted: {predicted_lib_labels} \n")
+
+        np_output = np.array(predicted_labels)
+        largest_index = np_output.argmax()
+
+        predicted_label = self.action_map[largest_index]
 
         # print largest index and largest action of MLP output
-        # print(f"largest index: {largest_index} \n")
+        print(f"largest index: {largest_index} \n")
         print(f"MLP overlay predicted: {predicted_label} \n")
 
         # output is a single char
@@ -817,10 +838,14 @@ class AI(threading.Thread):
         print("Shutting Down Connection")
 
     def run(self):
+
         # live integration loop
         # while not self.shutdown.is_set():
-        if 1 == 1:
-            df = pd.DataFrame(np.zeros((500, len(self.columns))), columns=self.columns)
+        f = True
+        while f:
+            f = False
+
+            df = pd.DataFrame(columns=self.columns)
             # Define the window size and threshold factor
             window_size = 11
             threshold_factor = 2
@@ -838,150 +863,148 @@ class AI(threading.Thread):
             wave = self.generate_simulated_wave()
             i = 0
             timenow = 0
-            buffer_index = 0
 
-            print(f"entering while loop \n")
+            print(f"entering detection loop \n")
 
             while True:
                 # Create plot window
                 # plt.ion()
                 # plt.show()
-                if len(ai_queue) != 0:
-                    data = ai_queue.popleft()
-                    # self.sleep(0.05)
-                    # print("Data: ")
-                    # print(" ".join([f"{x:.8g}" for x in data]))
-                    # print("\n")
 
-                    # Append new data to dataframe
-                    # Append new data to dataframe
-                    df.iloc[buffer_index] = data
+                # data = self.generate_simulated_data()  # TODO - refactor for real data
+                data = ai_queue.popleft()
+                self.sleep(0.05)
+                print("Data: ")
+                print(" ".join([f"{x:.8g}" for x in data]))
+                print("\n")
 
-                    # Increment buffer index and reset to zero if we reach the end of the buffer
-                    buffer_index += 1
-                    if buffer_index >= 500:
-                        buffer_index = 0
+                # Append new data to dataframe
+                df.loc[len(df)] = data
 
-                    # Compute absolute acceleration values
-                    x.append(np.abs(data[3:6]))  # abs of accX, accY, accZ
-                    # x.append(wave[i])  # abs of accX, accY, accZ
+                # Compute absolute acceleration values
+                x.append(np.abs(data[5:8])) # abs of accX, accY, accZ - # TODO - use this for real data
+                x.append(wave[i])  # abs of accX, accY, accZ
 
-                    # time
-                    t.append(timenow)
+                # time
+                t.append(timenow)
 
-                    # Compute moving window median
-                    if len(x) < window_size:
-                        filtered.append(0)
-                    else:
-                        filtered.append(np.median(x[-window_size:], axis=0))
+                # Compute moving window median
+                if len(x) < window_size:
+                    filtered.append(0)
+                else:
+                    filtered.append(np.median(x[-window_size:], axis=0))
 
-                    # Compute threshold using past median data, threshold = mean + k * std
-                    if len(filtered) < window_size:
-                        threshold.append(0)
-                    else:
-                        past_filtered = filtered[-window_size:]
-                        threshold.append(
-                            np.mean(past_filtered, axis=0) + (threshold_factor * np.std(past_filtered, axis=0)))
+                # Compute threshold using past median data, threshold = mean + k * std
+                if len(filtered) < window_size:
+                    threshold.append(0)
+                else:
+                    past_filtered = filtered[-window_size:]
+                    threshold.append(
+                        np.mean(past_filtered, axis=0) + (threshold_factor * np.std(past_filtered, axis=0)))
 
-                    # Identify movement
-                    if len(filtered) > window_size:
+                # Identify movement
+                if len(filtered) > window_size:
                     # checking if val is past threshold and if last movement was more than N samples ago
-                        if np.all(filtered[-1] > threshold[-1]) and len(filtered) - last_movement_time >= N:
-                            movement_detected.append(buffer_index)
-                            last_movement_time = len(filtered)  # update last movement time
-                            print(f"Movement detected at sample {buffer_index}")
+                    if np.all(filtered[-1] > threshold[-1]) and len(t) - last_movement_time >= N:
+                        movement_detected.append(len(df) - 1)
+                        last_movement_time = len(t)  # update last movement time
+                        print(f"Movement detected at sample {len(df) - 1}")
 
-                    # if movement has been detected for more than N samples, preprocess and feed into neural network
-                    if len(movement_detected) > 0 and buffer_index - movement_detected[-1] >= N:
-                        # extract movement data
-                        start = movement_detected[-1]
-                        end = buffer_index if buffer_index > start else buffer_index + 500
-                        movement_data = df.iloc[start:end, :]
+                # if movement has been detected for more than N samples, preprocess and feed into neural network
+                if len(movement_detected) > 0 and len(df) - movement_detected[-1] >= N:
+                    # extract movement data
+                    start = movement_detected[-1]
+                    end = len(df)
+                    movement_data = df.iloc[start:end, :]
 
-                        # print the start and end index of the movement
-                        print(f"Processing movement detected from sample {start} to {end}")
+                    # print the start and end index of the movement
+                    print(f"Processing movement detected from sample {start} to {end}")
 
-                        # perform data preprocessing
-                        preprocessed_data = self.preprocess_dataset(movement_data)
-                        # feed preprocessed data into neural network
-                        # output = self.MLP(preprocessed_data)
-                        predicted_label = self.instantMLP(preprocessed_data)
+                    # perform data preprocessing
+                    preprocessed_data = self.preprocess_dataset(movement_data)
 
-                        print(f"output from MLP: \n {predicted_label} \n")  # print output of MLP
+                    # print preprocessed data
+                    print(f"preprocessed data to feed into MLP: \n {preprocessed_data} \n")
 
-                        # reset movement_detected list
-                        movement_detected.clear()
+                    # feed preprocessed data into neural network
+                    # output = self.MLP(preprocessed_data)
+                    predicted_label = self.instantMLP(preprocessed_data)
 
-                    i += 1
-                    timenow += 1
+                    print(f"output from MLP: \n {predicted_label} \n")  # print output of MLP
 
-                    if i == 200:
-                        i = 0
+                    # reset movement_detected list
+                    movement_detected.clear()
 
-                # except Exception as _:
-                #     traceback.print_exc()
-                #     self.close_connection()
-                #     print("an error occurred")
+                i += 1
+                timenow += 1
+
+                if i == 200:
+                    i = 0
+
+            # except Exception as _:
+            #     traceback.print_exc()
+            #     self.close_connection()
+            #     print("an error occurred")
 
 
 class WebSocketServer:
     def __init__(self):
         super().__init__()
 
-    async def echo(self, websocket, path):
+    async def receive(self, websocket):
         async for message in websocket:
             print(f'Message Received: {message}'.ljust(40), end='\r')
             await websocket.send(message.encode())
 
     async def start_server(self):
-        async with websockets.serve(self.echo, constants.xilinx_server, constants.xilinx_port_num):
+        async with websockets.serve(self.receive, constants.xilinx_server, constants.xilinx_port_num):
             await asyncio.Future()
 
 
 if __name__ == '__main__':
     print('---------------<Setup Announcement>---------------')
-
     # Software Visualizer
-    # print("Starting Subscriber Send Thread        ")
-    # hive = SubscriberSend("CG4002")
-    # hive.start()
+    print("Starting Subscriber Send Thread")
+    hive = SubscriberSend("CG4002")
 
     # Starting Visualizer Receive
-    # print("Starting Subscribe Receive")
-    # viz = SubscriberReceive("gamestate")
-    # viz.start()
+    print("Starting Subscribe Receive")
+    viz = SubscriberReceive("gamestate")
 
     # Client Connection to Evaluation Server
-    # print("Starting Client Thread           ")
-    # eval_client = EvalClient(9999, "137.132.92.184")
-    # eval_client = EvalClient(constants.eval_port_num, "localhost")
-    # eval_client.connect_to_eval()
+    print("Starting Client Thread")
+    eval_client = EvalClient(9999, "137.132.92.184")
+    eval_client = EvalClient(constants.eval_port_num, "localhost")
+    eval_client.connect_to_eval()
 
-    # input("block")
-    # eval_client.submit_to_eval()
-    # eval_client.receive_correct_ans()
-    # eval_client.submit_to_eval()
-    # eval_client.receive_correct_ans()
+    input("block")
+    eval_client.submit_to_eval()
+    eval_client.receive_correct_ans()
+    eval_client.submit_to_eval()
+    eval_client.receive_correct_ans()
 
     # Game Engine
-    # print("Starting Game Engine Thread        ")
-    # GE = GameEngine(eval_client=eval_client)
-    # GE.start()
+    print("Starting Game Engine Thread")
+    game_engine = GameEngine(eval_client=eval_client)
 
     # AI Model
-    #print("Starting AI Model Thread")
-    #ai_model = AI()
-    #ai_model.start()
+    # print("Starting AI Model Thread")
+    # ai_model = AIModel()
 
     # Server Connection to Laptop
-    # print("Starting Server Thread           ")
-    # laptop_server = Server(constants.xilinx_port_num, constants.xilinx_server)
-    # laptop_server.start()
+    print("Starting Server Thread")
+    laptop_server = Server(constants.xilinx_port_num, constants.xilinx_server)
+    laptop_server.start()
 
     print("Starting Web Socket Server Thread")
     server = WebSocketServer()
     asyncio.run(server.start_server())
 
-    # asyncio.run(laptop_server.start_server())
-
     print('--------------------------------------------------')
+
+    hive.start()
+    viz.start()
+    game_engine.start()
+    ai_model.start()
+
+
