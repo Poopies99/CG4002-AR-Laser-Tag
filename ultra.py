@@ -1,4 +1,4 @@
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import paho.mqtt.client as mqtt
 import pandas as pd
 import numpy as np
@@ -13,9 +13,9 @@ import joblib
 import time
 import json
 import csv
-# import pynq
-# import librosa
-# from pynq import Overlay
+import pynq
+import librosa
+from pynq import Overlay
 from GameState import GameState
 from _socket import SHUT_RDWR
 from scipy import stats
@@ -364,44 +364,51 @@ class Server(threading.Thread):
                 # Receive up to 64 Bytes of data
                 data = self.connection.recv(64)
                 # Append existing data into new data
-                self.data = self.data + data
-
-                if len(self.data) < 20:
-                    continue
-
-                packet = self.data[:20]
-                self.data = self.data[20:]
-                self.packer.unpack(packet)
-
-                packet_id = self.packer.get_beetle_id()
-
-                if packet_id == 1:
-                    self.shoot_engine.handle_gun_shot()
-                elif packet_id == 2:
-                    self.shoot_engine.handle_vest_shot()
-                elif packet_id == 3:
-                    packet = self.packer.get_euler_data() + self.packer.get_acc_data()
-                    ai_queue.append(packet)
-                else:
-                    print("Invalid Beetle ID")
+                # self.data = self.data + data
+                #
+                # if len(self.data) < 20:
+                #     continue
+                #
+                # packet = self.data[:20]
+                # self.data = self.data[20:]
+                # self.packer.unpack(packet)
+                #
+                # packet_id = self.packer.get_beetle_id()
+                #
+                # if packet_id == 1:
+                #     self.shoot_engine.handle_gun_shot()
+                # elif packet_id == 2:
+                #     self.shoot_engine.handle_vest_shot()
+                # elif packet_id == 3:
+                #     packet = self.packer.get_euler_data() + self.packer.get_acc_data()
+                #     ai_queue.append(packet)
+                # else:
+                #     print("Invalid Beetle ID")
 
                 # # Remove when Training is complete
                 # if global_flag:
                 #     fpga_queue.put(packet)
 
+                with open('example.json', 'r') as f:
+                    data_json = json.loads(f.read())
+
+                data = [0, data_json['p1']['bullets'], data_json['p1']['hp'], data_json['p2']['bullets'],
+                        data_json['p2']['hp'], 0, 0, 0, 0, 0]
+
+                self.connection.send(data)
                 # Sends data back into the relay laptop
-                if len(laptop_queue) != 0 :
-                    game_state = laptop_queue.popleft()
-                    node_id = 0
-                    packet_type = PacketType.ACK
-                    header = (node_id << 4) | packet_type
-                    data = [header, game_state['p1']['bullets'], game_state['p1']['hp'], 0, 0, 0, 0, 0, 0, 0]
-                    # data = [header, game_state['p1']['bullets'], game_state['p1']['hp'], game_state['p2']['bullets'], game_state['p2']['hp'], 0, 0, 0, 0, 0]
-                    data = self.packer.pack(data)
-
-                    self.connection.send(data)
-
-                    print("Sending back to laptop", data)
+                # if len(laptop_queue) != 0 :
+                #     game_state = laptop_queue.popleft()
+                #     node_id = 0
+                #     packet_type = PacketType.ACK
+                #     header = (node_id << 4) | packet_type
+                #     # data = [header, game_state['p1']['bullets'], game_state['p1']['hp'], 0, 0, 0, 0, 0, 0, 0]
+                #     data = [header, game_state['p1']['bullets'], game_state['p1']['hp'], game_state['p2']['bullets'], game_state['p2']['hp'], 0, 0, 0, 0, 0]
+                #     data = self.packer.pack(data)
+                #
+                #     self.connection.send(data)
+                #
+                #     print("Sending back to laptop", data)
             except KeyboardInterrupt as _:
                 traceback.print_exc()
                 self.close_connection()
@@ -974,27 +981,27 @@ class WebSocketServer:
 
 if __name__ == '__main__':
     print('---------------<Setup Announcement>---------------')
-    # AI Model
-    print("Starting AI Model Thread")
-    ai_model = AIModel()
-
-    # Software Visualizer
-    print("Starting Subscriber Send Thread")
-    hive = SubscriberSend("CG4002")
-
-    # Starting Visualizer Receive
-    print("Starting Subscribe Receive")
-    viz = SubscriberReceive("gamestate")
-
-    # Client Connection to Evaluation Server
-    print("Starting Client Thread")
-    # eval_client = EvalClient(9999, "137.132.92.184")
-    eval_client = EvalClient(constants.eval_port_num, "localhost")
-    eval_client.connect_to_eval()
-
-    # Game Engine
-    print("Starting Game Engine Thread")
-    game_engine = GameEngine(eval_client=eval_client)
+    # # AI Model
+    # print("Starting AI Model Thread")
+    # ai_model = AIModel()
+    #
+    # # Software Visualizer
+    # print("Starting Subscriber Send Thread")
+    # hive = SubscriberSend("CG4002")
+    #
+    # # Starting Visualizer Receive
+    # print("Starting Subscribe Receive")
+    # viz = SubscriberReceive("gamestate")
+    #
+    # # Client Connection to Evaluation Server
+    # print("Starting Client Thread")
+    # # eval_client = EvalClient(9999, "137.132.92.184")
+    # eval_client = EvalClient(constants.eval_port_num, "localhost")
+    # eval_client.connect_to_eval()
+    #
+    # # Game Engine
+    # print("Starting Game Engine Thread")
+    # game_engine = GameEngine(eval_client=eval_client)
 
     # Server Connection to Laptop
     print("Starting Server Thread")
@@ -1006,10 +1013,10 @@ if __name__ == '__main__':
 
     print('--------------------------------------------------')
 
-    hive.start()
-    viz.start()
-    game_engine.start()
-    ai_model.start()
+    # hive.start()
+    # viz.start()
+    # game_engine.start()
+    # ai_model.start()
     laptop_server.start()
 
 
