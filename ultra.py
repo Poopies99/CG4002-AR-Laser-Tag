@@ -333,7 +333,6 @@ class Server(threading.Thread):
 
         while not self.shutdown.is_set():
             try:
-                
                 if time.time() - start_time > 6:
                     action_queue.append(['grenade', True])
                     start_time = time.time()
@@ -382,6 +381,7 @@ class Server(threading.Thread):
                 #     packet_type = PacketType.ACK
                 #     header = (node_id << 4) | packet_type
                 #     data = [header, game_state['p1']['bullets'], game_state['p1']['hp'], 0, 0, 0, 0, 0, 0, 0]
+                # #     data = [header, game_state['p1']['bullets'], game_state['p1']['hp'], game_state['p2']['bullets'], game_state['p2']['hp'], 0, 0, 0, 0, 0]
                 #     data = self.packer.pack(data)
                 #
                 #     self.connection.send(data)
@@ -930,7 +930,8 @@ class WebSocketServer:
 
     async def echo(self, websocket, path):
         async for message in websocket:
-            await websocket.send(message)
+            print(f'Message Received {message}')
+            # await websocket.send(message)
 
     async def start_server(self):
         async with websockets.serve(self.echo, constants.xilinx_server, constants.xilinx_port_num):
