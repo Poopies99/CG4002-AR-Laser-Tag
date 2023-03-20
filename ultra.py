@@ -281,39 +281,43 @@ class EvalClient:
         print("Shutting Down EvalClient Connection")
 
 
-class WebSocketServer:
-    def __init__(self, host_name, port_num):
-        self.host_name = host_name
-        self.port_num = port_num
-
-        self.packer = BLEPacket()
-
-        self.data = b''
-
-    async def process_message(self, websocket, path):
-        async for message in websocket:
-            await websocket.send(message)
-            # self.data = self.data + message
-            # if len(self.data) < 20:
-            #     continue
-            # packet = self.data[:20]
-            # self.data = self.data[20:]
-            #
-            # self.packer.unpack(packet)
-            # print("CRC: ", self.packer.get_crc())
-
-            # # await websocket.send(message)
-
-            #
-            # if collection_flag:
-            #     training_model_queue.append(packet)
-
-    async def start_server(self):
-        async with websockets.serve(self.process_message, self.host_name, self.port_num):
-            await asyncio.Future()
-
-    def run(self):
-        asyncio.run(self.start_server())
+# class WebSocketServer(threading.Thread):
+#     def __init__(self, host_name, port_num):
+#         super().__init__()
+#
+#         self.host_name = host_name
+#         self.port_num = port_num
+#
+#         self.packer = BLEPacket()
+#
+#         self.data = b''
+#
+#         self.flag = threading.Event()
+#
+#     async def process_message(self, websocket, path):
+#         async for message in websocket:
+#             await websocket.send(message)
+#             # self.data = self.data + message
+#             # if len(self.data) < 20:
+#             #     continue
+#             # packet = self.data[:20]
+#             # self.data = self.data[20:]
+#             #
+#             # self.packer.unpack(packet)
+#             # print("CRC: ", self.packer.get_crc())
+#
+#             # # await websocket.send(message)
+#
+#             #
+#             # if collection_flag:
+#             #     training_model_queue.append(packet)
+#
+#     async def start_server(self):
+#         async with websockets.serve(self.process_message, self.host_name, self.port_num):
+#             await asyncio.Future()
+#
+#     def run(self):
+#         self.start_server()
 
 
 class Server(threading.Thread):
@@ -959,6 +963,16 @@ class AI(threading.Thread):
                 #     print("an error occurred")
 
 
+async def echo(websocket, path):
+    async for message in websocket:
+        await websocket.send(message)
+
+
+async def start_server():
+    async with websockets.serve(echo, constants.xilinx_server, constants.xilinx_port_num):
+        await asyncio.Future()
+
+
 if __name__ == '__main__':
     print('---------------<Announcement>---------------')
 
@@ -1000,7 +1014,10 @@ if __name__ == '__main__':
     # laptop_server.start()
 
     print("Starting Web Socket Server Thread")
-    laptop_server = WebSocketServer("192.168.95.221", 8080)
-    laptop_server.run()
+    asyncio.run(start_server())
+    # laptop_server = WebSocketServer("192.168.95.221", 8080)
+    # laptop_server.run()
+
+    # asyncio.run(laptop_server.start_server())
 
     print('--------------------------------------------')
