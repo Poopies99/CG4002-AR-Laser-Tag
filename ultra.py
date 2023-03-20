@@ -120,9 +120,8 @@ class GameEngine(threading.Thread):
             try:
                 if len(action_queue) != 0:
                     action_data, status = action_queue.popleft()
-
+                    
                     print(f"Receive action data by Game Engine: {action_data}")
-                    # assuming action_data to be [[p1_action], [p2_status]]
 
                     if self.p1.shield_status:
                         self.p1.update_shield()
@@ -130,37 +129,35 @@ class GameEngine(threading.Thread):
                     if self.p2.shield_status:
                         self.p2.update_shield()
 
-                    if action_data == "logout" or action_data.lower() == 'l':
-                        self.p1.action = "logout"
-                        # send to visualizer
-                        # send to eval server - eval_queue
-                        data = self.eval_client.gamestate._get_data_plain_text()
-                        subscribe_queue.put(data)
-                        # self.eval_client.submit_to_eval()
-                        break
+                    valid_action_p1 = self.p1.action_is_valid(action_data)
 
-                    if action_data == "grenade" or action_data == "G":
+                    if valid_action_p1:
+                        if action_data == "logout":
+                            # send to visualizer
+                            # send to eval server - eval_queue
+                            data = self.eval_client.gamestate._get_data_plain_text()
+                            subscribe_queue.put(data)
+                            # self.eval_client.submit_to_eval()
+                            break
+
+                        if action_data == "grenade":
                         # receiving the status mqtt topic
-                        print("grenade action")
-                        if self.p1.throw_grenade():
+                            self.p1.throw_grenade()
                             subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
-                        
-                            # time.sleep(0.5)
 
-                    elif action_data == "shield" or action_data == "S":
-                        print("Entered shield action")
-                        self.p1.activate_shield()
+                        elif action_data == "shield":
+                            print("Entered shield action")
+                            self.p1.activate_shield()
 
-                    elif action_data == "shoot":
-                        print("Entered shoot action")
-                        if self.p1.shoot() and status:
-                            self.p2.got_shot()
+                        elif action_data == "shoot":
+                            self.p1.shoot()
+                            if status:
+                                self.p2.got_shot()
 
-                    elif action_data == "reload" or action_data == "R":
-                        self.p1.reload()
+                        elif action_data == "reload":
+                            self.p1.reload()
 
-                    if action_data == "grenade" or action_data == "G":
-                        if self.p1.grenades >= 0:
+                        if action_data == "grenade":
                             if self.determine_grenade_hit():
                                 self.p2.got_hit_grenade()
 
@@ -181,7 +178,11 @@ class GameEngine(threading.Thread):
                     self.eval_client.receive_correct_ans()
                     # subscriber queue to sw/feedback queue
 
-                    subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
+                    if valid_action_p1:
+                        subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
+                    else:
+                        self.p1.update_invalid_action()
+                        subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
 
             except KeyboardInterrupt as _:
                 traceback.print_exc()
@@ -241,7 +242,6 @@ class SubscriberSend(threading.Thread):
                 traceback.print_exc()
                 continue
 
-
 class SubscriberReceive(threading.Thread):
     def __init__(self, topic):
         super().__init__()
@@ -280,7 +280,6 @@ class SubscriberReceive(threading.Thread):
                 print(e)
                 self.close_connection()
 
-
 class EvalClient:
     def __init__(self, port_num, host_name):
         super().__init__()
@@ -311,7 +310,6 @@ class EvalClient:
     def close_connection(self):
         self.client_socket.close()
         print("Shutting Down EvalClient Connection")
-
 
 class Server(threading.Thread):
     shot_flag = False
@@ -415,7 +413,6 @@ class Server(threading.Thread):
             except Exception as _:
                 traceback.print_exc()
                 continue
-
 
 class TrainingModel(threading.Thread):
     def __init__(self):
@@ -644,7 +641,6 @@ class TrainingModel(threading.Thread):
             except Exception as _:
                 traceback.print_exc()
                 continue
-
 
 class AIModel(threading.Thread):
     def __init__(self):
@@ -964,7 +960,6 @@ class AIModel(threading.Thread):
             #     self.close_connection()
             #     print("an error occurred")
 
-
 class WebSocketServer:
     def __init__(self):
         super().__init__()
@@ -1018,8 +1013,4 @@ if __name__ == '__main__':
     # game_engine.start()
     # ai_model.start()
     laptop_server.start()
-
-
-
-
 
