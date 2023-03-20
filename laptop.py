@@ -39,10 +39,11 @@ class Client(threading.Thread):
                     break
 
                 self.client_socket.send(message.encode())
-
-                reply = self.client_socket.recv(64)
-
-                print(reply)
+                # self.client_socket.send(message.encode())
+                #
+                # reply = self.client_socket.recv(64)
+                #
+                # print(reply)
             except Exception as _:
                 traceback.print_exc()
                 self.close_connection()

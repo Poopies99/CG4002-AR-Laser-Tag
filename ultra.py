@@ -74,6 +74,15 @@ class ShootEngine(threading.Thread):
                 time.sleep(0.5)
                 if self.vest_shot:
                     action_queue.append(['shoot', True])
+                    self.vest_shot = False
+                else:
+                    action_queue.append(['shoot', False])
+            if self.vest_shot:
+                self.vest_shot = False
+                time.sleep(0.5)
+                if self.gun_shot:
+                    action_queue.append(['shoot', True])
+                    self.gun_shot = False
                 else:
                     action_queue.append(['shoot', False])
 
@@ -345,6 +354,8 @@ class Server(threading.Thread):
         print("Shutting Down Server")
 
     def run(self):
+        shot_thread = threading.Thread(target=self.shoot_engine.start)
+        shot_thread.start()
         self.server_socket.listen(1)
         self.setup()
 
@@ -963,6 +974,10 @@ class WebSocketServer:
 
 if __name__ == '__main__':
     print('---------------<Setup Announcement>---------------')
+    # AI Model
+    print("Starting AI Model Thread")
+    ai_model = AIModel()
+
     # Software Visualizer
     print("Starting Subscriber Send Thread")
     hive = SubscriberSend("CG4002")
@@ -973,32 +988,21 @@ if __name__ == '__main__':
 
     # Client Connection to Evaluation Server
     print("Starting Client Thread")
-    eval_client = EvalClient(9999, "137.132.92.184")
+    # eval_client = EvalClient(9999, "137.132.92.184")
     eval_client = EvalClient(constants.eval_port_num, "localhost")
     eval_client.connect_to_eval()
-
-    input("block")
-    eval_client.submit_to_eval()
-    eval_client.receive_correct_ans()
-    eval_client.submit_to_eval()
-    eval_client.receive_correct_ans()
 
     # Game Engine
     print("Starting Game Engine Thread")
     game_engine = GameEngine(eval_client=eval_client)
 
-    # AI Model
-    # print("Starting AI Model Thread")
-    # ai_model = AIModel()
-
     # Server Connection to Laptop
     print("Starting Server Thread")
     laptop_server = Server(constants.xilinx_port_num, constants.xilinx_server)
-    laptop_server.start()
 
-    print("Starting Web Socket Server Thread")
-    server = WebSocketServer()
-    asyncio.run(server.start_server())
+    # print("Starting Web Socket Server Thread")
+    # server = WebSocketServer()
+    # asyncio.run(server.start_server())
 
     print('--------------------------------------------------')
 
@@ -1006,5 +1010,9 @@ if __name__ == '__main__':
     viz.start()
     game_engine.start()
     ai_model.start()
+    laptop_server.start()
+
+
+
 
 
