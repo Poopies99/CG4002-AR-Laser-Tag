@@ -874,7 +874,7 @@ class AIModel(threading.Thread):
         while True:
             if ai_queue:
                 data = np.array(ai_queue.popleft())
-                data[-3:] /= 100
+                data[-3:] = [x/100.0 for x in data[-3:]]
                 # data = self.generate_simulated_data()
                 # self.sleep(0.05)
                 print("Data: ")
