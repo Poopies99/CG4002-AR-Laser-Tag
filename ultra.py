@@ -314,8 +314,6 @@ class EvalClient:
 
 
 class Server(threading.Thread):
-    shot_flag = False
-
     def __init__(self, port_num, host_name):
         super().__init__()
 
