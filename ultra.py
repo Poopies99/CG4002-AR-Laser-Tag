@@ -852,7 +852,7 @@ class AIModel(threading.Thread):
     def run(self):
         # live integration loop
         window_size = 11
-        threshold_factor = 4
+        threshold_factor = 2
 
         buffer_size = 500
         buffer = np.zeros((buffer_size, len(self.columns)))
@@ -877,9 +877,9 @@ class AIModel(threading.Thread):
                 data[-3:] = [x/100.0 for x in data[-3:]]
                 # data = self.generate_simulated_data()
                 # self.sleep(0.05)
-                print("Data: ")
-                print(" ".join([f"{x:.3f}" for x in data]))
-                print("\n")
+                # print("Data: ")
+                # print(" ".join([f"{x:.3f}" for x in data]))
+                # print("\n")
 
                 # Append new data
                 buffer[buffer_index] = data
