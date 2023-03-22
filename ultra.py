@@ -890,9 +890,9 @@ class AIModel(threading.Thread):
                 x[buffer_index] = np.abs(np.sum(np.square(data[3:6])))  # abs of accX, accY, accZ
                 # x[buffer_index] = wave[i]  # abs of accX, accY, accZ
 
-                i += 1
-                if i >= len(wave):
-                    i = 0
+                # i += 1
+                # if i >= len(wave):
+                #     i = 0
 
                 # Compute moving window median
                 if buffer_index < window_size:
