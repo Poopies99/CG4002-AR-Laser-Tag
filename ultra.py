@@ -881,7 +881,8 @@ class AIModel(threading.Thread):
 
                 # data = self.generate_simulated_data()  # TODO - refactor for real data
                 try:
-                    data = ai_queue.popleft()
+                    if len(ai_queue) != 0:
+                        data = ai_queue.popleft()
                     self.sleep(0.05)
                     print("Data: ")
                     print(" ".join([f"{x:.8g}" for x in data]))
