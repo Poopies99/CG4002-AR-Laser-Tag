@@ -878,7 +878,7 @@ class AIModel(threading.Thread):
                 # data = self.generate_simulated_data()
                 # self.sleep(0.05)
                 print("Data: ")
-                print(" ".join([f"{x:.8g}" for x in data]))
+                print(" ".join([f"{x:.8f}" for x in data]))
                 print("\n")
 
                 # Append new data
