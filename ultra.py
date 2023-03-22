@@ -827,19 +827,19 @@ class AIModel(threading.Thread):
         assert np.allclose(test_input_math_pca, arr)
 
         # MLP
-        # predicted_labels = self.PCA_MLP(test_input_math_pca) # return 1x4 softmax array
-        # print(f"MLP pynq overlay predicted: {predicted_labels} \n")
-        # np_output = np.array(predicted_labels)
-        # largest_index = np_output.argmax()
+        predicted_labels = self.PCA_MLP(test_input_math_pca) # return 1x4 softmax array
+        print(f"MLP pynq overlay predicted: {predicted_labels} \n")
+        np_output = np.array(predicted_labels)
+        largest_index = np_output.argmax()
 
-        # predicted_label = self.action_map[largest_index]
+        predicted_label = self.action_map[largest_index]
 
-        # # print largest index and largest action of MLP output
-        # print(f"largest index: {largest_index} \n")
-        # print(f"MLP overlay predicted: {predicted_label} \n")
+        # print largest index and largest action of MLP output
+        print(f"largest index: {largest_index} \n")
+        print(f"MLP overlay predicted: {predicted_label} \n")
 
-        predicted_label = mlp.predict(test_input_math_pca.reshape(1, -1))
-        print(f"MLP lib overlay predicted: {predicted_label} \n")
+        # predicted_label = mlp.predict(test_input_math_pca.reshape(1, -1))
+        # print(f"MLP lib overlay predicted: {predicted_label} \n")
 
         # output is a single char
         return predicted_label
