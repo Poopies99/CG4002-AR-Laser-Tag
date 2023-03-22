@@ -674,12 +674,12 @@ class AIModel(threading.Thread):
 
         self.pca_eigvecs_transposed = [list(row) for row in zip(*self.pca_eigvecs_list)]
         # PYNQ overlay
-        # self.overlay = Overlay("pca_mlp_1.bit")
-        # self.dma = self.overlay.axi_dma_0
+        self.overlay = Overlay("pca_mlp_1.bit")
+        self.dma = self.overlay.axi_dma_0
 
-        # # Allocate input and output buffers once
-        # self.in_buffer = pynq.allocate(shape=(35,), dtype=np.float32)
-        # self.out_buffer = pynq.allocate(shape=(4,), dtype=np.float32)
+        # Allocate input and output buffers once
+        self.in_buffer = pynq.allocate(shape=(35,), dtype=np.float32)
+        self.out_buffer = pynq.allocate(shape=(4,), dtype=np.float32)
 
     def sleep(self, seconds):
         start_time = time.time()
@@ -874,6 +874,7 @@ class AIModel(threading.Thread):
         while True:
             if ai_queue:
                 data = ai_queue.popleft()
+                data[-3:] /= 100
                 # data = self.generate_simulated_data()
                 # self.sleep(0.05)
                 print("Data: ")
@@ -887,8 +888,7 @@ class AIModel(threading.Thread):
                 buffer_index = (buffer_index + 1) % buffer_size
 
                 # Compute absolute acceleration values
-                acc_data = [x/100 for x in data[3:6]]
-                x[buffer_index] = np.abs(np.sum(np.square(acc_data)))  # abs of accX, accY, accZ
+                x[buffer_index] = np.abs(np.sum(np.square(data[3:6])))  # abs of accX, accY, accZ
                 # x[buffer_index] = wave[i]  # abs of accX, accY, accZ
 
                 # i += 1
