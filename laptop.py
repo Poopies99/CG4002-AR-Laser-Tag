@@ -5,8 +5,9 @@ import sys
 import threading
 import traceback
 from _socket import SHUT_RDWR
-
+from packet_type import PacketType
 import time
+from ble_packet import BLEPacket
 
 class Client(threading.Thread):
     def __init__(self, port_num, host_name):
@@ -68,6 +69,8 @@ class Server(threading.Thread):
         self.secret_key = None
         self.secret_key_bytes = None
 
+        self.packer = BLEPacket()
+
         # Flags
         self.shutdown = threading.Event()
 
@@ -103,6 +106,14 @@ class Server(threading.Thread):
                 self.data = self.data[20:]
 
                 print("Message Received from Laptop:", packet)
+
+                node_id = 0
+                packet_type = PacketType.ACK
+                header = (node_id << 4) | packet_type
+                data = [header, 6, 100, 4, 50, 0, 0, 0, 0, 0]
+                data = self.packer.pack(data)
+
+                self.connection.send(data)
 
                 if not message:
                     self.close_connection()
@@ -205,7 +216,7 @@ if __name__ == '__main__':
 
     # client = Client(8080, 'localhost')
     # client.start()
-    client = Client(8080, 'localhost')
-    client.start()
-    # server = Server(8080, 'localhost')
-    # server.start()
+    # client = Client(8080, 'localhost')
+    # client.start()
+    server = Server(8080, '192.168.95.221')
+    server.start()

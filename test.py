@@ -3,7 +3,7 @@ import traceback
 import socket
 import time
 from _socket import SHUT_RDWR
-
+import json
 
 class ShootEngine(threading.Thread):
     def __init__(self):
@@ -88,6 +88,66 @@ class Server(threading.Thread):
                 else:
                     print("Invalid Beetle ID")
 
+            except KeyboardInterrupt as _:
+                traceback.print_exc()
+                self.close_connection()
+            except Exception as _:
+                traceback.print_exc()
+                continue
+
+
+class ServerTwo(threading.Thread):
+    def __init__(self, port_num, host_name):
+        super().__init__()
+
+        # Create a TCP/IP socket
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # Place Socket into TIME WAIT state
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # Binds socket to specified host and port
+        server_socket.bind((host_name, port_num))
+
+        self.server_socket = server_socket
+
+        # Data Buffer
+        self.data = b''
+
+        # Flags
+        self.shutdown = threading.Event()
+
+    def setup(self):
+        print('Awaiting Connection from Laptop')
+
+        # Blocking Function
+        self.connection, client_address = self.server_socket.accept()
+
+        print('Successfully connected to', client_address[0])
+
+    def close_connection(self):
+        self.connection.shutdown(SHUT_RDWR)
+        self.connection.close()
+        self.shutdown.set()
+
+        print("Shutting Down Server")
+
+    def run(self):
+        shot_thread = threading.Thread(target=self.shoot_engine.start)
+        shot_thread.start()
+        self.server_socket.listen(1)
+        self.setup()
+
+        while not self.shutdown.is_set():
+            try:
+                # Receive up to 64 Bytes of data
+                data = self.connection.recv(64)
+
+                with open('example.json', 'r') as f:
+                    data_json = json.loads(f.read())
+
+                data = [0, data_json['p1']['bullets'], data_json['p1']['hp'], data_json['p2']['bullets'],
+                        data_json['p2']['hp'], 0, 0, 0, 0, 0]
+
+                self.connection.send(data)
             except KeyboardInterrupt as _:
                 traceback.print_exc()
                 self.close_connection()
