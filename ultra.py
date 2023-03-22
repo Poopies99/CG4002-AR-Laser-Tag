@@ -392,10 +392,8 @@ class Server(threading.Thread):
                 # Sends data back into the relay laptop
                 if len(laptop_queue) != 0:
                     game_state = laptop_queue.popleft()
-                    node_id = 0
-                    packet_type = PacketType.ACK
-                    header = (node_id << 4) | packet_type
-                    data = [header, game_state['p1']['bullets'], game_state['p1']['hp'], game_state['p2']['bullets'], game_state['p2']['hp'], 0, 0, 0, 0, 0]
+                    data = [0, game_state['p1']['bullets'], game_state['p1']['hp'], 0, game_state['p2']['bullets'],
+                            game_state['p2']['hp'], 0]
                     data = self.packer.pack(data)
 
                     self.connection.send(data)
@@ -882,74 +880,79 @@ class AIModel(threading.Thread):
                 # plt.show()
 
                 # data = self.generate_simulated_data()  # TODO - refactor for real data
-                data = ai_queue.popleft()
-                self.sleep(0.05)
-                print("Data: ")
-                print(" ".join([f"{x:.8g}" for x in data]))
-                print("\n")
+                try:
+                    data = ai_queue.popleft()
+                    self.sleep(0.05)
+                    print("Data: ")
+                    print(" ".join([f"{x:.8g}" for x in data]))
+                    print("\n")
 
-                # Append new data to dataframe
-                df.loc[len(df)] = data
+                    # Append new data to dataframe
+                    df.loc[len(df)] = data
 
-                # Compute absolute acceleration values
-                x.append(np.abs(data[5:8])) # abs of accX, accY, accZ - # TODO - use this for real data
-                x.append(wave[i])  # abs of accX, accY, accZ
+                    # Compute absolute acceleration values
+                    x.append(np.abs(data[5:8])) # abs of accX, accY, accZ - # TODO - use this for real data
+                    x.append(wave[i])  # abs of accX, accY, accZ
 
-                # time
-                t.append(timenow)
+                    # time
+                    t.append(timenow)
 
-                # Compute moving window median
-                if len(x) < window_size:
-                    filtered.append(0)
-                else:
-                    filtered.append(np.median(x[-window_size:], axis=0))
+                    # Compute moving window median
+                    if len(x) < window_size:
+                        filtered.append(0)
+                    else:
+                        filtered.append(np.median(x[-window_size:], axis=0))
 
-                # Compute threshold using past median data, threshold = mean + k * std
-                if len(filtered) < window_size:
-                    threshold.append(0)
-                else:
-                    past_filtered = filtered[-window_size:]
-                    threshold.append(
-                        np.mean(past_filtered, axis=0) + (threshold_factor * np.std(past_filtered, axis=0)))
+                    # Compute threshold using past median data, threshold = mean + k * std
+                    if len(filtered) < window_size:
+                        threshold.append(0)
+                    else:
+                        past_filtered = filtered[-window_size:]
+                        threshold.append(
+                            np.mean(past_filtered, axis=0) + (threshold_factor * np.std(past_filtered, axis=0)))
 
-                # Identify movement
-                if len(filtered) > window_size:
-                    # checking if val is past threshold and if last movement was more than N samples ago
-                    if np.all(filtered[-1] > threshold[-1]) and len(t) - last_movement_time >= N:
-                        movement_detected.append(len(df) - 1)
-                        last_movement_time = len(t)  # update last movement time
-                        print(f"Movement detected at sample {len(df) - 1}")
+                    # Identify movement
+                    if len(filtered) > window_size:
+                        # checking if val is past threshold and if last movement was more than N samples ago
+                        if np.all(filtered[-1] > threshold[-1]) and len(t) - last_movement_time >= N:
+                            movement_detected.append(len(df) - 1)
+                            last_movement_time = len(t)  # update last movement time
+                            print(f"Movement detected at sample {len(df) - 1}")
 
-                # if movement has been detected for more than N samples, preprocess and feed into neural network
-                if len(movement_detected) > 0 and len(df) - movement_detected[-1] >= N:
-                    # extract movement data
-                    start = movement_detected[-1]
-                    end = len(df)
-                    movement_data = df.iloc[start:end, :]
+                    # if movement has been detected for more than N samples, preprocess and feed into neural network
+                    if len(movement_detected) > 0 and len(df) - movement_detected[-1] >= N:
+                        # extract movement data
+                        start = movement_detected[-1]
+                        end = len(df)
+                        movement_data = df.iloc[start:end, :]
 
-                    # print the start and end index of the movement
-                    print(f"Processing movement detected from sample {start} to {end}")
+                        # print the start and end index of the movement
+                        print(f"Processing movement detected from sample {start} to {end}")
 
-                    # perform data preprocessing
-                    preprocessed_data = self.preprocess_dataset(movement_data)
+                        # perform data preprocessing
+                        preprocessed_data = self.preprocess_dataset(movement_data)
 
-                    # print preprocessed data
-                    print(f"preprocessed data to feed into MLP: \n {preprocessed_data} \n")
+                        # print preprocessed data
+                        print(f"preprocessed data to feed into MLP: \n {preprocessed_data} \n")
 
-                    # feed preprocessed data into neural network
-                    # output = self.MLP(preprocessed_data)
-                    predicted_label = self.instantMLP(preprocessed_data)
+                        # feed preprocessed data into neural network
+                        # output = self.MLP(preprocessed_data)
+                        predicted_label = self.instantMLP(preprocessed_data)
 
-                    print(f"output from MLP: \n {predicted_label} \n")  # print output of MLP
+                        print(f"output from MLP: \n {predicted_label} \n")  # print output of MLP
 
-                    # reset movement_detected list
-                    movement_detected.clear()
+                        # reset movement_detected list
+                        movement_detected.clear()
 
-                i += 1
-                timenow += 1
+                    i += 1
+                    timenow += 1
 
-                if i == 200:
-                    i = 0
+                    if i == 200:
+                        i = 0
+                except Exception as _:
+                    traceback.print_exc()
+
+
 
             # except Exception as _:
             #     traceback.print_exc()
