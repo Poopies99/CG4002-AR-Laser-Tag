@@ -852,7 +852,7 @@ class AIModel(threading.Thread):
     def run(self):
         # live integration loop
         window_size = 11
-        threshold_factor = 2
+        threshold_factor = 4
 
         buffer_size = 500
         buffer = np.zeros((buffer_size, len(self.columns)))
