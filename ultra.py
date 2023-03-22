@@ -806,25 +806,16 @@ class AIModel(threading.Thread):
         # mlp = joblib.load('/home/xilinx/mlp_model.joblib')
 
         # sample data for sanity check
-        test_input = np.array([0.1, 0.2, 0.3, 0.4] * 120).reshape(1, -1)
+        # test_input = np.array([0.1, 0.2, 0.3, 0.4] * 120).reshape(1, -1)
 
         # Scaler
-        # test_input_rescaled = (data - self.mean) / np.sqrt(self.variance) # TODO - use this for real data
-        test_input_rescaled = (test_input - self.mean) / np.sqrt(self.variance)
+        test_input_rescaled = (data - self.mean) / np.sqrt(self.variance) # TODO - use this for real data
+        # test_input_rescaled = (test_input - self.mean) / np.sqrt(self.variance)
         # print(f"test_input_rescaled: {test_input_rescaled}\n")
 
         # PCA
         test_input_math_pca = np.dot(test_input_rescaled, self.pca_eigvecs_transposed)
         # print(f"test_input_math_pca: {test_input_math_pca}\n")
-
-        arr = np.array([-9.20434773, -4.93421279, -0.7165668, -5.35652778, 1.16597442, 0.83953718,
-                        2.46925983, 0.55131264, -0.1671036, 0.82080829, -1.87265269, 3.34199444,
-                        0.09530707, -3.77394007, 1.68183889, 1.97630386, 1.48839111, -3.00986825,
-                        4.13786954, 1.46723819, 8.08842927, 10.94846901, 2.22280215, -1.85681443,
-                        4.47327707, 3.15918201, -0.77879694, -0.11557772, 0.21580221, -2.62405631,
-                        -3.42924226, -7.01213438, 7.75544419, -3.72408571, 3.46613566])
-
-        assert np.allclose(test_input_math_pca, arr)
 
         # MLP
         predicted_labels = self.PCA_MLP(test_input_math_pca) # return 1x4 softmax array
