@@ -845,6 +845,7 @@ class AIModel(threading.Thread):
         return predicted_label
 
     def close_connection(self):
+    def close_connection(self):
         self.shutdown.set()
 
         print("Shutting Down Connection")
