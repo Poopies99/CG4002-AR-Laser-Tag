@@ -5,7 +5,7 @@ import traceback
 import random
 from queue import Queue
 import time
-from evaluation_server.GameState import GameState
+from GameState import GameState
 
 imu_queue = Queue()
 action_queue = Queue()
