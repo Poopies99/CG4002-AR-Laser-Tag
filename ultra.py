@@ -887,29 +887,30 @@ class AIModel(threading.Thread):
                 #     i = 0
 
                 # Compute moving window median
-                if buffer_index < window_size:
-                    filtered[buffer_index] = 0
-                else:
-                    filtered[buffer_index] = np.median(x[buffer_index - window_size + 1:buffer_index + 1], axis=0)
+                # if buffer_index < window_size:
+                #     filtered[buffer_index] = 0
+                # else:
+                filtered[buffer_index] = np.median(x[buffer_index - window_size + 1:buffer_index + 1], axis=0)
 
                 # Compute threshold using past median data, threshold = mean + k * std
-                if buffer_index < window_size:
-                    threshold[buffer_index] = 0
-                else:
-                    past_filtered = filtered[buffer_index - window_size + 1:buffer_index + 1]
-                    threshold[buffer_index] = np.mean(past_filtered, axis=0) + (
+                # if buffer_index < window_size:
+                #     threshold[buffer_index] = 0
+                # else:
+                past_filtered = filtered[buffer_index - window_size + 1:buffer_index + 1]
+                threshold[buffer_index] = np.mean(past_filtered, axis=0) + (
                                 threshold_factor * np.std(past_filtered, axis=0))
 
                 # Identify movement
-                if buffer_index >= window_size and np.all(
-                        filtered[buffer_index] > threshold[buffer_index]) and buffer_index - last_movement_time >= N:
+                # if x[buffer_index] > threshold[buffer_index]:
+                if filtered[buffer_index] > threshold[buffer_index]:
                     last_movement_time = buffer_index  # update last movement time
                     print(f"Movement detected at sample {buffer_index}")
 
                 # if N samples from last movement time have been accumulated, preprocess and feed into neural network
-                if (buffer_index - last_movement_time) % buffer_size == N - 1:
+                if (last_movement_time != -N) and (buffer_index - last_movement_time + 1) % buffer_size == N:
                     # extract movement data
-                    start = (last_movement_time + 1) % buffer_size
+                    start = last_movement_time
+                    # +1 needed for python syntax, eg we want [1,40]  but syntax is [1,41]
                     end = (buffer_index + 1) % buffer_size
                     if end <= start:
                         movement_data = np.concatenate((buffer[start:, :], buffer[:end, :]), axis=0)
@@ -920,10 +921,10 @@ class AIModel(threading.Thread):
                     print(f"Processing movement detected from sample {start} to {end}")
 
                     # perform data preprocessing
-                    preprocessed_data = self.preprocess_dataset(movement_data)
+                    preprocessed_data = self.preprocess_dataset(movement_data) # multithread
 
                     # feed preprocessed data into neural network
-                    predicted_label = self.instantMLP(preprocessed_data)
+                    predicted_label = self.instantMLP(preprocessed_data) # multithread
 
                     print(f"output from MLP: \n {predicted_label} \n")  # print output of MLP
 
