@@ -800,7 +800,7 @@ class AIModel(threading.Thread):
     def instantMLP(self, data):
         # Load the model from file and preproessing
         # localhost
-        mlp = joblib.load('mlp_model.joblib')
+        # mlp = joblib.load('mlp_model.joblib')
 
         # board
         # mlp = joblib.load('/home/xilinx/mlp_model.joblib')
