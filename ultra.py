@@ -71,20 +71,25 @@ class ShootEngine(threading.Thread):
         while True:
             if self.gun_shot:
                 self.gun_shot = False
-                time.sleep(0.5)
+                time.sleep(1)
                 if self.vest_shot:
                     action_queue.append(['shoot', True])
                     self.vest_shot = False
+                    print('Player has been shot')
                 else:
                     action_queue.append(['shoot', False])
+                    print('Player Missed')
+
             if self.vest_shot:
                 self.vest_shot = False
-                time.sleep(0.5)
+                time.sleep(1)
                 if self.gun_shot:
                     action_queue.append(['shoot', True])
                     self.gun_shot = False
+                    print('Player has been shot')
                 else:
                     action_queue.append(['shoot', False])
+                    print('Player Missed')
 
 
 class GameEngine(threading.Thread):
