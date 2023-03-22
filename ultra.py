@@ -850,6 +850,7 @@ class AIModel(threading.Thread):
         # live integration loop
         # while not self.shutdown.is_set():
         f = True
+        data = []
         while f:
             f = False
 
