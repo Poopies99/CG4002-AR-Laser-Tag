@@ -852,7 +852,7 @@ class AIModel(threading.Thread):
     def run(self):
         # live integration loop
         window_size = 11
-        threshold_factor = 2
+        threshold_factor = 7
 
         buffer_size = 500
         buffer = np.zeros((buffer_size, len(self.columns)))
@@ -887,7 +887,7 @@ class AIModel(threading.Thread):
                 buffer_index = (buffer_index + 1) % buffer_size
 
                 # Compute absolute acceleration values
-                x[buffer_index] = np.abs(np.sum(np.square(data[3:6])))  # abs of accX, accY, accZ
+                x[buffer_index] = np.abs(np.sum(np.square(data[3:6]/100)))  # abs of accX, accY, accZ
                 # x[buffer_index] = wave[i]  # abs of accX, accY, accZ
 
                 # i += 1
