@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 import paho.mqtt.client as mqtt
 import pandas as pd
 import numpy as np
@@ -14,15 +13,13 @@ import time
 import json
 import csv
 import pynq
-import librosa
-from pynq import Overlay
-from GameState import GameState
+from evaluation_server.GameState import GameState
 from _socket import SHUT_RDWR
 from scipy import stats
 from queue import Queue
 from collections import deque
 from ble_packet import BLEPacket
-from packet_type import PacketType
+
 # from sklearn.feature_selection import SelectKBest
 # from sklearn.preprocessing import StandardScaler
 

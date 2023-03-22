@@ -1,10 +1,9 @@
 import time
 
-from PlayerState import PlayerStateBase
-from Helper import Actions
+from player import Player
+from evaluation_server.Helper import Actions
 
-
-class StateStaff(PlayerStateBase):
+class StateStaff(Player):
     # update the player statistics
     def update(self, pos_self, pos_opponent, action_self, action_opponent, action_opponent_is_valid):
         self.action = action_self
