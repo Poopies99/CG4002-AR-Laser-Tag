@@ -366,11 +366,11 @@ class Server(threading.Thread):
                 # Append existing data into new data
                 self.data = self.data + data
 
-                if len(self.data) < 20:
+                if len(self.data) < constants.packet_size:
                     continue
 
-                packet = self.data[:20]
-                self.data = self.data[20:]
+                packet = self.data[:constants.packet_size]
+                self.data = self.data[constants.packet_size:]
                 self.packer.unpack(packet)
 
                 packet_id = self.packer.get_beetle_id()
