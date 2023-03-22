@@ -771,7 +771,7 @@ class AIModel(threading.Thread):
 
         processed_data_arr = np.concatenate(processed_data)
 
-        print(f"len processed_data_arr={len(processed_data_arr)}\n")
+        # print(f"len processed_data_arr={len(processed_data_arr)}\n")
 
         return processed_data_arr
 
@@ -811,11 +811,11 @@ class AIModel(threading.Thread):
         # Scaler
         # test_input_rescaled = (data - self.mean) / np.sqrt(self.variance) # TODO - use this for real data
         test_input_rescaled = (test_input - self.mean) / np.sqrt(self.variance)
-        print(f"test_input_rescaled: {test_input_rescaled}\n")
+        # print(f"test_input_rescaled: {test_input_rescaled}\n")
 
         # PCA
         test_input_math_pca = np.dot(test_input_rescaled, self.pca_eigvecs_transposed)
-        print(f"test_input_math_pca: {test_input_math_pca}\n")
+        # print(f"test_input_math_pca: {test_input_math_pca}\n")
 
         arr = np.array([-9.20434773, -4.93421279, -0.7165668, -5.35652778, 1.16597442, 0.83953718,
                         2.46925983, 0.55131264, -0.1671036, 0.82080829, -1.87265269, 3.34199444,
@@ -852,7 +852,7 @@ class AIModel(threading.Thread):
     def run(self):
         # live integration loop
         window_size = 11
-        threshold_factor = int(input("threshold number? "))
+        threshold_factor = float(input("threshold number? "))
 
         buffer_size = 500
         buffer = np.zeros((buffer_size, len(self.columns)))
