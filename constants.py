@@ -4,3 +4,5 @@ xilinx_port_num = 8080
 eval_port_num = 1234
 
 packet_size = 16
+
+PACKET_FORMAT_STRING = 'Bx6hH'

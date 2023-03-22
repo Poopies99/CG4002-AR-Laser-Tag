@@ -1,5 +1,5 @@
 from multipledispatch import dispatch
-from constant import PACKET_FORMAT_STRING
+from constants import PACKET_FORMAT_STRING
 
 import struct
 
