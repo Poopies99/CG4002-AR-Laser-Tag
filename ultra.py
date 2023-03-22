@@ -878,7 +878,7 @@ class AIModel(threading.Thread):
                 # data = self.generate_simulated_data()
                 # self.sleep(0.05)
                 print("Data: ")
-                print(" ".join([f"{x:.8f}" for x in data]))
+                print(" ".join([f"{x:.3f}" for x in data]))
                 print("\n")
 
                 # Append new data
@@ -963,22 +963,22 @@ if __name__ == '__main__':
     ai_model = AIModel()
 
     # Software Visualizer
-    print("Starting Subscriber Send Thread")
-    hive = SubscriberSend("CG4002")
+    # print("Starting Subscriber Send Thread")
+    # hive = SubscriberSend("CG4002")
 
     # Starting Visualizer Receive
-    print("Starting Subscribe Receive")
-    viz = SubscriberReceive("gamestate")
+    # print("Starting Subscribe Receive")
+    # viz = SubscriberReceive("gamestate")
 
     # Client Connection to Evaluation Server
-    print("Starting Client Thread")
-    # eval_client = EvalClient(9999, "137.132.92.184")
-    eval_client = EvalClient(constants.eval_port_num, "localhost")
-    eval_client.connect_to_eval()
+    # print("Starting Client Thread")
+    # # eval_client = EvalClient(9999, "137.132.92.184")
+    # eval_client = EvalClient(constants.eval_port_num, "localhost")
+    # eval_client.connect_to_eval()
 
     # Game Engine
-    print("Starting Game Engine Thread")
-    game_engine = GameEngine(eval_client=eval_client)
+    # print("Starting Game Engine Thread")
+    # game_engine = GameEngine(eval_client=eval_client)
 
     # Server Connection to Laptop
     print("Starting Server Thread")
@@ -990,9 +990,9 @@ if __name__ == '__main__':
 
     print('--------------------------------------------------')
 
-    hive.start()
-    viz.start()
-    game_engine.start()
+    # hive.start()
+    # viz.start()
+    # game_engine.start()
     ai_model.start()
     laptop_server.start()
 
