@@ -884,6 +884,8 @@ class AIModel(threading.Thread):
                 try:
                     if len(ai_queue) != 0:
                         data = ai_queue.popleft()
+                    else:
+                        continue
                     self.sleep(0.05)
                     print("Data: ")
                     print(" ".join([f"{x:.8g}" for x in data]))
