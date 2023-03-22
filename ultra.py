@@ -887,7 +887,8 @@ class AIModel(threading.Thread):
                 buffer_index = (buffer_index + 1) % buffer_size
 
                 # Compute absolute acceleration values
-                x[buffer_index] = np.abs(np.sum(np.square(data[3:6]/100)))  # abs of accX, accY, accZ
+                acc_data = [x/100 for x in data[3:6]]
+                x[buffer_index] = np.abs(np.sum(np.square(acc_data)))  # abs of accX, accY, accZ
                 # x[buffer_index] = wave[i]  # abs of accX, accY, accZ
 
                 # i += 1
