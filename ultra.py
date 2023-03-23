@@ -836,9 +836,13 @@ class AIModel(threading.Thread):
         # Enter the main loop
         while True:
             # runs loop 6 times and packs the data into groups of 6
-            if ai_queue:
+            try:
                 new_data = np.array(ai_queue.popleft())
                 new_data[-3:] = [x/100.0 for x in new_data[-3:]]
+            except IndexError:
+                print("No data in queue. Waiting ...")
+                time.sleep(0.05)
+                continue
   
                 print(" ".join([f"{x:.3f}" for x in new_data]))
 
