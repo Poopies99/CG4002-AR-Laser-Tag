@@ -675,12 +675,12 @@ class AIModel(threading.Thread):
         self.pca_eigvecs_transposed = [list(row) for row in zip(*self.pca_eigvecs_list)]
         
         # PYNQ overlay
-        # self.overlay = Overlay("pca_mlp_1.bit")
-        # self.dma = self.overlay.axi_dma_0
+        self.overlay = Overlay("pca_mlp_1.bit")
+        self.dma = self.overlay.axi_dma_0
 
-        # # Allocate input and output buffers once
-        # self.in_buffer = pynq.allocate(shape=(35,), dtype=np.float32)
-        # self.out_buffer = pynq.allocate(shape=(4,), dtype=np.float32)
+        # Allocate input and output buffers once
+        self.in_buffer = pynq.allocate(shape=(35,), dtype=np.float32)
+        self.out_buffer = pynq.allocate(shape=(4,), dtype=np.float32)
 
     def sleep(self, seconds):
         start_time = time.time()
@@ -782,7 +782,7 @@ class AIModel(threading.Thread):
     def MLP_Driver(self, data):
         # MLP Library
         # mlp = joblib.load('mlp_model.joblib') # localhost
-        mlp = joblib.load('/home/xilinx/mlp_model.joblib') # board
+        # mlp = joblib.load('/home/xilinx/mlp_model.joblib') # board
 
         # sample data for sanity check
         # test_input = np.array([0.1, 0.2, 0.3, 0.4] * 120).reshape(1, -1)
@@ -797,20 +797,20 @@ class AIModel(threading.Thread):
         # print(f"test_input_math_pca: {test_input_math_pca}\n")
 
         # MLP - TODO PYNQ Overlay
-        # predicted_labels = self.MLP_Overlay(test_input_math_pca) # return 1x4 softmax array
-        # print(f"MLP pynq overlay predicted: {predicted_labels} \n")
-        # np_output = np.array(predicted_labels)
-        # largest_index = np_output.argmax()
+        predicted_labels = self.MLP_Overlay(test_input_math_pca) # return 1x4 softmax array
+        print(f"MLP pynq overlay predicted: {predicted_labels} \n")
+        np_output = np.array(predicted_labels)
+        largest_index = np_output.argmax()
 
-        # predicted_label = self.action_map[largest_index]
+        predicted_label = self.action_map[largest_index]
 
-        # # print largest index and largest action of MLP output
-        # print(f"largest index: {largest_index} \n")
-        # print(f"MLP overlay predicted: {predicted_label} \n")
+        # print largest index and largest action of MLP output
+        print(f"largest index: {largest_index} \n")
+        print(f"MLP overlay predicted: {predicted_label} \n")
 
         # MLP - LIB Overlay
-        predicted_label = mlp.predict(test_input_math_pca.reshape(1, -1))
-        print(f"MLP lib overlay predicted: {predicted_label} \n")
+        # predicted_label = mlp.predict(test_input_math_pca.reshape(1, -1))
+        # print(f"MLP lib overlay predicted: {predicted_label} \n")
 
         return predicted_label
 
@@ -879,7 +879,7 @@ class AIModel(threading.Thread):
 
                             # movement_watchdog deactivated, reset is_movement_counter
                             movement_watchdog = False
-                            is_movement_counter = -1
+                            is_movement_counter = 0
                             # reset arrays to zeros
                             current_packet = np.zeros((6,6))
                             previous_packet = np.zeros((6,6))
