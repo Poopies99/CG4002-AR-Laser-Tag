@@ -673,13 +673,14 @@ class AIModel(threading.Thread):
         self.pca_eigvecs_list = data['pca_eigvecs_list']
 
         self.pca_eigvecs_transposed = [list(row) for row in zip(*self.pca_eigvecs_list)]
+        
         # PYNQ overlay
-        self.overlay = Overlay("pca_mlp_1.bit")
-        self.dma = self.overlay.axi_dma_0
+        # self.overlay = Overlay("pca_mlp_1.bit")
+        # self.dma = self.overlay.axi_dma_0
 
-        # Allocate input and output buffers once
-        self.in_buffer = pynq.allocate(shape=(35,), dtype=np.float32)
-        self.out_buffer = pynq.allocate(shape=(4,), dtype=np.float32)
+        # # Allocate input and output buffers once
+        # self.in_buffer = pynq.allocate(shape=(35,), dtype=np.float32)
+        # self.out_buffer = pynq.allocate(shape=(4,), dtype=np.float32)
 
     def sleep(self, seconds):
         start_time = time.time()
@@ -695,26 +696,6 @@ class AIModel(threading.Thread):
         accZ = random.uniform(-9, 9)
         return [gx, gy, gz, accX, accY, accZ]
 
-    # simulate game movement with noise and action
-    def generate_simulated_wave(self):
-
-        # base noise 10s long -> 20Hz*10 = 200 samples
-        t = np.linspace(0, 5, 200)  # Define the time range
-        x1 = 0.2 * np.sin(t) + 0.2 * np.random.randn(200)
-        x1[(x1 > -1) & (x1 < 1)] = 0.0  # TODO - sensor noise within margin of error auto remove
-
-        # movement motion
-        period = 2  # seconds
-        amplitude = 5
-        t = np.linspace(0, 2, int(2 / 0.05))  # Define the time range
-        x2 = amplitude * np.sin(2 * np.pi * t / period)[:40]  # Compute the sine wave for only one cycle
-
-        x = x1
-        # Add to the 40th-80th elements
-        x[20:60] += x2
-        x[80:120] += x2
-
-        return x
 
     # 10 features
     def preprocess_data(self, data):
@@ -736,7 +717,7 @@ class AIModel(threading.Thread):
 
         return output_array
 
-    def preprocess_dataset(self, arr):
+    def preprocessing_and_mlp(self, arr):
         processed_data = []
 
         # Set the window size for the median filter
@@ -771,11 +752,12 @@ class AIModel(threading.Thread):
 
         processed_data_arr = np.concatenate(processed_data)
 
-        # print(f"len processed_data_arr={len(processed_data_arr)}\n")
+        predicted_label = self.MLP_Driver(processed_data_arr)
 
-        return processed_data_arr
+        return predicted_label
+    
 
-    def PCA_MLP(self, data):
+    def MLP_Overlay(self, data):
         start_time = time.time()
 
         # reshape data to match in_buffer shape
@@ -797,13 +779,10 @@ class AIModel(threading.Thread):
 
         return self.out_buffer
 
-    def instantMLP(self, data):
-        # Load the model from file and preproessing
-        # localhost
-        # mlp = joblib.load('mlp_model.joblib')
-
-        # board
-        # mlp = joblib.load('/home/xilinx/mlp_model.joblib')
+    def MLP_Driver(self, data):
+        # MLP Library
+        # mlp = joblib.load('mlp_model.joblib') # localhost
+        mlp = joblib.load('/home/xilinx/mlp_model.joblib') # board
 
         # sample data for sanity check
         # test_input = np.array([0.1, 0.2, 0.3, 0.4] * 120).reshape(1, -1)
@@ -817,22 +796,22 @@ class AIModel(threading.Thread):
         test_input_math_pca = np.dot(test_input_rescaled, self.pca_eigvecs_transposed)
         # print(f"test_input_math_pca: {test_input_math_pca}\n")
 
-        # MLP
-        predicted_labels = self.PCA_MLP(test_input_math_pca) # return 1x4 softmax array
-        print(f"MLP pynq overlay predicted: {predicted_labels} \n")
-        np_output = np.array(predicted_labels)
-        largest_index = np_output.argmax()
+        # MLP - TODO PYNQ Overlay
+        # predicted_labels = self.MLP_Overlay(test_input_math_pca) # return 1x4 softmax array
+        # print(f"MLP pynq overlay predicted: {predicted_labels} \n")
+        # np_output = np.array(predicted_labels)
+        # largest_index = np_output.argmax()
 
-        predicted_label = self.action_map[largest_index]
+        # predicted_label = self.action_map[largest_index]
 
-        # print largest index and largest action of MLP output
-        print(f"largest index: {largest_index} \n")
-        print(f"MLP overlay predicted: {predicted_label} \n")
+        # # print largest index and largest action of MLP output
+        # print(f"largest index: {largest_index} \n")
+        # print(f"MLP overlay predicted: {predicted_label} \n")
 
-        # predicted_label = mlp.predict(test_input_math_pca.reshape(1, -1))
-        # print(f"MLP lib overlay predicted: {predicted_label} \n")
+        # MLP - LIB Overlay
+        predicted_label = mlp.predict(test_input_math_pca.reshape(1, -1))
+        print(f"MLP lib overlay predicted: {predicted_label} \n")
 
-        # output is a single char
         return predicted_label
 
     def close_connection(self):
@@ -842,92 +821,66 @@ class AIModel(threading.Thread):
 
     def run(self):
         # live integration loop
-        window_size = 11
-        threshold_factor = float(input("threshold number? "))
 
-        buffer_size = 500
-        buffer = np.zeros((buffer_size, len(self.columns)))
-        # Define the window size and threshold factor
+        # Set the threshold value for movement detection based on user input
+        K = float(input("threshold value? "))
 
-        # Define N units for flagging movement, 20Hz -> 2s = 40 samples
-        N = 40
+        # Initialize arrays to hold the current and previous data packets
+        current_packet = np.zeros((6,6))
+        previous_packet = np.zeros((6,6))
+        data_packet = np.zeros((40,6))
+        is_movement_counter = 0
+        movement_watchdog = False
 
-        # Initialize empty arrays for data storage
-        x = np.zeros(buffer_size)
-        filtered = np.zeros(buffer_size)
-        threshold = np.zeros(buffer_size)
-        last_movement_time = -N  # set last movement time to negative N seconds ago
-        # wave = self.generate_simulated_wave()
-        i = 0
-        buffer_index = 0
-
-        # while not self.shutdown.is_set():
+        # Enter the main loop
         while True:
-            if ai_queue:
-                data = np.array(ai_queue.popleft())
-                data[-3:] = [x/100.0 for x in data[-3:]]
-                # data = self.generate_simulated_data()
-                # self.sleep(0.05)
-                # print("Data: ")
-                # print(" ".join([f"{x:.3f}" for x in data]))
-                # print("\n")
+            # runs loop 6 times and packs the data into groups of 6
 
-                # Append new data
-                buffer[buffer_index] = data
+            for i in range(6):
+                new_data = np.random.randn(6)
+                # print(" ".join([f"{x:.3f}" for x in new_data]))
+            
+                # Pack the data into groups of 6
+                current_packet[i] = new_data
+            
+            curr_mag = np.sum(np.square(np.mean(current_packet[:, -3:], axis=1)))
+            prev_mag = np.sum(np.square(np.mean(previous_packet[:, -3:], axis=1)))
 
-                # Update circular buffer index
-                buffer_index = (buffer_index + 1) % buffer_size
+            # Check for movement detection
+            if not movement_watchdog and curr_mag - prev_mag > K:
+                print("Movement detected!")
+                # print currr and prev mag for sanity check
+                print(f"curr_mag: {curr_mag} \n")
+                print(f"prev_mag: {prev_mag} \n")
+                is_movement_counter = 1
+                movement_watchdog = True
+                # append previous and current packet to data packet
+                data_packet = np.concatenate((previous_packet, current_packet), axis=0)
 
-                # Compute absolute acceleration values
-                x[buffer_index] = np.abs(np.sum(np.square(data[3:6])))  # abs of accX, accY, accZ
-                # x[buffer_index] = wave[i]  # abs of accX, accY, accZ
+            # movement_watchdog activated, count is_movement_counter from 0 up 6 and append current packet each time
+            if movement_watchdog:
+                if is_movement_counter <= 6:
+                    data_packet = np.concatenate((data_packet, current_packet), axis=0)
+                    is_movement_counter += 1
+                else:
+                    # print dimensions of data packet
+                    print(f"data_packet dimensions: {data_packet.shape} \n")
 
-                # i += 1
-                # if i >= len(wave):
-                #     i = 0
+                    # If we've seen 6 packets since the last movement detection, preprocess and classify the data
+                    predicted_label = self.preprocessing_and_mlp(data_packet)
+                    print(f"output from MLP in main: \n {predicted_label} \n")  # print output of MLP
 
-                # Compute moving window median
-                # if buffer_index < window_size:
-                #     filtered[buffer_index] = 0
-                # else:
-                filtered[buffer_index] = np.median(x[buffer_index - window_size + 1:buffer_index + 1], axis=0)
+                    # movement_watchdog deactivated, reset is_movement_counter
+                    movement_watchdog = False
+                    is_movement_counter = -1
+                    # reset arrays to zeros
+                    current_packet = np.zeros((6,6))
+                    previous_packet = np.zeros((6,6))
+                    data_packet = np.zeros((40,6))
 
-                # Compute threshold using past median data, threshold = mean + k * std
-                # if buffer_index < window_size:
-                #     threshold[buffer_index] = 0
-                # else:
-                past_filtered = filtered[buffer_index - window_size + 1:buffer_index + 1]
-                threshold[buffer_index] = np.mean(past_filtered, axis=0) + (
-                                threshold_factor * np.std(past_filtered, axis=0))
-
-                # Identify movement
-                # if x[buffer_index] > threshold[buffer_index]:
-                if filtered[buffer_index] > threshold[buffer_index]:
-                    last_movement_time = buffer_index  # update last movement time
-                    print(f"Movement detected at sample {buffer_index}")
-
-                # if N samples from last movement time have been accumulated, preprocess and feed into neural network
-                if (last_movement_time != -N) and (buffer_index - last_movement_time + 1) % buffer_size == N:
-                    # extract movement data
-                    start = last_movement_time
-                    # +1 needed for python syntax, eg we want [1,40]  but syntax is [1,41]
-                    end = (buffer_index + 1) % buffer_size
-                    if end <= start:
-                        movement_data = np.concatenate((buffer[start:, :], buffer[:end, :]), axis=0)
-                    else:
-                        movement_data = buffer[start:end, :]
-
-                    # print the start and end index of the movement
-                    print(f"Processing movement detected from sample {start} to {end}")
-
-                    # perform data preprocessing
-                    preprocessed_data = self.preprocess_dataset(movement_data) # multithread
-
-                    # feed preprocessed data into neural network
-                    predicted_label = self.instantMLP(preprocessed_data) # multithread
-
-                    print(f"output from MLP: \n {predicted_label} \n")  # print output of MLP
-
+            # Update the previous packet
+            previous_packet = current_packet.copy()
+            
             # except Exception as _:
             #     traceback.print_exc()
             #     self.close_connection()
