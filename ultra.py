@@ -385,6 +385,8 @@ class Server(threading.Thread):
                 elif packet_id == 3:
                     packet = self.packer.get_euler_data() + self.packer.get_acc_data()
                     ai_queue.append(packet)
+                    print(" ".join([f"{x:.3f}" for x in packet]))
+                    print(f"- packet sent at {time.time()} \n")
                 else:
                     print("Invalid Beetle ID")
 
@@ -836,12 +838,14 @@ class AIModel(threading.Thread):
         # Enter the main loop
         while True:
             # runs loop 6 times and packs the data into groups of 6
-            try:
+            if ai_queue:
                 new_data = np.array(ai_queue.popleft())
                 new_data[-3:] = [x/100.0 for x in new_data[-3:]]
             
   
                 print(" ".join([f"{x:.3f}" for x in new_data]))
+                # print(" ".join([f"{x:.3f}" for x in packet]))
+                print(f"- packet received at {time.time()} \n")
 
                     # Pack the data into groups of 6
                 current_packet[loop_count] = new_data
@@ -889,10 +893,10 @@ class AIModel(threading.Thread):
                     # Update the previous packet
                     previous_packet = current_packet.copy()
                     
-            except IndexError:
-            print("No data in queue. Waiting ...")
-            time.sleep(0.05)
-            continue
+#             except IndexError:
+#             print("No data in queue. Waiting ...")
+#             time.sleep(0.05)
+#             continue
             
             # except Exception as _:
             #     traceback.print_exc()
