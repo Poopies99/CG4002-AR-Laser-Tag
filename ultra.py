@@ -843,7 +843,7 @@ class AIModel(threading.Thread):
                 print(" ".join([f"{x:.3f}" for x in new_data]))
 
                     # Pack the data into groups of 6
-                current_packet[i] = new_data
+                current_packet[loop_count] = new_data
             
                 # Update loop_count
                 loop_count = (loop_count + 1) % 5
