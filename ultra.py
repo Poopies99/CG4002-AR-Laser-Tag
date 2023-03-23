@@ -839,10 +839,7 @@ class AIModel(threading.Thread):
             try:
                 new_data = np.array(ai_queue.popleft())
                 new_data[-3:] = [x/100.0 for x in new_data[-3:]]
-            except IndexError:
-                print("No data in queue. Waiting ...")
-                time.sleep(0.05)
-                continue
+            
   
                 print(" ".join([f"{x:.3f}" for x in new_data]))
 
@@ -891,6 +888,11 @@ class AIModel(threading.Thread):
 
                     # Update the previous packet
                     previous_packet = current_packet.copy()
+                    
+            except IndexError:
+            print("No data in queue. Waiting ...")
+            time.sleep(0.05)
+            continue
             
             # except Exception as _:
             #     traceback.print_exc()
