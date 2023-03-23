@@ -16,6 +16,7 @@ import csv
 import pynq
 import librosa
 import datetime
+import queue
 from pynq import Overlay
 from GameState import GameState
 from _socket import SHUT_RDWR
@@ -42,7 +43,7 @@ Message Queues:
 
 raw_queue = deque()
 action_queue = deque()
-ai_queue = deque()
+ai_queue = queue.Queue()
 shot_queue = deque()
 subscribe_queue = Queue()
 fpga_queue = deque()
@@ -385,12 +386,13 @@ class Server(threading.Thread):
                     self.shoot_engine.handle_vest_shot()
                 elif packet_id == 3:
                     packet = self.packer.get_euler_data() + self.packer.get_acc_data()
-                    ai_queue.append(packet)
-                    print(" ".join([f"{x:.3f}" for x in packet]))
-                    timestamp = time.time()
-                    tz = datetime.timezone(datetime.timedelta(hours=8))  # UTC+8
-                    dt_object = datetime.datetime.fromtimestamp(timestamp, tz)
-                    print(f"- packet sent at {dt_object} \n")
+                    ai_queue.put(packet)
+#                     ai_queue.append(packet)
+#                     print(" ".join([f"{x:.3f}" for x in packet]))
+#                     timestamp = time.time()
+#                     tz = datetime.timezone(datetime.timedelta(hours=8))  # UTC+8
+#                     dt_object = datetime.datetime.fromtimestamp(timestamp, tz)
+#                     print(f"- packet sent at {dt_object} \n")
                 else:
                     print("Invalid Beetle ID")
 
@@ -842,8 +844,11 @@ class AIModel(threading.Thread):
         # Enter the main loop
         while True:
             # runs loop 6 times and packs the data into groups of 6
-            if ai_queue:
-                new_data = np.array(ai_queue.popleft())
+            if 1 == 1:
+                q_data = ai_queue.get()
+                ai_queue.task_done()
+                
+                new_data = np.array(q_data)
                 new_data[-3:] = [x/100.0 for x in new_data[-3:]]
             
   
