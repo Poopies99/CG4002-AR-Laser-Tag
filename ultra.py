@@ -15,6 +15,7 @@ import json
 import csv
 import pynq
 import librosa
+import datetime
 from pynq import Overlay
 from GameState import GameState
 from _socket import SHUT_RDWR
@@ -386,7 +387,10 @@ class Server(threading.Thread):
                     packet = self.packer.get_euler_data() + self.packer.get_acc_data()
                     ai_queue.append(packet)
                     print(" ".join([f"{x:.3f}" for x in packet]))
-                    print(f"- packet sent at {time.time()} \n")
+                    timestamp = time.time()
+                    tz = datetime.timezone(datetime.timedelta(hours=8))  # UTC+8
+                    dt_object = datetime.datetime.fromtimestamp(timestamp, tz)
+                    print(f"- packet sent at {dt_object} \n")
                 else:
                     print("Invalid Beetle ID")
 
@@ -845,7 +849,10 @@ class AIModel(threading.Thread):
   
                 print(" ".join([f"{x:.3f}" for x in new_data]))
                 # print(" ".join([f"{x:.3f}" for x in packet]))
-                print(f"- packet received at {time.time()} \n")
+                timestamp = time.time()
+                tz = datetime.timezone(datetime.timedelta(hours=8))  # UTC+8
+                dt_object = datetime.datetime.fromtimestamp(timestamp, tz)
+                print(f"- packet received at {dt_object} \n")
 
                     # Pack the data into groups of 6
                 current_packet[loop_count] = new_data
