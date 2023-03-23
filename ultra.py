@@ -831,56 +831,62 @@ class AIModel(threading.Thread):
         data_packet = np.zeros((40,6))
         is_movement_counter = 0
         movement_watchdog = False
+        loop_count = 0
 
         # Enter the main loop
         while True:
             # runs loop 6 times and packs the data into groups of 6
             if ai_queue:
-                for i in range(6):
-                    new_data = np.array(ai_queue.popleft())
-                    new_data[-3:] = [x/100.0 for x in new_data[-3:]]
-                    # print(" ".join([f"{x:.3f}" for x in new_data]))
+                new_data = np.array(ai_queue.popleft())
+                new_data[-3:] = [x/100.0 for x in new_data[-3:]]
+  
+                print(" ".join([f"{x:.3f}" for x in new_data]))
 
                     # Pack the data into groups of 6
-                    current_packet[i] = new_data
+                current_packet[i] = new_data
+            
+                # Update loop_count
+                loop_count = (loop_count + 1) % 5
+                
+                if loop_count % 5 == 0:
 
-                curr_mag = np.sum(np.square(np.mean(current_packet[:, -3:], axis=1)))
-                prev_mag = np.sum(np.square(np.mean(previous_packet[:, -3:], axis=1)))
+                    curr_mag = np.sum(np.square(np.mean(current_packet[:, -3:], axis=1)))
+                    prev_mag = np.sum(np.square(np.mean(previous_packet[:, -3:], axis=1)))
 
-                # Check for movement detection
-                if not movement_watchdog and curr_mag - prev_mag > K:
-                    print("Movement detected!")
-                    # print currr and prev mag for sanity check
-                    print(f"curr_mag: {curr_mag} \n")
-                    print(f"prev_mag: {prev_mag} \n")
-                    is_movement_counter = 1
-                    movement_watchdog = True
-                    # append previous and current packet to data packet
-                    data_packet = np.concatenate((previous_packet, current_packet), axis=0)
+                    # Check for movement detection
+                    if not movement_watchdog and curr_mag - prev_mag > K:
+                        print("Movement detected!")
+                        # print currr and prev mag for sanity check
+                        print(f"curr_mag: {curr_mag} \n")
+                        print(f"prev_mag: {prev_mag} \n")
+                        is_movement_counter = 1
+                        movement_watchdog = True
+                        # append previous and current packet to data packet
+                        data_packet = np.concatenate((previous_packet, current_packet), axis=0)
 
-                # movement_watchdog activated, count is_movement_counter from 0 up 6 and append current packet each time
-                if movement_watchdog:
-                    if is_movement_counter <= 6:
-                        data_packet = np.concatenate((data_packet, current_packet), axis=0)
-                        is_movement_counter += 1
-                    else:
-                        # print dimensions of data packet
-                        print(f"data_packet dimensions: {data_packet.shape} \n")
+                    # movement_watchdog activated, count is_movement_counter from 0 up 6 and append current packet each time
+                    if movement_watchdog:
+                        if is_movement_counter <= 6:
+                            data_packet = np.concatenate((data_packet, current_packet), axis=0)
+                            is_movement_counter += 1
+                        else:
+                            # print dimensions of data packet
+                            print(f"data_packet dimensions: {data_packet.shape} \n")
 
-                        # If we've seen 6 packets since the last movement detection, preprocess and classify the data
-                        predicted_label = self.preprocessing_and_mlp(data_packet)
-                        print(f"output from MLP in main: \n {predicted_label} \n")  # print output of MLP
+                            # If we've seen 6 packets since the last movement detection, preprocess and classify the data
+                            predicted_label = self.preprocessing_and_mlp(data_packet)
+                            print(f"output from MLP in main: \n {predicted_label} \n")  # print output of MLP
 
-                        # movement_watchdog deactivated, reset is_movement_counter
-                        movement_watchdog = False
-                        is_movement_counter = -1
-                        # reset arrays to zeros
-                        current_packet = np.zeros((6,6))
-                        previous_packet = np.zeros((6,6))
-                        data_packet = np.zeros((40,6))
+                            # movement_watchdog deactivated, reset is_movement_counter
+                            movement_watchdog = False
+                            is_movement_counter = -1
+                            # reset arrays to zeros
+                            current_packet = np.zeros((6,6))
+                            previous_packet = np.zeros((6,6))
+                            data_packet = np.zeros((40,6))
 
-                # Update the previous packet
-                previous_packet = current_packet.copy()
+                    # Update the previous packet
+                    previous_packet = current_packet.copy()
             
             # except Exception as _:
             #     traceback.print_exc()
