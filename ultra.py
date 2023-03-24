@@ -357,8 +357,8 @@ class Server(threading.Thread):
         print("Shutting Down Server")
 
     def run(self):
-        shot_thread = threading.Thread(target=self.shoot_engine.start)
-        shot_thread.start()
+        p1_shot_thread = threading.Thread(target=self.shoot_engine.start)
+        p1_shot_thread.start()
         self.server_socket.listen(1)
         self.setup()
 
@@ -837,7 +837,7 @@ class AIModel(threading.Thread):
         # Enter the main loop
         while True:
             # runs loop 6 times and packs the data into groups of 6
-            if 1 == 1:
+            if ai_queue:
                 q_data = ai_queue.get()
                 ai_queue.task_done()
                 
@@ -845,11 +845,11 @@ class AIModel(threading.Thread):
                 new_data[-3:] = [x/100.0 for x in new_data[-3:]]
             
   
-                print(" ".join([f"{x:.3f}" for x in new_data]))
+                # print(" ".join([f"{x:.3f}" for x in new_data]))
                 timestamp = time.time()
                 tz = datetime.timezone(datetime.timedelta(hours=8))  # UTC+8
                 dt_object = datetime.datetime.fromtimestamp(timestamp, tz)
-                print(f"- packet received at {dt_object} \n")
+                # print(f"- packet received at {dt_object} \n")
 
                 # Pack the data into groups of 6
                 current_packet[loop_count] = new_data
