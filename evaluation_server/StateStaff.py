@@ -1,6 +1,6 @@
 import time
 
-from evaluation_server.PlayerState import PlayerStateBase
+from PlayerState import PlayerStateBase
 from Helper import Actions
 
 

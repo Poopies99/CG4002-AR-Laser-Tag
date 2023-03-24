@@ -15,6 +15,8 @@ import json
 import csv
 import pynq
 import librosa
+import datetime
+import queue
 from pynq import Overlay
 from GameState import GameState
 from _socket import SHUT_RDWR
@@ -41,7 +43,7 @@ Message Queues:
 
 raw_queue = deque()
 action_queue = deque()
-ai_queue = deque()
+ai_queue = queue.Queue()
 shot_queue = deque()
 subscribe_queue = Queue()
 fpga_queue = deque()
@@ -71,20 +73,25 @@ class ShootEngine(threading.Thread):
         while True:
             if self.gun_shot:
                 self.gun_shot = False
-                time.sleep(0.5)
+                time.sleep(1)
                 if self.vest_shot:
                     action_queue.append(['shoot', True])
                     self.vest_shot = False
+                    print('Player has been shot')
                 else:
                     action_queue.append(['shoot', False])
+                    print('Player Missed')
+
             if self.vest_shot:
                 self.vest_shot = False
-                time.sleep(0.5)
+                time.sleep(1)
                 if self.gun_shot:
                     action_queue.append(['shoot', True])
                     self.gun_shot = False
+                    print('Player has been shot')
                 else:
                     action_queue.append(['shoot', False])
+                    print('Player Missed')
 
 
 class GameEngine(threading.Thread):
@@ -309,8 +316,6 @@ class EvalClient:
         print("Shutting Down EvalClient Connection")
 
 class Server(threading.Thread):
-    shot_flag = False
-
     def __init__(self, port_num, host_name):
         super().__init__()
 
@@ -359,51 +364,47 @@ class Server(threading.Thread):
                 # Receive up to 64 Bytes of data
                 data = self.connection.recv(64)
                 # Append existing data into new data
-                # self.data = self.data + data
-                #
-                # if len(self.data) < 20:
-                #     continue
-                #
-                # packet = self.data[:20]
-                # self.data = self.data[20:]
-                # self.packer.unpack(packet)
-                #
-                # packet_id = self.packer.get_beetle_id()
-                #
-                # if packet_id == 1:
-                #     self.shoot_engine.handle_gun_shot()
-                # elif packet_id == 2:
-                #     self.shoot_engine.handle_vest_shot()
-                # elif packet_id == 3:
-                #     packet = self.packer.get_euler_data() + self.packer.get_acc_data()
-                #     ai_queue.append(packet)
-                # else:
-                #     print("Invalid Beetle ID")
+                self.data = self.data + data
+
+                if len(self.data) < constants.packet_size:
+                    continue
+
+                packet = self.data[:constants.packet_size]
+                self.data = self.data[constants.packet_size:]
+                self.packer.unpack(packet)
+
+                packet_id = self.packer.get_beetle_id()
+
+                if packet_id == 1:
+                    self.shoot_engine.handle_gun_shot()
+                elif packet_id == 2:
+                    self.shoot_engine.handle_vest_shot()
+                elif packet_id == 3:
+                    packet = self.packer.get_euler_data() + self.packer.get_acc_data()
+                    ai_queue.put(packet)
+#                     ai_queue.append(packet)
+#                     print(" ".join([f"{x:.3f}" for x in packet]))
+#                     timestamp = time.time()
+#                     tz = datetime.timezone(datetime.timedelta(hours=8))  # UTC+8
+#                     dt_object = datetime.datetime.fromtimestamp(timestamp, tz)
+#                     print(f"- packet sent at {dt_object} \n")
+                else:
+                    print("Invalid Beetle ID")
 
                 # # Remove when Training is complete
                 # if global_flag:
                 #     fpga_queue.put(packet)
 
-                with open('example.json', 'r') as f:
-                    data_json = json.loads(f.read())
-
-                data = [0, data_json['p1']['bullets'], data_json['p1']['hp'], data_json['p2']['bullets'],
-                        data_json['p2']['hp'], 0, 0, 0, 0, 0]
-
-                self.connection.send(data)
                 # Sends data back into the relay laptop
-                # if len(laptop_queue) != 0 :
-                #     game_state = laptop_queue.popleft()
-                #     node_id = 0
-                #     packet_type = PacketType.ACK
-                #     header = (node_id << 4) | packet_type
-                #     # data = [header, game_state['p1']['bullets'], game_state['p1']['hp'], 0, 0, 0, 0, 0, 0, 0]
-                #     data = [header, game_state['p1']['bullets'], game_state['p1']['hp'], game_state['p2']['bullets'], game_state['p2']['hp'], 0, 0, 0, 0, 0]
-                #     data = self.packer.pack(data)
-                #
-                #     self.connection.send(data)
-                #
-                #     print("Sending back to laptop", data)
+                if len(laptop_queue) != 0:
+                    game_state = laptop_queue.popleft()
+                    data = [0, game_state['p1']['bullets'], game_state['p1']['hp'], 0, game_state['p2']['bullets'],
+                            game_state['p2']['hp'], 0]
+                    data = self.packer.pack(data)
+
+                    self.connection.send(data)
+
+                    print("Sending back to laptop", data)
             except KeyboardInterrupt as _:
                 traceback.print_exc()
                 self.close_connection()
@@ -673,6 +674,7 @@ class AIModel(threading.Thread):
         self.pca_eigvecs_list = data['pca_eigvecs_list']
 
         self.pca_eigvecs_transposed = [list(row) for row in zip(*self.pca_eigvecs_list)]
+        
         # PYNQ overlay
         self.overlay = Overlay("pca_mlp_1.bit")
         self.dma = self.overlay.axi_dma_0
@@ -695,26 +697,6 @@ class AIModel(threading.Thread):
         accZ = random.uniform(-9, 9)
         return [gx, gy, gz, accX, accY, accZ]
 
-    # simulate game movement with noise and action
-    def generate_simulated_wave(self):
-
-        # base noise 10s long -> 20Hz*10 = 200 samples
-        t = np.linspace(0, 5, 200)  # Define the time range
-        x1 = 0.2 * np.sin(t) + 0.2 * np.random.randn(200)
-        x1[(x1 > -1) & (x1 < 1)] = 0.0  # TODO - sensor noise within margin of error auto remove
-
-        # movement motion
-        period = 2  # seconds
-        amplitude = 5
-        t = np.linspace(0, 2, int(2 / 0.05))  # Define the time range
-        x2 = amplitude * np.sin(2 * np.pi * t / period)[:40]  # Compute the sine wave for only one cycle
-
-        x = x1
-        # Add to the 40th-80th elements
-        x[20:60] += x2
-        x[80:120] += x2
-
-        return x
 
     # 10 features
     def preprocess_data(self, data):
@@ -728,37 +710,38 @@ class AIModel(threading.Thread):
         root_mean_square = np.sqrt(np.mean(np.square(data)))
         interquartile_range = stats.iqr(data)
         percentile_75 = np.percentile(data, 75)
-        # skewness = stats.skew(data.reshape(-1, 1))[0]
-        # kurtosis = stats.kurtosis(data.reshape(-1, 1))[0]
         energy = np.sum(data ** 2)
-        output_array = [mean, std, variance, range, peak_to_peak_amplitude,
-                        mad, root_mean_square, interquartile_range, percentile_75,
-                        energy]
 
-        output_array = np.array(output_array)
+        output_array = np.empty((1, 10))
+        output_array[0] = [mean, std, variance, range, peak_to_peak_amplitude, mad, root_mean_square,
+                           interquartile_range, percentile_75, energy]
 
-        return output_array.reshape(1, -1)
+        return output_array
 
-    def preprocess_dataset(self, df):
+    def preprocessing_and_mlp(self, arr):
         processed_data = []
 
         # Set the window size for the median filter
         window_size = 7
 
-        # Apply the median filter to each column of the DataFrame
+        df = pd.DataFrame(arr)
         df_filtered = df.rolling(window_size, min_periods=1, center=True).median()
 
-        df = df_filtered
+        arr = df_filtered.values
 
         # Split the rows into 8 groups
         group_size = 5
-        data_groups = [df.iloc[i:i + group_size, :] for i in range(0, len(df), group_size)]
+        num_groups = 8
 
         # Loop through each group and column, and compute features
-        for group in data_groups:
+        for i in range(num_groups):
+            start_idx = i * group_size
+            end_idx = start_idx + group_size
+            group = arr[start_idx:end_idx, :]
+
             group_data = []
-            for column in df.columns:
-                column_data = group[column].values
+            for column in range(arr.shape[1]):
+                column_data = group[:, column]
                 column_data = column_data.reshape(1, -1)
 
                 temp_processed = self.preprocess_data(column_data)
@@ -768,14 +751,14 @@ class AIModel(threading.Thread):
 
             processed_data.append(np.concatenate(group_data))
 
-        # Combine the processed data for each group into a single array
         processed_data_arr = np.concatenate(processed_data)
 
-        print(f"len processed_data_arr={len(processed_data_arr)}\n")
+        predicted_label = self.MLP_Driver(processed_data_arr)
 
-        return processed_data_arr
+        return predicted_label
+    
 
-    def PCA_MLP(self, data):
+    def MLP_Overlay(self, data):
         start_time = time.time()
 
         # reshape data to match in_buffer shape
@@ -797,40 +780,26 @@ class AIModel(threading.Thread):
 
         return self.out_buffer
 
-    def instantMLP(self, data):
-        # Load the model from file and preproessing
-        # localhost
-        # mlp = joblib.load('mlp_model.joblib')
-
-        # board
-        mlp = joblib.load('/home/xilinx/mlp_model.joblib')
+    def MLP_Driver(self, data):
+        # MLP Library
+        # mlp = joblib.load('mlp_model.joblib') # localhost
+        # mlp = joblib.load('/home/xilinx/mlp_model.joblib') # board
 
         # sample data for sanity check
-        test_input = np.array([0.1, 0.2, 0.3, 0.4] * 120).reshape(1, -1)
+        # test_input = np.array([0.1, 0.2, 0.3, 0.4] * 120).reshape(1, -1)
 
         # Scaler
         test_input_rescaled = (data - self.mean) / np.sqrt(self.variance) # TODO - use this for real data
         # test_input_rescaled = (test_input - self.mean) / np.sqrt(self.variance)
-        print(f"test_input_rescaled: {test_input_rescaled}\n")
+        # print(f"test_input_rescaled: {test_input_rescaled}\n")
 
         # PCA
         test_input_math_pca = np.dot(test_input_rescaled, self.pca_eigvecs_transposed)
-        print(f"test_input_math_pca: {test_input_math_pca}\n")
+        # print(f"test_input_math_pca: {test_input_math_pca}\n")
 
-        # arr = np.array([-9.20434773, -4.93421279, -0.7165668, -5.35652778, 1.16597442, 0.83953718,
-        #         2.46925983, 0.55131264, -0.1671036, 0.82080829, -1.87265269, 3.34199444,
-        #         0.09530707, -3.77394007, 1.68183889, 1.97630386, 1.48839111, -3.00986825,
-        #         4.13786954, 1.46723819, 8.08842927, 10.94846901, 2.22280215, -1.85681443,
-        #         4.47327707, 3.15918201, -0.77879694, -0.11557772, 0.21580221, -2.62405631,
-        #         -3.42924226, -7.01213438, 7.75544419, -3.72408571, 3.46613566])
-
-        # assert np.allclose(test_input_math_pca, arr)
-        # MLP
-        predicted_labels = self.PCA_MLP(test_input_math_pca)  # return 1x4 softmax array
+        # MLP - TODO PYNQ Overlay
+        predicted_labels = self.MLP_Overlay(test_input_math_pca) # return 1x4 softmax array
         print(f"MLP pynq overlay predicted: {predicted_labels} \n")
-        # predicted_lib_labels = mlp.predict(test_input_math_pca.reshape(1, -1))
-        # print(f"MLP lib overlay predicted: {predicted_lib_labels} \n")
-
         np_output = np.array(predicted_labels)
         largest_index = np_output.argmax()
 
@@ -840,7 +809,10 @@ class AIModel(threading.Thread):
         print(f"largest index: {largest_index} \n")
         print(f"MLP overlay predicted: {predicted_label} \n")
 
-        # output is a single char
+        # MLP - LIB Overlay
+        # predicted_label = mlp.predict(test_input_math_pca.reshape(1, -1))
+        # print(f"MLP lib overlay predicted: {predicted_label} \n")
+
         return predicted_label
 
     def close_connection(self):
@@ -849,109 +821,88 @@ class AIModel(threading.Thread):
         print("Shutting Down Connection")
 
     def run(self):
-
         # live integration loop
-        # while not self.shutdown.is_set():
-        f = True
-        while f:
-            f = False
 
-            df = pd.DataFrame(columns=self.columns)
-            # Define the window size and threshold factor
-            window_size = 11
-            threshold_factor = 2
+        # Set the threshold value for movement detection based on user input
+        K = float(input("threshold value? "))
 
-            # Define N units for flagging movement, 20Hz -> 2s = 40 samples
-            N = 40
+        # Initialize arrays to hold the current and previous data packets
+        current_packet = np.zeros((6,6))
+        previous_packet = np.zeros((6,6))
+        data_packet = np.zeros((40,6))
+        is_movement_counter = 0
+        movement_watchdog = False
+        loop_count = 0
 
-            # Initialize empty arrays for data storage
-            t = []
-            x = []
-            filtered = []
-            threshold = []
-            movement_detected = []
-            last_movement_time = -N  # set last movement time to negative N seconds ago
-            wave = self.generate_simulated_wave()
-            i = 0
-            timenow = 0
+        # Enter the main loop
+        while True:
+            # runs loop 6 times and packs the data into groups of 6
+            if 1 == 1:
+                q_data = ai_queue.get()
+                ai_queue.task_done()
+                
+                new_data = np.array(q_data)
+                new_data[-3:] = [x/100.0 for x in new_data[-3:]]
+            
+  
+                print(" ".join([f"{x:.3f}" for x in new_data]))
+                # print(" ".join([f"{x:.3f}" for x in packet]))
+                timestamp = time.time()
+                tz = datetime.timezone(datetime.timedelta(hours=8))  # UTC+8
+                dt_object = datetime.datetime.fromtimestamp(timestamp, tz)
+                print(f"- packet received at {dt_object} \n")
 
-            print(f"entering detection loop \n")
+                    # Pack the data into groups of 6
+                current_packet[loop_count] = new_data
+            
+                # Update loop_count
+                loop_count = (loop_count + 1) % 5
+                
+                if loop_count % 5 == 0:
 
-            while True:
-                # Create plot window
-                # plt.ion()
-                # plt.show()
+                    curr_mag = np.sum(np.square(np.mean(current_packet[:, -3:], axis=1)))
+                    prev_mag = np.sum(np.square(np.mean(previous_packet[:, -3:], axis=1)))
 
-                # data = self.generate_simulated_data()  # TODO - refactor for real data
-                data = ai_queue.popleft()
-                self.sleep(0.05)
-                print("Data: ")
-                print(" ".join([f"{x:.8g}" for x in data]))
-                print("\n")
+                    # Check for movement detection
+                    if not movement_watchdog and curr_mag - prev_mag > K:
+                        print("Movement detected!")
+                        # print currr and prev mag for sanity check
+                        print(f"curr_mag: {curr_mag} \n")
+                        print(f"prev_mag: {prev_mag} \n")
+                        is_movement_counter = 1
+                        movement_watchdog = True
+                        # append previous and current packet to data packet
+                        data_packet = np.concatenate((previous_packet, current_packet), axis=0)
 
-                # Append new data to dataframe
-                df.loc[len(df)] = data
+                    # movement_watchdog activated, count is_movement_counter from 0 up 6 and append current packet each time
+                    if movement_watchdog:
+                        if is_movement_counter <= 6:
+                            data_packet = np.concatenate((data_packet, current_packet), axis=0)
+                            is_movement_counter += 1
+                        else:
+                            # print dimensions of data packet
+                            print(f"data_packet dimensions: {data_packet.shape} \n")
 
-                # Compute absolute acceleration values
-                x.append(np.abs(data[5:8])) # abs of accX, accY, accZ - # TODO - use this for real data
-                x.append(wave[i])  # abs of accX, accY, accZ
+                            # If we've seen 6 packets since the last movement detection, preprocess and classify the data
+                            predicted_label = self.preprocessing_and_mlp(data_packet)
+                            print(f"output from MLP in main: \n {predicted_label} \n")  # print output of MLP
 
-                # time
-                t.append(timenow)
+                            # movement_watchdog deactivated, reset is_movement_counter
+                            movement_watchdog = False
+                            is_movement_counter = 0
+                            # reset arrays to zeros
+                            current_packet = np.zeros((6,6))
+                            previous_packet = np.zeros((6,6))
+                            data_packet = np.zeros((40,6))
 
-                # Compute moving window median
-                if len(x) < window_size:
-                    filtered.append(0)
-                else:
-                    filtered.append(np.median(x[-window_size:], axis=0))
-
-                # Compute threshold using past median data, threshold = mean + k * std
-                if len(filtered) < window_size:
-                    threshold.append(0)
-                else:
-                    past_filtered = filtered[-window_size:]
-                    threshold.append(
-                        np.mean(past_filtered, axis=0) + (threshold_factor * np.std(past_filtered, axis=0)))
-
-                # Identify movement
-                if len(filtered) > window_size:
-                    # checking if val is past threshold and if last movement was more than N samples ago
-                    if np.all(filtered[-1] > threshold[-1]) and len(t) - last_movement_time >= N:
-                        movement_detected.append(len(df) - 1)
-                        last_movement_time = len(t)  # update last movement time
-                        print(f"Movement detected at sample {len(df) - 1}")
-
-                # if movement has been detected for more than N samples, preprocess and feed into neural network
-                if len(movement_detected) > 0 and len(df) - movement_detected[-1] >= N:
-                    # extract movement data
-                    start = movement_detected[-1]
-                    end = len(df)
-                    movement_data = df.iloc[start:end, :]
-
-                    # print the start and end index of the movement
-                    print(f"Processing movement detected from sample {start} to {end}")
-
-                    # perform data preprocessing
-                    preprocessed_data = self.preprocess_dataset(movement_data)
-
-                    # print preprocessed data
-                    print(f"preprocessed data to feed into MLP: \n {preprocessed_data} \n")
-
-                    # feed preprocessed data into neural network
-                    # output = self.MLP(preprocessed_data)
-                    predicted_label = self.instantMLP(preprocessed_data)
-
-                    print(f"output from MLP: \n {predicted_label} \n")  # print output of MLP
-
-                    # reset movement_detected list
-                    movement_detected.clear()
-
-                i += 1
-                timenow += 1
-
-                if i == 200:
-                    i = 0
-
+                    # Update the previous packet
+                    previous_packet = current_packet.copy()
+                    
+#             except IndexError:
+#             print("No data in queue. Waiting ...")
+#             time.sleep(0.05)
+#             continue
+            
             # except Exception as _:
             #     traceback.print_exc()
             #     self.close_connection()
@@ -973,25 +924,25 @@ class WebSocketServer:
 
 if __name__ == '__main__':
     print('---------------<Setup Announcement>---------------')
-    # # AI Model
-    # print("Starting AI Model Thread")
-    # ai_model = AIModel()
-    #
-    # # Software Visualizer
+    # AI Model
+    print("Starting AI Model Thread")
+    ai_model = AIModel()
+
+    # Software Visualizer
     # print("Starting Subscriber Send Thread")
     # hive = SubscriberSend("CG4002")
-    #
-    # # Starting Visualizer Receive
+
+    # Starting Visualizer Receive
     # print("Starting Subscribe Receive")
     # viz = SubscriberReceive("gamestate")
-    #
-    # # Client Connection to Evaluation Server
+
+    # Client Connection to Evaluation Server
     # print("Starting Client Thread")
     # # eval_client = EvalClient(9999, "137.132.92.184")
     # eval_client = EvalClient(constants.eval_port_num, "localhost")
     # eval_client.connect_to_eval()
-    #
-    # # Game Engine
+
+    # Game Engine
     # print("Starting Game Engine Thread")
     # game_engine = GameEngine(eval_client=eval_client)
 
@@ -1008,6 +959,6 @@ if __name__ == '__main__':
     # hive.start()
     # viz.start()
     # game_engine.start()
-    # ai_model.start()
+    ai_model.start()
     laptop_server.start()
 

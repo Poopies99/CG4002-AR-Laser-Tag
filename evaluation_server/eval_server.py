@@ -18,9 +18,9 @@ from tkinter import ttk
 from tkinter.constants import HORIZONTAL, VERTICAL
 
 from MoveEngine import MoveEngine
-from evaluation_server.GameState import GameState
+from GameState import GameState
 from Helper import ice_print_debug
-from evaluation_server.PlayerState import PlayerStateBase
+from PlayerState import PlayerStateBase
 
 
 # Global flags
