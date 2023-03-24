@@ -883,7 +883,9 @@ class AIModel(threading.Thread):
                             is_movement_counter += 1
                         else:
                             # print dimensions of data packet
-                            print(f"data_packet dimensions: {data_packet.shape} \n")
+                            # print(f"data_packet dimensions: {data_packet.shape} \n")
+                            # display_df = pd.DataFrame(data_packet, columns=self.columns) 
+                            # print(display_df.head(40))
 
                             # If we've seen 6 packets since the last movement detection, preprocess and classify the data
                             predicted_label = self.preprocessing_and_mlp(data_packet)
