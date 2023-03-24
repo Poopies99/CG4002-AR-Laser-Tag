@@ -688,6 +688,8 @@ class AIModel(threading.Thread):
         self.in_buffer = pynq.allocate(shape=(35,), dtype=np.float32)
         self.out_buffer = pynq.allocate(shape=(4,), dtype=np.float32)
 
+        self.detection_time = DetectionTime
+
     def sleep(self, seconds):
         start_time = time.time()
         while time.time() - start_time < seconds:
@@ -864,6 +866,7 @@ class AIModel(threading.Thread):
 
                     # Check for movement detection
                     if not movement_watchdog and curr_mag - prev_mag > K:
+                        self.detection_time.start_timer()
                         print("Movement detected!")
                         # print currr and prev mag for sanity check
                         print(f"curr_mag: {curr_mag} \n")
@@ -885,7 +888,7 @@ class AIModel(threading.Thread):
                             # If we've seen 6 packets since the last movement detection, preprocess and classify the data
                             predicted_label = self.preprocessing_and_mlp(data_packet)
                             print(f"output from MLP in main: \n {predicted_label} \n")  # print output of MLP
-
+                            self.detection_time.end_timer()
                             # movement_watchdog deactivated, reset is_movement_counter
                             movement_watchdog = False
                             is_movement_counter = 0
@@ -896,6 +899,21 @@ class AIModel(threading.Thread):
 
                     # Update the previous packet
                     previous_packet = current_packet.copy()
+
+
+class DetectionTime:
+    def __init__(self):
+        super().__init__()
+
+        self.start = 0
+
+    def start_timer(self):
+        self.start = time.time()
+
+    def end_timer(self):
+        end_time = time.time()
+        print("Detection Time: ", end_time - self.start)
+
 
 
 class WebSocketServer:
