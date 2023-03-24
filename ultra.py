@@ -877,6 +877,7 @@ class AIModel(threading.Thread):
 
                 # Update circular buffer index
                 buffer_index = (buffer_index + 1) % buffer_size
+                print(f"buffer_index: {buffer_index}\n")
 
                 # Compute absolute acceleration values
                 x[buffer_index] = np.abs(np.sum(np.square(data[3:6])))  # abs of accX, accY, accZ

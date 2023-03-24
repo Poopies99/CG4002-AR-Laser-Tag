@@ -7,6 +7,9 @@ import traceback
 from _socket import SHUT_RDWR
 import time
 
+import constants
+from ble_packet import BLEPacket
+
 class Client(threading.Thread):
     def __init__(self, port_num, host_name):
         super().__init__()
@@ -67,6 +70,7 @@ class Server(threading.Thread):
         self.secret_key = None
         self.secret_key_bytes = None
 
+        self.packer = BLEPacket
         # Flags
         self.shutdown = threading.Event()
 
@@ -96,20 +100,17 @@ class Server(threading.Thread):
                 # Append existing data into new data
                 self.data = self.data + message
 
-                if len(self.data) < 20:
+                if len(self.data) < constants.packet_size:
                     continue
-                packet = self.data[:20]
-                self.data = self.data[20:]
+                packet = self.data[:constants.packet_size]
+                self.data = self.data[constants.packet_size:]
 
                 print("Message Received from Laptop:", packet)
 
-                # node_id = 0
-                # packet_type = PacketType.ACK
-                # header = (node_id << 4) | packet_type
-                # data = [header, 6, 100, 4, 50, 0, 0, 0, 0, 0]
-                # data = self.packer.pack(data)
+                data = [0, 3, 20, 0, 4, 50, 0]
+                data = self.packer.pack(data)
 
-                self.connection.send(packet)
+                self.connection.send(data)
 
                 if not message:
                     self.close_connection()
