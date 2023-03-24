@@ -1,5 +1,4 @@
 import time
-
 from player import Player
 from evaluation_server.Helper import Actions
 
@@ -84,7 +83,7 @@ class StateStaff(Player):
         ret = True
         # check if the shield has to reduced
         if action_self == Actions.shield:
-            if self.shield_time > 0:
+            if self.shield_time > 0 or self.num_shield == 0:
                 # invalid
                 ret = False
         elif action_self == Actions.shoot:
@@ -101,5 +100,8 @@ class StateStaff(Player):
             if self.bullets > 0:
                 # invalid
                 ret = False
-
+        self.action = action_self
         return ret
+    
+    def update_invalid_action(self):
+        self.action = "invalid"
