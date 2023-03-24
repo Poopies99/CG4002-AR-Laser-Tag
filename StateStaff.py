@@ -1,10 +1,7 @@
 import time
-<<<<<<< HEAD
-
-=======
->>>>>>> c07ed4a (removed unecessary filed)
 from player import Player
 from evaluation_server.Helper import Actions
+
 
 class StateStaff(Player):
     # update the player statistics
