@@ -688,7 +688,7 @@ class AIModel(threading.Thread):
         self.in_buffer = pynq.allocate(shape=(35,), dtype=np.float32)
         self.out_buffer = pynq.allocate(shape=(4,), dtype=np.float32)
 
-        self.detection_time = DetectionTime
+        self.detection_time = DetectionTime()
 
     def sleep(self, seconds):
         start_time = time.time()
@@ -909,10 +909,11 @@ class DetectionTime:
 
     def start_timer(self):
         self.start = time.time()
+        print('Starting Timer')
 
     def end_timer(self):
         end_time = time.time()
-        print("Detection Time: ", end_time - self.start)
+        print("Detection Time Taken: ", end_time - self.start)
 
 
 
