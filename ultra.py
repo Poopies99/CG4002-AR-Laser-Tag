@@ -15,6 +15,8 @@ import json
 import csv
 import pynq
 import librosa
+import datetime
+import queue
 from pynq import Overlay
 from GameState import GameState
 from _socket import SHUT_RDWR
@@ -41,7 +43,7 @@ Message Queues:
 
 raw_queue = deque()
 action_queue = deque()
-ai_queue = deque()
+ai_queue = queue.Queue()
 shot_queue = deque()
 subscribe_queue = Queue()
 fpga_queue = deque()
@@ -125,47 +127,41 @@ class GameEngine(threading.Thread):
             try:
                 if len(action_queue) != 0:
                     action_data, status = action_queue.popleft()
-
+                    
                     print(f"Receive action data by Game Engine: {action_data}")
-                    # assuming action_data to be [[p1_action], [p2_status]]
 
-                    if self.p1.shield_status:
-                        self.p1.update_shield()
+                
+                    self.p1.update_shield()
+                    self.p2.update_shield()
 
-                    if self.p2.shield_status:
-                        self.p2.update_shield()
+                    valid_action_p1 = self.p1.action_is_valid(action_data)
 
-                    if action_data == "logout" or action_data.lower() == 'l':
-                        self.p1.action = "logout"
-                        # send to visualizer
-                        # send to eval server - eval_queue
-                        data = self.eval_client.gamestate._get_data_plain_text()
-                        subscribe_queue.put(data)
-                        # self.eval_client.submit_to_eval()
-                        break
+                    if valid_action_p1:
+                        if action_data == "logout":
+                            # send to visualizer
+                            # send to eval server - eval_queue
+                            data = self.eval_client.gamestate._get_data_plain_text()
+                            subscribe_queue.put(data)
+                            # self.eval_client.submit_to_eval()
+                            break
 
-                    if action_data == "grenade" or action_data == "G":
+                        if action_data == "grenade":
                         # receiving the status mqtt topic
-                        print("grenade action")
-                        if self.p1.throw_grenade():
+                            self.p1.throw_grenade()
                             subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
-                        
-                            # time.sleep(0.5)
 
-                    elif action_data == "shield" or action_data == "S":
-                        print("Entered shield action")
-                        self.p1.activate_shield()
+                        elif action_data == "shield":
+                            self.p1.activate_shield()
 
-                    elif action_data == "shoot":
-                        print("Entered shoot action")
-                        if self.p1.shoot() and status:
-                            self.p2.got_shot()
+                        elif action_data == "shoot":
+                            self.p1.shoot()
+                            if status:
+                                self.p2.got_shot()
 
-                    elif action_data == "reload" or action_data == "R":
-                        self.p1.reload()
+                        elif action_data == "reload":
+                            self.p1.reload()
 
-                    if action_data == "grenade" or action_data == "G":
-                        if self.p1.grenades >= 0:
+                        if action_data == "grenade":
                             if self.determine_grenade_hit():
                                 self.p2.got_hit_grenade()
 
@@ -186,7 +182,11 @@ class GameEngine(threading.Thread):
                     self.eval_client.receive_correct_ans()
                     # subscriber queue to sw/feedback queue
 
-                    subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
+                    if valid_action_p1:
+                        subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
+                    else:
+                        self.p1.update_invalid_action()
+                        subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
 
             except KeyboardInterrupt as _:
                 traceback.print_exc()
@@ -246,7 +246,6 @@ class SubscriberSend(threading.Thread):
                 traceback.print_exc()
                 continue
 
-
 class SubscriberReceive(threading.Thread):
     def __init__(self, topic):
         super().__init__()
@@ -285,7 +284,6 @@ class SubscriberReceive(threading.Thread):
                 print(e)
                 self.close_connection()
 
-
 class EvalClient:
     def __init__(self, port_num, host_name):
         super().__init__()
@@ -316,7 +314,6 @@ class EvalClient:
     def close_connection(self):
         self.client_socket.close()
         print("Shutting Down EvalClient Connection")
-
 
 class Server(threading.Thread):
     def __init__(self, port_num, host_name):
@@ -384,7 +381,13 @@ class Server(threading.Thread):
                     self.shoot_engine.handle_vest_shot()
                 elif packet_id == 3:
                     packet = self.packer.get_euler_data() + self.packer.get_acc_data()
-                    ai_queue.append(packet)
+                    ai_queue.put(packet)
+#                     ai_queue.append(packet)
+#                     print(" ".join([f"{x:.3f}" for x in packet]))
+#                     timestamp = time.time()
+#                     tz = datetime.timezone(datetime.timedelta(hours=8))  # UTC+8
+#                     dt_object = datetime.datetime.fromtimestamp(timestamp, tz)
+#                     print(f"- packet sent at {dt_object} \n")
                 else:
                     print("Invalid Beetle ID")
 
@@ -408,7 +411,6 @@ class Server(threading.Thread):
             except Exception as _:
                 traceback.print_exc()
                 continue
-
 
 class TrainingModel(threading.Thread):
     def __init__(self):
@@ -638,7 +640,6 @@ class TrainingModel(threading.Thread):
                 traceback.print_exc()
                 continue
 
-
 class AIModel(threading.Thread):
     def __init__(self):
         super().__init__()
@@ -673,6 +674,7 @@ class AIModel(threading.Thread):
         self.pca_eigvecs_list = data['pca_eigvecs_list']
 
         self.pca_eigvecs_transposed = [list(row) for row in zip(*self.pca_eigvecs_list)]
+        
         # PYNQ overlay
         self.overlay = Overlay("pca_mlp_1.bit")
         self.dma = self.overlay.axi_dma_0
@@ -695,26 +697,6 @@ class AIModel(threading.Thread):
         accZ = random.uniform(-9, 9)
         return [gx, gy, gz, accX, accY, accZ]
 
-    # simulate game movement with noise and action
-    def generate_simulated_wave(self):
-
-        # base noise 10s long -> 20Hz*10 = 200 samples
-        t = np.linspace(0, 5, 200)  # Define the time range
-        x1 = 0.2 * np.sin(t) + 0.2 * np.random.randn(200)
-        x1[(x1 > -1) & (x1 < 1)] = 0.0  # TODO - sensor noise within margin of error auto remove
-
-        # movement motion
-        period = 2  # seconds
-        amplitude = 5
-        t = np.linspace(0, 2, int(2 / 0.05))  # Define the time range
-        x2 = amplitude * np.sin(2 * np.pi * t / period)[:40]  # Compute the sine wave for only one cycle
-
-        x = x1
-        # Add to the 40th-80th elements
-        x[20:60] += x2
-        x[80:120] += x2
-
-        return x
 
     # 10 features
     def preprocess_data(self, data):
@@ -736,7 +718,7 @@ class AIModel(threading.Thread):
 
         return output_array
 
-    def preprocess_dataset(self, arr):
+    def preprocessing_and_mlp(self, arr):
         processed_data = []
 
         # Set the window size for the median filter
@@ -771,11 +753,12 @@ class AIModel(threading.Thread):
 
         processed_data_arr = np.concatenate(processed_data)
 
-        # print(f"len processed_data_arr={len(processed_data_arr)}\n")
+        predicted_label = self.MLP_Driver(processed_data_arr)
 
-        return processed_data_arr
+        return predicted_label
+    
 
-    def PCA_MLP(self, data):
+    def MLP_Overlay(self, data):
         start_time = time.time()
 
         # reshape data to match in_buffer shape
@@ -797,13 +780,10 @@ class AIModel(threading.Thread):
 
         return self.out_buffer
 
-    def instantMLP(self, data):
-        # Load the model from file and preproessing
-        # localhost
-        # mlp = joblib.load('mlp_model.joblib')
-
-        # board
-        # mlp = joblib.load('/home/xilinx/mlp_model.joblib')
+    def MLP_Driver(self, data):
+        # MLP Library
+        # mlp = joblib.load('mlp_model.joblib') # localhost
+        # mlp = joblib.load('/home/xilinx/mlp_model.joblib') # board
 
         # sample data for sanity check
         # test_input = np.array([0.1, 0.2, 0.3, 0.4] * 120).reshape(1, -1)
@@ -817,8 +797,8 @@ class AIModel(threading.Thread):
         test_input_math_pca = np.dot(test_input_rescaled, self.pca_eigvecs_transposed)
         # print(f"test_input_math_pca: {test_input_math_pca}\n")
 
-        # MLP
-        predicted_labels = self.PCA_MLP(test_input_math_pca) # return 1x4 softmax array
+        # MLP - TODO PYNQ Overlay
+        predicted_labels = self.MLP_Overlay(test_input_math_pca) # return 1x4 softmax array
         print(f"MLP pynq overlay predicted: {predicted_labels} \n")
         np_output = np.array(predicted_labels)
         largest_index = np_output.argmax()
@@ -829,10 +809,10 @@ class AIModel(threading.Thread):
         print(f"largest index: {largest_index} \n")
         print(f"MLP overlay predicted: {predicted_label} \n")
 
+        # MLP - LIB Overlay
         # predicted_label = mlp.predict(test_input_math_pca.reshape(1, -1))
         # print(f"MLP lib overlay predicted: {predicted_label} \n")
 
-        # output is a single char
         return predicted_label
 
     def close_connection(self):
@@ -864,7 +844,7 @@ class AIModel(threading.Thread):
         # while not self.shutdown.is_set():
         while True:
             if ai_queue:
-                data = np.array(ai_queue.popleft())
+                data = np.array(ai_queue.get())
                 data[-3:] = [x/100.0 for x in data[-3:]]
                 # data = self.generate_simulated_data()
                 # self.sleep(0.05)
@@ -921,19 +901,90 @@ class AIModel(threading.Thread):
                     # print the start and end index of the movement
                     print(f"Processing movement detected from sample {start} to {end}")
 
-                    # perform data preprocessing
-                    preprocessed_data = self.preprocess_dataset(movement_data) # multithread
+        # Set the threshold value for movement detection based on user input
+        K = float(input("threshold value? "))
 
-                    # feed preprocessed data into neural network
-                    predicted_label = self.instantMLP(preprocessed_data) # multithread
+        # Initialize arrays to hold the current and previous data packets
+        current_packet = np.zeros((6,6))
+        previous_packet = np.zeros((6,6))
+        data_packet = np.zeros((40,6))
+        is_movement_counter = 0
+        movement_watchdog = False
+        loop_count = 0
 
-                    print(f"output from MLP: \n {predicted_label} \n")  # print output of MLP
+        # Enter the main loop
+        while True:
+            # runs loop 6 times and packs the data into groups of 6
+            if 1 == 1:
+                q_data = ai_queue.get()
+                ai_queue.task_done()
+                
+                new_data = np.array(q_data)
+                new_data[-3:] = [x/100.0 for x in new_data[-3:]]
+            
+  
+                print(" ".join([f"{x:.3f}" for x in new_data]))
+                # print(" ".join([f"{x:.3f}" for x in packet]))
+                timestamp = time.time()
+                tz = datetime.timezone(datetime.timedelta(hours=8))  # UTC+8
+                dt_object = datetime.datetime.fromtimestamp(timestamp, tz)
+                print(f"- packet received at {dt_object} \n")
 
+                    # Pack the data into groups of 6
+                current_packet[loop_count] = new_data
+            
+                # Update loop_count
+                loop_count = (loop_count + 1) % 5
+                
+                if loop_count % 5 == 0:
+
+                    curr_mag = np.sum(np.square(np.mean(current_packet[:, -3:], axis=1)))
+                    prev_mag = np.sum(np.square(np.mean(previous_packet[:, -3:], axis=1)))
+
+                    # Check for movement detection
+                    if not movement_watchdog and curr_mag - prev_mag > K:
+                        print("Movement detected!")
+                        # print currr and prev mag for sanity check
+                        print(f"curr_mag: {curr_mag} \n")
+                        print(f"prev_mag: {prev_mag} \n")
+                        is_movement_counter = 1
+                        movement_watchdog = True
+                        # append previous and current packet to data packet
+                        data_packet = np.concatenate((previous_packet, current_packet), axis=0)
+
+                    # movement_watchdog activated, count is_movement_counter from 0 up 6 and append current packet each time
+                    if movement_watchdog:
+                        if is_movement_counter <= 6:
+                            data_packet = np.concatenate((data_packet, current_packet), axis=0)
+                            is_movement_counter += 1
+                        else:
+                            # print dimensions of data packet
+                            print(f"data_packet dimensions: {data_packet.shape} \n")
+
+                            # If we've seen 6 packets since the last movement detection, preprocess and classify the data
+                            predicted_label = self.preprocessing_and_mlp(data_packet)
+                            print(f"output from MLP in main: \n {predicted_label} \n")  # print output of MLP
+
+                            # movement_watchdog deactivated, reset is_movement_counter
+                            movement_watchdog = False
+                            is_movement_counter = 0
+                            # reset arrays to zeros
+                            current_packet = np.zeros((6,6))
+                            previous_packet = np.zeros((6,6))
+                            data_packet = np.zeros((40,6))
+
+                    # Update the previous packet
+                    previous_packet = current_packet.copy()
+                    
+#             except IndexError:
+#             print("No data in queue. Waiting ...")
+#             time.sleep(0.05)
+#             continue
+            
             # except Exception as _:
             #     traceback.print_exc()
             #     self.close_connection()
             #     print("an error occurred")
-
 
 class WebSocketServer:
     def __init__(self):
@@ -988,8 +1039,4 @@ if __name__ == '__main__':
     # game_engine.start()
     ai_model.start()
     laptop_server.start()
-
-
-
-
 

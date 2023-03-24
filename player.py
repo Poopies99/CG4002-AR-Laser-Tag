@@ -1,7 +1,6 @@
 import time
 import json
 
-
 class Player:
     def __init__(self):
         super().__init__()
@@ -107,13 +106,8 @@ class Player:
         return True
 
     def shoot(self):
-        if self.bullets >= 1:
-            self.bullets -= 1                
-            self.action = "shoot"
-            return True
-        else:
-            return False
-        
+        self.bullets -= 1                
+
     def got_shot(self):
         if self.shield_status:
             self.shield_health -= 10
@@ -128,28 +122,10 @@ class Player:
                 self.shield_time = 0
                 self.shield_health = 0
                                
-                
-        # if self.bullets == 0:
-        #     return "Please Reload"
-        # elif self.check_sensor():  # If True, Player has been shot
-        #     if self.shield_health > 0:
-        #         self.shield_health -= self.bullet_hp
-        #     else:
-        #         self.hp -= self.bullet_hp
-        # self.bullets -= 1
-        # return self.check_hp()
-
     def throw_grenade(self):
-       
-        if self.grenades <= 0:
-            return False
-        else:
-            self.action = "grenade"
-            self.grenades -= 1
-            return True
-    
+        self.grenades -= 1
+ 
     def got_hit_grenade(self):
-        
         if not self.shield_status or not self.shield_health:
             self.hp -= self.grenade_hp
         elif self.shield_health < 30:  # Player is shielded but grenade will break through shield
@@ -158,21 +134,12 @@ class Player:
             self.hp -= diff
 
     def activate_shield(self):
-        self.action = "shield"
-        if self.num_shield == 0 or self.check_shield():
-            self.action = "shield"
-            return "Shield is Active"
-        else:
+        if not self.shield_active():
             self.num_shield -= 1
             self.shield_status = True
             self.shield_health = 30
             self.shield_timer = time.time()
-            self.shield_time = 10 - int(time.time() - self.shield_timer)
-            
+            self.shield_time = 10 - int(time.time() - self.shield_timer)   
                         
     def reload(self):
-        if self.bullets > 0:
-            self.action = "reload"
-        else:
-            self.action = "reload"
-            self.bullets = self.magazine_size
+        self.bullets = self.magazine_size
