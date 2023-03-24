@@ -822,8 +822,6 @@ class AIModel(threading.Thread):
 
     def run(self):
         # live integration loop
-<<<<<<< HEAD
-=======
         window_size = 11
         threshold_factor = float(input("threshold number? "))
 
@@ -910,7 +908,6 @@ class AIModel(threading.Thread):
                     predicted_label = self.instantMLP(preprocessed_data) # multithread
 
                     print(f"output from MLP: \n {predicted_label} \n")  # print output of MLP
->>>>>>> 8dbe330 (Made Changes)
 
         # Set the threshold value for movement detection based on user input
         K = float(input("threshold value? "))
