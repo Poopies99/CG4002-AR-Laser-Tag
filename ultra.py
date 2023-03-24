@@ -829,6 +829,95 @@ class AIModel(threading.Thread):
 
     def run(self):
         # live integration loop
+<<<<<<< HEAD
+=======
+        window_size = 11
+        threshold_factor = float(input("threshold number? "))
+
+        buffer_size = 500
+        buffer = np.zeros((buffer_size, len(self.columns)))
+        # Define the window size and threshold factor
+
+        # Define N units for flagging movement, 20Hz -> 2s = 40 samples
+        N = 40
+
+        # Initialize empty arrays for data storage
+        x = np.zeros(buffer_size)
+        filtered = np.zeros(buffer_size)
+        threshold = np.zeros(buffer_size)
+        last_movement_time = -N  # set last movement time to negative N seconds ago
+        # wave = self.generate_simulated_wave()
+        i = 0
+        buffer_index = 0
+
+        # while not self.shutdown.is_set():
+        while True:
+            if ai_queue:
+                data = np.array(ai_queue.popleft())
+                data[-3:] = [x/100.0 for x in data[-3:]]
+                # data = self.generate_simulated_data()
+                # self.sleep(0.05)
+                # print("Data: ")
+                # print(" ".join([f"{x:.3f}" for x in data]))
+                # print("\n")
+
+                # Append new data
+                buffer[buffer_index] = data
+
+                # Update circular buffer index
+                buffer_index = (buffer_index + 1) % buffer_size
+                print(f"buffer_index: {buffer_index}\n")
+
+                # Compute absolute acceleration values
+                x[buffer_index] = np.abs(np.sum(np.square(data[3:6])))  # abs of accX, accY, accZ
+                # x[buffer_index] = wave[i]  # abs of accX, accY, accZ
+
+                # i += 1
+                # if i >= len(wave):
+                #     i = 0
+
+                # Compute moving window median
+                # if buffer_index < window_size:
+                #     filtered[buffer_index] = 0
+                # else:
+                filtered[buffer_index] = np.median(x[buffer_index - window_size + 1:buffer_index + 1], axis=0)
+
+                # Compute threshold using past median data, threshold = mean + k * std
+                # if buffer_index < window_size:
+                #     threshold[buffer_index] = 0
+                # else:
+                past_filtered = filtered[buffer_index - window_size + 1:buffer_index + 1]
+                threshold[buffer_index] = np.mean(past_filtered, axis=0) + (
+                                threshold_factor * np.std(past_filtered, axis=0))
+
+                # Identify movement
+                # if x[buffer_index] > threshold[buffer_index]:
+                if filtered[buffer_index] > threshold[buffer_index]:
+                    last_movement_time = buffer_index  # update last movement time
+                    print(f"Movement detected at sample {buffer_index}")
+
+                # if N samples from last movement time have been accumulated, preprocess and feed into neural network
+                if (last_movement_time != -N) and (buffer_index - last_movement_time + 1) % buffer_size == N:
+                    # extract movement data
+                    start = last_movement_time
+                    # +1 needed for python syntax, eg we want [1,40]  but syntax is [1,41]
+                    end = (buffer_index + 1) % buffer_size
+                    if end <= start:
+                        movement_data = np.concatenate((buffer[start:, :], buffer[:end, :]), axis=0)
+                    else:
+                        movement_data = buffer[start:end, :]
+
+                    # print the start and end index of the movement
+                    print(f"Processing movement detected from sample {start} to {end}")
+
+                    # perform data preprocessing
+                    preprocessed_data = self.preprocess_dataset(movement_data) # multithread
+
+                    # feed preprocessed data into neural network
+                    predicted_label = self.instantMLP(preprocessed_data) # multithread
+
+                    print(f"output from MLP: \n {predicted_label} \n")  # print output of MLP
+>>>>>>> 8dbe330 (Made Changes)
 
         # Set the threshold value for movement detection based on user input
         K = float(input("threshold value? "))

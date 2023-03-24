@@ -16,7 +16,7 @@ class GameState:
         self.player_1 = StateStaff()
         self.player_2 = StateStaff()
 
-        self.secret_key = 'chrisisdabest123'
+        self.secret_key = 'ilovecg4002profs'
         self.secret_key_bytes = bytes(str(self.secret_key), encoding='utf-8')
 
     def get_dict(self):
