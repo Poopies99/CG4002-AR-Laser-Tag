@@ -246,6 +246,7 @@ class SubscriberSend(threading.Thread):
                 traceback.print_exc()
                 continue
 
+
 class SubscriberReceive(threading.Thread):
     def __init__(self, topic):
         super().__init__()
@@ -284,6 +285,7 @@ class SubscriberReceive(threading.Thread):
                 print(e)
                 self.close_connection()
 
+
 class EvalClient:
     def __init__(self, port_num, host_name):
         super().__init__()
@@ -314,6 +316,7 @@ class EvalClient:
     def close_connection(self):
         self.client_socket.close()
         print("Shutting Down EvalClient Connection")
+
 
 class Server(threading.Thread):
     def __init__(self, port_num, host_name):
@@ -411,6 +414,7 @@ class Server(threading.Thread):
             except Exception as _:
                 traceback.print_exc()
                 continue
+
 
 class TrainingModel(threading.Thread):
     def __init__(self):
@@ -640,6 +644,7 @@ class TrainingModel(threading.Thread):
                 traceback.print_exc()
                 continue
 
+
 class AIModel(threading.Thread):
     def __init__(self):
         super().__init__()
@@ -697,8 +702,6 @@ class AIModel(threading.Thread):
         accZ = random.uniform(-9, 9)
         return [gx, gy, gz, accX, accY, accZ]
 
-
-    # 10 features
     def preprocess_data(self, data):
         # standard data processing techniques
         mean = np.mean(data)
@@ -821,105 +824,12 @@ class AIModel(threading.Thread):
         print("Shutting Down Connection")
 
     def run(self):
-        # live integration loop
-        window_size = 11
-        threshold_factor = float(input("threshold number? "))
-
-        buffer_size = 500
-        buffer = np.zeros((buffer_size, len(self.columns)))
-        # Define the window size and threshold factor
-
-        # Define N units for flagging movement, 20Hz -> 2s = 40 samples
-        N = 40
-
-        # Initialize empty arrays for data storage
-        x = np.zeros(buffer_size)
-        filtered = np.zeros(buffer_size)
-        threshold = np.zeros(buffer_size)
-        last_movement_time = -N  # set last movement time to negative N seconds ago
-        # wave = self.generate_simulated_wave()
-        i = 0
-        buffer_index = 0
-
-        # while not self.shutdown.is_set():
-        while True:
-            if ai_queue:
-                # getting data
-                q_data = ai_queue.get()
-                ai_queue.task_done()
-                data = np.array(q_data)
-                
-                data[-3:] = [x/100.0 for x in data[-3:]]
-                # data = self.generate_simulated_data()
-                # self.sleep(0.05)
-                # print("Data: ")
-                # print(" ".join([f"{x:.3f}" for x in data]))
-                # print("\n")
-
-                # Append new data
-                buffer[buffer_index] = data
-
-                # Update circular buffer index
-                buffer_index = (buffer_index + 1) % buffer_size
-                print(f"buffer_index: {buffer_index}\n")
-
-                # Compute absolute acceleration values
-                x[buffer_index] = np.abs(np.sum(np.square(data[3:6])))  # abs of accX, accY, accZ
-                # x[buffer_index] = wave[i]  # abs of accX, accY, accZ
-
-                # i += 1
-                # if i >= len(wave):
-                #     i = 0
-
-                # Compute moving window median
-                # if buffer_index < window_size:
-                #     filtered[buffer_index] = 0
-                # else:
-                filtered[buffer_index] = np.median(x[buffer_index - window_size + 1:buffer_index + 1], axis=0)
-
-                # Compute threshold using past median data, threshold = mean + k * std
-                # if buffer_index < window_size:
-                #     threshold[buffer_index] = 0
-                # else:
-                past_filtered = filtered[buffer_index - window_size + 1:buffer_index + 1]
-                threshold[buffer_index] = np.mean(past_filtered, axis=0) + (
-                                threshold_factor * np.std(past_filtered, axis=0))
-
-                # Identify movement
-                # if x[buffer_index] > threshold[buffer_index]:
-                if filtered[buffer_index] > threshold[buffer_index]:
-                    last_movement_time = buffer_index  # update last movement time
-                    print(f"Movement detected at sample {buffer_index}")
-
-                # if N samples from last movement time have been accumulated, preprocess and feed into neural network
-                if (last_movement_time != -N) and (buffer_index - last_movement_time + 1) % buffer_size == N:
-                    # extract movement data
-                    start = last_movement_time
-                    # +1 needed for python syntax, eg we want [1,40]  but syntax is [1,41]
-                    end = (buffer_index + 1) % buffer_size
-                    if end <= start:
-                        movement_data = np.concatenate((buffer[start:, :], buffer[:end, :]), axis=0)
-                    else:
-                        movement_data = buffer[start:end, :]
-
-                    # print the start and end index of the movement
-                    print(f"Processing movement detected from sample {start} to {end}")
-
-                    # perform data preprocessing
-                    preprocessed_data = self.preprocess_dataset(movement_data) # multithread
-
-                    # feed preprocessed data into neural network
-                    predicted_label = self.instantMLP(preprocessed_data) # multithread
-
-                    print(f"output from MLP: \n {predicted_label} \n")  # print output of MLP
-
-        # Set the threshold value for movement detection based on user input
         K = float(input("threshold value? "))
 
         # Initialize arrays to hold the current and previous data packets
-        current_packet = np.zeros((6,6))
-        previous_packet = np.zeros((6,6))
-        data_packet = np.zeros((40,6))
+        current_packet = np.zeros((6, 6))
+        previous_packet = np.zeros((6, 6))
+        data_packet = np.zeros((40, 6))
         is_movement_counter = 0
         movement_watchdog = False
         loop_count = 0
@@ -936,13 +846,12 @@ class AIModel(threading.Thread):
             
   
                 print(" ".join([f"{x:.3f}" for x in new_data]))
-                # print(" ".join([f"{x:.3f}" for x in packet]))
                 timestamp = time.time()
                 tz = datetime.timezone(datetime.timedelta(hours=8))  # UTC+8
                 dt_object = datetime.datetime.fromtimestamp(timestamp, tz)
                 print(f"- packet received at {dt_object} \n")
 
-                    # Pack the data into groups of 6
+                # Pack the data into groups of 6
                 current_packet[loop_count] = new_data
             
                 # Update loop_count
@@ -981,22 +890,13 @@ class AIModel(threading.Thread):
                             movement_watchdog = False
                             is_movement_counter = 0
                             # reset arrays to zeros
-                            current_packet = np.zeros((6,6))
-                            previous_packet = np.zeros((6,6))
-                            data_packet = np.zeros((40,6))
+                            current_packet = np.zeros((6, 6))
+                            previous_packet = np.zeros((6, 6))
+                            data_packet = np.zeros((40, 6))
 
                     # Update the previous packet
                     previous_packet = current_packet.copy()
-                    
-#             except IndexError:
-#             print("No data in queue. Waiting ...")
-#             time.sleep(0.05)
-#             continue
-            
-            # except Exception as _:
-            #     traceback.print_exc()
-            #     self.close_connection()
-            #     print("an error occurred")
+
 
 class WebSocketServer:
     def __init__(self):
