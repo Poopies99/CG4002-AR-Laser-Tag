@@ -844,7 +844,11 @@ class AIModel(threading.Thread):
         # while not self.shutdown.is_set():
         while True:
             if ai_queue:
-                data = np.array(ai_queue.get())
+                # getting data
+                q_data = ai_queue.get()
+                ai_queue.task_done()
+                data = np.array(q_data)
+                
                 data[-3:] = [x/100.0 for x in data[-3:]]
                 # data = self.generate_simulated_data()
                 # self.sleep(0.05)
