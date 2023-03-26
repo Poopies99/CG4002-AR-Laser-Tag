@@ -25,8 +25,8 @@ from queue import Queue
 from collections import deque
 from ble_packet import BLEPacket
 from packet_type import PacketType
-# from sklearn.feature_selection import SelectKBest
-# from sklearn.preprocessing import StandardScaler
+from scipy.signal import medfilt
+from scipy.ndimage import gaussian_filter1d
 
 """
 Threads: 
@@ -385,12 +385,6 @@ class Server(threading.Thread):
                 elif packet_id == 3:
                     packet = self.packer.get_euler_data() + self.packer.get_acc_data()
                     ai_queue.put(packet)
-#                     ai_queue.append(packet)
-#                     print(" ".join([f"{x:.3f}" for x in packet]))
-#                     timestamp = time.time()
-#                     tz = datetime.timezone(datetime.timedelta(hours=8))  # UTC+8
-#                     dt_object = datetime.datetime.fromtimestamp(timestamp, tz)
-#                     print(f"- packet sent at {dt_object} \n")
                 else:
                     print("Invalid Beetle ID")
 
@@ -652,255 +646,225 @@ class AIModel(threading.Thread):
         # Flags
         self.shutdown = threading.Event()
 
-        self.columns = ['gx', 'gy', 'gz', 'accX', 'accY', 'accZ']
+        # Load all_arrays.json
+        with open('all_arrays.json', 'r') as f:
+            all_arrays = json.load(f)
 
-        self.factors = ['mean', 'std', 'variance', 'range', 'peak_to_peak_amplitude',
-                        'mad', 'root_mean_square', 'interquartile_range', 'percentile_75',
-                        'energy']
+        # Retrieve values from all_arrays
+        self.scaling_factors = np.array(all_arrays['scaling_factors'])
+        self.mean = np.array(all_arrays['mean'])
+        self.variance = np.array(all_arrays['variance'])
+        self.pca_eigvecs = np.array(all_arrays['pca_eigvecs'])
+        self.weights = [np.array(w) for w in all_arrays['weights']]
 
-        self.num_groups = 8
-        self.headers = [f'grp_{i + 1}_{column}_{factor}' for i in range(self.num_groups)
-                        for column in self.columns for factor in self.factors]
+        # Reshape scaling_factors, mean and variance to (1, 3)
+        self.scaling_factors = self.scaling_factors.reshape(40, 3)
+        self.mean = self.mean.reshape(40, 3)
+        self.variance = self.variance.reshape(40, 3)
 
-        self.headers.extend(['action'])
+        # read in the test actions from the JSON file
+        with open('test_actions.json', 'r') as f:
+            test_actions = json.load(f)
 
-        # defining game action dictionary
-        self.action_map = {0: 'G', 1: 'L', 2: 'R', 3: 'S'}
+        # extract the test data for each action from the dictionary
+        self.test_g = np.array(test_actions['G'])
+        self.test_s = np.array(test_actions['S'])
+        self.test_r = np.array(test_actions['R'])
 
-        # load PCA model
-        # read the contents of the arrays.txt file
-        with open("arrays.txt", "r") as f:
-            data = json.load(f)
-
-        # extract the weights and bias arrays
-        self.scaling_factor = data['scaling_factor']
-        self.mean = data['mean']
-        self.variance = data['variance']
-        self.pca_eigvecs_list = data['pca_eigvecs_list']
-
-        self.pca_eigvecs_transposed = [list(row) for row in zip(*self.pca_eigvecs_list)]
+        # define the available actions
+        self.test_actions = ['G', 'S', 'R']
         
         # PYNQ overlay
-        self.overlay = Overlay("pca_mlp_1.bit")
-        self.dma = self.overlay.axi_dma_0
+        # self.overlay = Overlay("pca_mlp_1.bit")
+        # self.dma = self.overlay.axi_dma_0
 
-        # Allocate input and output buffers once
-        self.in_buffer = pynq.allocate(shape=(35,), dtype=np.float32)
-        self.out_buffer = pynq.allocate(shape=(4,), dtype=np.float32)
-
-        self.detection_time = DetectionTime()
+        # # Allocate input and output buffers once
+        # self.in_buffer = pynq.allocate(shape=(35,), dtype=np.float32)
+        # self.out_buffer = pynq.allocate(shape=(4,), dtype=np.float32)
 
     def sleep(self, seconds):
         start_time = time.time()
         while time.time() - start_time < seconds:
             pass
-
-    def generate_simulated_data(self):
-        gx = random.uniform(-9, 9)  # TODO - assumption: gyro x,y,z change btwn -9 to 9
-        gy = random.uniform(-9, 9)
-        gz = random.uniform(-9, 9)
-        accX = random.uniform(-9, 9)
-        accY = random.uniform(-9, 9)
-        accZ = random.uniform(-9, 9)
-        return [gx, gy, gz, accX, accY, accZ]
-
-    def preprocess_data(self, data):
-        # standard data processing techniques
-        mean = np.mean(data)
-        std = np.std(data)
-        variance = np.var(data)
-        range = np.max(data) - np.min(data)
-        peak_to_peak_amplitude = np.abs(np.max(data) - np.min(data))
-        mad = np.median(np.abs(data - np.median(data)))
-        root_mean_square = np.sqrt(np.mean(np.square(data)))
-        interquartile_range = stats.iqr(data)
-        percentile_75 = np.percentile(data, 75)
-        energy = np.sum(data ** 2)
-
-        output_array = np.empty((1, 10))
-        output_array[0] = [mean, std, variance, range, peak_to_peak_amplitude, mad, root_mean_square,
-                           interquartile_range, percentile_75, energy]
-
-        return output_array
-
-    def preprocessing_and_mlp(self, arr):
-        processed_data = []
-
-        # Set the window size for the median filter
-        window_size = 7
-
-        df = pd.DataFrame(arr)
-        df_filtered = df.rolling(window_size, min_periods=1, center=True).median()
-
-        arr = df_filtered.values
-
-        # Split the rows into 8 groups
-        group_size = 5
-        num_groups = 8
-
-        # Loop through each group and column, and compute features
-        for i in range(num_groups):
-            start_idx = i * group_size
-            end_idx = start_idx + group_size
-            group = arr[start_idx:end_idx, :]
-
-            group_data = []
-            for column in range(arr.shape[1]):
-                column_data = group[:, column]
-                column_data = column_data.reshape(1, -1)
-
-                temp_processed = self.preprocess_data(column_data)
-                temp_processed = temp_processed.flatten()
-
-                group_data.append(temp_processed)
-
-            processed_data.append(np.concatenate(group_data))
-
-        processed_data_arr = np.concatenate(processed_data)
-
-        predicted_label = self.MLP_Driver(processed_data_arr)
-
-        return predicted_label
     
+    def blur_3d_movement(self, acc_df):
+        acc_df = pd.DataFrame(acc_df)
+        fs = 20 # sampling frequency
+        dt = 1/fs
 
-    def MLP_Overlay(self, data):
-        start_time = time.time()
+        # Apply median filtering column-wise
+        filtered_acc = acc_df.apply(lambda x: medfilt(x, kernel_size=7))
+        filtered_acc = gaussian_filter1d(filtered_acc.values.astype(float), sigma=3, axis=0)
+        filtered_acc_df = pd.DataFrame(filtered_acc, columns=acc_df.columns)
+        
+        ax = filtered_acc_df[0]
+        ay = filtered_acc_df[1]
+        az = filtered_acc_df[2]
 
-        # reshape data to match in_buffer shape
-        data = np.reshape(data, (35,))
+        vx = np.cumsum(ax) * dt
+        vy = np.cumsum(ay) * dt
+        vz = np.cumsum(az) * dt
 
-        self.in_buffer[:] = data
+        x = np.cumsum(vx) * dt
+        y = np.cumsum(vy) * dt
+        z = np.cumsum(vz) * dt
 
-        self.dma.sendchannel.transfer(self.in_buffer)
-        self.dma.recvchannel.transfer(self.out_buffer)
+        xyz = np.column_stack((x, y, z))
 
-        # wait for transfer to finish
-        self.dma.sendchannel.wait()
-        self.dma.recvchannel.wait()
+        return xyz
+    
+    # Define Scaler
+    def scaler(self, X):
+        return (X - self.mean) / np.sqrt(self.variance)
 
-        # print output buffer
-        print("mlp done with output: " + " ".join(str(x) for x in self.out_buffer))
+    # Define PCA
+    def pca(self, X):
+        return np.dot(X, self.pca_eigvecs.T)
 
-        print(f"MLP time taken so far output: {time.time() - start_time}")
 
-        return self.out_buffer
+    def rng_test_action(self):
+        # choose a random action from the list
+        chosen_action = random.choice(self.test_actions)
 
-    def MLP_Driver(self, data):
-        # MLP Library
-        # mlp = joblib.load('mlp_model.joblib') # localhost
-        # mlp = joblib.load('/home/xilinx/mlp_model.joblib') # board
+        # use the chosen action to select the corresponding test data
+        if chosen_action == 'G':
+            test_data = self.test_g
+        elif chosen_action == 'S':
+            test_data = self.test_s
+        else:
+            test_data = self.test_r
 
-        # sample data for sanity check
-        # test_input = np.array([0.1, 0.2, 0.3, 0.4] * 120).reshape(1, -1)
+        return test_data
 
-        # Scaler
-        test_input_rescaled = (data - self.mean) / np.sqrt(self.variance) # TODO - use this for real data
-        # test_input_rescaled = (test_input - self.mean) / np.sqrt(self.variance)
-        # print(f"test_input_rescaled: {test_input_rescaled}\n")
 
-        # PCA
-        test_input_math_pca = np.dot(test_input_rescaled, self.pca_eigvecs_transposed)
-        # print(f"test_input_math_pca: {test_input_math_pca}\n")
+    # Define MLP
+    def mlp(self, X):
+        H1 = np.dot(X, self.weights[0]) + self.weights[1]
+        H1_relu = np.maximum(0, H1)
+        H2 = np.dot(H1_relu, self.weights[2]) + self.weights[3]
+        H2_relu = np.maximum(0, H2)
+        Y = np.dot(H2_relu, self.weights[4]) + self.weights[5]
+        Y_softmax = np.exp(Y) / np.sum(np.exp(Y), axis=1, keepdims=True)
+        return Y_softmax
 
-        # MLP - TODO PYNQ Overlay
-        predicted_labels = self.MLP_Overlay(test_input_math_pca) # return 1x4 softmax array
-        print(f"MLP pynq overlay predicted: {predicted_labels} \n")
-        np_output = np.array(predicted_labels)
-        largest_index = np_output.argmax()
+    def get_action(self, softmax_array):
+        max_index = np.argmax(softmax_array)
+        action_dict = {0: 'G', 1: 'R', 2: 'S'}
+        action = action_dict[max_index]
+        return action
 
-        predicted_label = self.action_map[largest_index]
 
-        # print largest index and largest action of MLP output
-        print(f"largest index: {largest_index} \n")
-        print(f"MLP overlay predicted: {predicted_label} \n")
+    # def MLP_Overlay(self, data):
+    #     start_time = time.time()
 
-        # MLP - LIB Overlay
-        # predicted_label = mlp.predict(test_input_math_pca.reshape(1, -1))
-        # print(f"MLP lib overlay predicted: {predicted_label} \n")
+    #     # reshape data to match in_buffer shape
+    #     data = np.reshape(data, (35,))
 
-        return predicted_label
+    #     self.in_buffer[:] = data
 
+    #     self.dma.sendchannel.transfer(self.in_buffer)
+    #     self.dma.recvchannel.transfer(self.out_buffer)
+
+    #     # wait for transfer to finish
+    #     self.dma.sendchannel.wait()
+    #     self.dma.recvchannel.wait()
+
+    #     # print output buffer
+    #     print("mlp done with output: " + " ".join(str(x) for x in self.out_buffer))
+
+    #     print(f"MLP time taken so far output: {time.time() - start_time}")
+
+    #     return self.out_buffer
+
+    def AIDriver(self, test_input):
+        test_input = test_input.reshape(40, 6)
+        acc_df = test_input[:, -3:]
+        
+        # Transform data using Scaler and PCA
+        blurred_data = self.blur_3d_movement(acc_df.reshape(40,3))
+        data_scaled = self.scaler(blurred_data)
+        data_pca = self.pca(data_scaled.reshape(1,120))
+
+        # Make predictions using MLP
+        predictions = self.mlp(data_pca)
+        action = self.get_action(predictions)
+
+        print(predictions)
+        print(action)
+
+        return action
+        
     def close_connection(self):
         self.shutdown.set()
 
         print("Shutting Down Connection")
 
     def run(self):
-        K = float(input("threshold value? "))
+        # Set the threshold value for movement detection based on user input
+        K = 10
+        # K = float(input("threshold value? "))
 
         # Initialize arrays to hold the current and previous data packets
-        current_packet = np.zeros((6, 6))
-        previous_packet = np.zeros((6, 6))
-        data_packet = np.zeros((40, 6))
+        current_packet = np.zeros((5,6))
+        previous_packet = np.zeros((5,6))
+        data_packet = np.zeros((40,6))
         is_movement_counter = 0
         movement_watchdog = False
-        loop_count = 0
 
-        # Enter the main loop
+        # live integration loop
         while True:
             # runs loop 6 times and packs the data into groups of 6
-            if ai_queue:
-                q_data = ai_queue.get()
-                ai_queue.task_done()
-                
-                new_data = np.array(q_data)
-                new_data[-3:] = [x/100.0 for x in new_data[-3:]]
-            
-  
+            for i in range(5):
+                new_data = np.random.randn(6) # TODO refactor for real data
                 # print(" ".join([f"{x:.3f}" for x in new_data]))
-                timestamp = time.time()
-                tz = datetime.timezone(datetime.timedelta(hours=8))  # UTC+8
-                dt_object = datetime.datetime.fromtimestamp(timestamp, tz)
-                # print(f"- packet received at {dt_object} \n")
-
-                # Pack the data into groups of 6
-                current_packet[loop_count] = new_data
             
-                # Update loop_count
-                loop_count = (loop_count + 1) % 5
+                current_packet[i] = new_data
+            
+            curr_mag = np.sum(np.square(np.mean(current_packet[:, -3:], axis=1)))
+            prev_mag = np.sum(np.square(np.mean(previous_packet[:, -3:], axis=1)))
+
+            # Check for movement detection
+            if not movement_watchdog and curr_mag - prev_mag > K:
+                print("Movement detected!")
+                # print currr and prev mag for sanity check
+                print(f"curr_mag: {curr_mag} \n")
+                print(f"prev_mag: {prev_mag} \n")
+                movement_watchdog = True
+                # append previous and current packet to data packet
+                data_packet = np.concatenate((previous_packet, current_packet), axis=0)
+
+            # movement_watchdog activated, count is_movement_counter from 0 up 6 and append current packet each time
+            if movement_watchdog:
+                if is_movement_counter < 6:
+                    data_packet = np.concatenate((data_packet, current_packet), axis=0)
+                    is_movement_counter += 1
                 
-                if loop_count % 5 == 0:
+                # If we've seen 6 packets since the last movement detection, preprocess and classify the data
+                else:
+                    # print dimensions of data packet
+                    # print(f"data_packet dimensions: {data_packet.shape} \n")
 
-                    curr_mag = np.sum(np.square(np.mean(current_packet[:, -3:], axis=1)))
-                    prev_mag = np.sum(np.square(np.mean(previous_packet[:, -3:], axis=1)))
+                    # rng_test_action = self.rng_test_action() # TODO uncomment dummy data
+                    # action = self.AIDriver(rng_test_action) # TODO uncomment dummy data
 
-                    # Check for movement detection
-                    if not movement_watchdog and curr_mag - prev_mag > K:
-                        self.detection_time.start_timer()
-                        print("Movement detected!")
-                        # print currr and prev mag for sanity check
-                        print(f"curr_mag: {curr_mag} \n")
-                        print(f"prev_mag: {prev_mag} \n")
-                        is_movement_counter = 1
-                        movement_watchdog = True
-                        # append previous and current packet to data packet
-                        data_packet = np.concatenate((previous_packet, current_packet), axis=0)
+                    action = self.AIDriver(data_packet) # TODO uncomment for live integration
+                    print(f"action from MLP in main: \n {action} \n")  # print output of MLP
 
-                    # movement_watchdog activated, count is_movement_counter from 0 up 6 and append current packet each time
-                    if movement_watchdog:
-                        if is_movement_counter <= 6:
-                            data_packet = np.concatenate((data_packet, current_packet), axis=0)
-                            is_movement_counter += 1
-                        else:
-                            # print dimensions of data packet
-                            # print(f"data_packet dimensions: {data_packet.shape} \n")
-                            # display_df = pd.DataFrame(data_packet, columns=self.columns) 
-                            # print(display_df.head(40))
+                    # movement_watchdog deactivated, reset is_movement_counter
+                    movement_watchdog = False
+                    is_movement_counter = 0
+                    # reset arrays to zeros
+                    current_packet = np.zeros((5,6))
+                    previous_packet = np.zeros((5,6))
+                    data_packet = np.zeros((40,6))
 
-                            # If we've seen 6 packets since the last movement detection, preprocess and classify the data
-                            predicted_label = self.preprocessing_and_mlp(data_packet)
-                            print(f"output from MLP in main: \n {predicted_label} \n")  # print output of MLP
-                            self.detection_time.end_timer()
-                            # movement_watchdog deactivated, reset is_movement_counter
-                            movement_watchdog = False
-                            is_movement_counter = 0
-                            # reset arrays to zeros
-                            current_packet = np.zeros((6, 6))
-                            previous_packet = np.zeros((6, 6))
-                            data_packet = np.zeros((40, 6))
-
-                    # Update the previous packet
-                    previous_packet = current_packet.copy()
+            # Update the previous packet
+            previous_packet = current_packet.copy()
+            
+            # except Exception as _:
+            #     traceback.print_exc()
+            #     self.close_connection()
+            #     print("an error occurred")
 
 
 class DetectionTime:
