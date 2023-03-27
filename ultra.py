@@ -43,7 +43,6 @@ SINGLE_PLAYER_MODE = False
 
 raw_queue = deque()
 action_queue = deque()
-ai_queue = queue.Queue()
 shot_queue = deque()
 subscribe_queue = Queue()
 fpga_queue = deque()
@@ -79,14 +78,14 @@ class ActionEngine(threading.Thread):
         else:
             self.p2_vest_shot = True
 
-    def action_detected(self):
-        return self.p1_gun_shot or self.p1_vest_shot or self.p1_grenade or self.p2_gun_shot or self.p2_vest_shot or self.p2_grenade
-
     def handle_grenade_throw(self, player):
         if player == 1:
             self.p1_grenade = True
         else:
             self.p2_grenade = True
+
+    def action_detected(self):
+        return self.p1_gun_shot or self.p1_vest_shot or self.p1_grenade or self.p2_gun_shot or self.p2_vest_shot or self.p2_grenade
     
     def run(self):
         while True:
@@ -359,14 +358,10 @@ class Server(threading.Thread):
         self.packer = BLEPacket()
 
         # Shoot Engine Threads
-        self.p1_shoot_engine = ActionEngine()
-        self.p1_ai_engine = AIModel()
-        if not SINGLE_PLAYER_MODE:
-            self.p2_shoot_engine = ActionEngine()
-            self.p2_ai_engine = AIModel()
+        self.action_engine = ActionEngine()
 
         # AI Model Threads
-        self.p1_ai_model = AIModel()
+        self.p1_ai_engine = AIModel()
         if not SINGLE_PLAYER_MODE:
             self.p2_ai_engine = AIModel()
 
@@ -392,15 +387,14 @@ class Server(threading.Thread):
         print("Shutting Down Server")
 
     def run(self):
-        p1_action_thread = threading.Thread(target=self.p1_shoot_engine.start)
+        action_thread = threading.Thread(target=self.action_engine.start)
+        action_thread.start()
+
         p1_ai_thread = threading.Thread(target=self.p1_ai_engine.start)
-        p1_action_thread.start()
         p1_ai_thread.start()
 
         if not SINGLE_PLAYER_MODE:
-            p1_action_thread = threading.Thread(target=self.p2_shoot_engine.start)
             p2_ai_thread = threading.Thread(target=self.p2_ai_engine.start)
-            p1_action_thread.start()
             p2_ai_thread.start()
 
         self.server_socket.listen(1)
@@ -423,20 +417,23 @@ class Server(threading.Thread):
                 packet_id = self.packer.get_beetle_id()
 
                 if packet_id == 1:
-                    self.p1_shoot_engine.handle_gun_shot(1)
+                    self.action_engine.handle_gun_shot(1)
                 elif packet_id == 2:
-                    self.p1_shoot_engine.handle_vest_shot(1)
+                    self.action_engine.handle_vest_shot(1)
                 elif packet_id == 3:
                     packet = self.packer.get_euler_data() + self.packer.get_acc_data()
-                    ai_queue.put(packet)
+                    self.p1_ai_engine.add_packet(packet)
                 else:
                     print("Invalid Beetle ID")
 
                 '''
                 elif packet_id == 4:
-                    self.p2_shoot_engine.handle_gun_shot()
+                    self.action_engine.handle_gun_shot(2)
                 elif packet_id == 5:
-                    self.p2_shoot_engine.handle_vest_shot()
+                    self.action_engine.handle_vest_shot(2)
+                elif packet_id == 6:
+                    packet = self.packer.get_euler_data() + self.packet.get_acc_data()
+                    self.p2_ai_engine.add_packet(packet)
                 '''
 
                 # Sends data back into the relay laptop
@@ -492,6 +489,7 @@ class AIModel(threading.Thread):
         # define the available actions
         self.test_actions = ['G', 'S', 'R']
 
+        self.ai_queue = Queue()
         # PYNQ overlay
         # self.overlay = Overlay("pca_mlp_1.bit")
         # self.dma = self.overlay.axi_dma_0
@@ -614,6 +612,9 @@ class AIModel(threading.Thread):
 
         print("Shutting Down Connection")
 
+    def add_packet(self, packet):
+        self.ai_queue.put(packet)
+
     def run(self):
         # Set the threshold value for movement detection based on user input
         K = 10
@@ -629,12 +630,12 @@ class AIModel(threading.Thread):
 
         # live integration loop
         while True:
-            if ai_queue:  # TODO re-enable for live integration
+            if self.ai_queue:  # TODO re-enable for live integration
                 # if 1 == 1: # TODO DIS-enable for live integration
                 # runs loop 6 times and packs the data into groups of 6
 
-                q_data = ai_queue.get()  # TODO re-enable for live integration
-                ai_queue.task_done()  # TODO re-enable for live integration
+                q_data = self.ai_queue.get()  # TODO re-enable for live integration
+                self.ai_queue.task_done()  # TODO re-enable for live integration
                 new_data = np.array(q_data)  # TODO re-enable for live integration
                 new_data[-3:] = [x / 100.0 for x in new_data[-3:]]  # TODO re-enable for live integration
 
