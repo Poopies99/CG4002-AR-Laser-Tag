@@ -1,28 +1,24 @@
 import sys
 
 # Module Dependencies Directory
-sys.path.append('/home/xilinx/main/dependencies')
+sys.path.append('/home/xilinx/official/dependencies')
 
-import matplotlib.pyplot as plt
+from dependencies import constants
 import paho.mqtt.client as mqtt
 import pandas as pd
 import numpy as np
-import websockets
 import threading
 import traceback
-import constants
-import asyncio
 import socket
 import random
 import time
 import json
 import queue
+from queue import Queue
 from GameState import GameState
 from _socket import SHUT_RDWR
-from queue import Queue
 from collections import deque
 from ble_packet import BLEPacket
-from packet_type import PacketType
 from scipy.signal import medfilt
 from scipy.ndimage import gaussian_filter1d
 
@@ -56,46 +52,71 @@ training_model_queue = deque()
 eval_queue = deque()
 feedback_queue = Queue()
 
-collection_flag = False
 
-
-class ShootEngine(threading.Thread):
+class ActionEngine(threading.Thread):
     def __init__(self):
         super().__init__()
 
         # Flags
-        self.gun_shot = False
-        self.vest_shot = False
+        self.p1_gun_shot = False
+        self.p1_vest_shot = False
+        self.p1_grenade = False
 
-    def handle_gun_shot(self):
-        self.gun_shot = True
+        if not SINGLE_PLAYER_MODE:
+            self.p2_gun_shot = False
+            self.p2_vest_shot = False
+            self.p2_grenade = False
 
-    def handle_vest_shot(self):
-        self.vest_shot = True
+    def handle_gun_shot(self, player):
+        if player == 1:
+            self.p1_gun_shot = True
+        else:
+            self.p2_gun_shot = True
 
+    def handle_vest_shot(self, player):
+        if player == 1:
+            self.p1_vest_shot = True
+        else:
+            self.p2_vest_shot = True
+
+    def action_detected(self):
+        return self.p1_gun_shot or self.p1_vest_shot or self.p1_grenade or self.p2_gun_shot or self.p2_vest_shot or self.p2_grenade
+
+    def handle_grenade_throw(self, player):
+        if player == 1:
+            self.p1_grenade = True
+        else:
+            self.p2_grenade = True
+    
     def run(self):
         while True:
-            if self.gun_shot:
-                self.gun_shot = False
+            if self.action_detected():
                 time.sleep(1)
-                if self.vest_shot:
-                    action_queue.append(['shoot', True])
-                    self.vest_shot = False
-                    print('Player has been shot')
-                else:
-                    action_queue.append(['shoot', False])
-                    print('Player Missed')
 
-            if self.vest_shot:
-                self.vest_shot = False
-                time.sleep(1)
-                if self.gun_shot:
-                    action_queue.append(['shoot', True])
-                    self.gun_shot = False
+                action = [['None'], ['None']]
+                # P1 action
+                if self.p1_gun_shot:
+                    action[0] = ['shoot', self.p2_vest_shot]
                     print('Player has been shot')
-                else:
-                    action_queue.append(['shoot', False])
+                if self.p2_gun_shot:
+                    action[1] = ['shoot', self.p1_vest_shot]
                     print('Player Missed')
+                if self.p1_grenade:
+                    # TODO - Check whether p2 is in frame
+                    action[0] = ['grenade']
+                if self.p2_grenade:
+                    # TODO - Check whether p1 is in frame
+                    action[1] = ['grenade']
+
+                self.p1_gun_shot = False
+                self.p1_vest_shot = False
+                self.p1_grenade = False
+
+                self.p2_gun_shot = False
+                self.p2_vest_shot = False
+                self.p2_grenade = False
+
+                action_queue.append(action)
 
 
 class GameEngine(threading.Thread):
@@ -121,10 +142,11 @@ class GameEngine(threading.Thread):
                     return False
         '''
         return True
+
     # one approach is to put it in action queue and continue processing/ or do we want to wait for the grenade actions
     def random_ai_action(self, data):
         actions = ["shoot", "grenade", "shield", "reload", "invalid"]
-        action_queue.put(([random.choice(actions)], ["False"]))
+        action_queue.append(([random.choice(actions)], ["False"]))
 
     def run(self):
         while not self.shutdown.is_set():
@@ -133,7 +155,6 @@ class GameEngine(threading.Thread):
                     action_data, status = action_queue.popleft()
                     
                     print(f"Receive action data by Game Engine: {action_data}")
-
                 
                     self.p1.update_shield()
                     self.p2.update_shield()
@@ -150,7 +171,7 @@ class GameEngine(threading.Thread):
                             break
 
                         if action_data == "grenade":
-                        # receiving the status mqtt topic
+                            # receiving the status mqtt topic
                             self.p1.throw_grenade()
                             subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
 
@@ -337,11 +358,16 @@ class Server(threading.Thread):
 
         self.packer = BLEPacket()
 
-        # Player threads
-        self.p1_shoot_engine = ShootEngine()
+        # Shoot Engine Threads
+        self.p1_shoot_engine = ActionEngine()
         self.p1_ai_engine = AIModel()
         if not SINGLE_PLAYER_MODE:
-            self.p2_shoot_engine = ShootEngine()
+            self.p2_shoot_engine = ActionEngine()
+            self.p2_ai_engine = AIModel()
+
+        # AI Model Threads
+        self.p1_ai_model = AIModel()
+        if not SINGLE_PLAYER_MODE:
             self.p2_ai_engine = AIModel()
 
         # Data Buffer
@@ -366,12 +392,16 @@ class Server(threading.Thread):
         print("Shutting Down Server")
 
     def run(self):
-        p1_shot_thread = threading.Thread(target=self.p1_shoot_engine.start)
-        p1_shot_thread.start()
+        p1_action_thread = threading.Thread(target=self.p1_shoot_engine.start)
+        p1_ai_thread = threading.Thread(target=self.p1_ai_engine.start)
+        p1_action_thread.start()
+        p1_ai_thread.start()
 
         if not SINGLE_PLAYER_MODE:
-            p2_shot_thread = threading.Thread(target=self.p2_shoot_engine.start)
-            p2_shot_thread.start()
+            p1_action_thread = threading.Thread(target=self.p2_shoot_engine.start)
+            p2_ai_thread = threading.Thread(target=self.p2_ai_engine.start)
+            p1_action_thread.start()
+            p2_ai_thread.start()
 
         self.server_socket.listen(1)
         self.setup()
@@ -393,9 +423,9 @@ class Server(threading.Thread):
                 packet_id = self.packer.get_beetle_id()
 
                 if packet_id == 1:
-                    self.p1_shoot_engine.handle_gun_shot()
+                    self.p1_shoot_engine.handle_gun_shot(1)
                 elif packet_id == 2:
-                    self.p1_shoot_engine.handle_vest_shot()
+                    self.p1_shoot_engine.handle_vest_shot(1)
                 elif packet_id == 3:
                     packet = self.packer.get_euler_data() + self.packer.get_acc_data()
                     ai_queue.put(packet)
@@ -435,7 +465,7 @@ class AIModel(threading.Thread):
         self.shutdown = threading.Event()
 
         # Load all_arrays.json
-        with open('all_arrays.json', 'r') as f:
+        with open('dependencies/all_arrays.json', 'r') as f:
             all_arrays = json.load(f)
 
         # Retrieve values from all_arrays
@@ -451,7 +481,7 @@ class AIModel(threading.Thread):
         self.variance = self.variance.reshape(40, 3)
 
         # read in the test actions from the JSON file
-        with open('test_actions.json', 'r') as f:
+        with open('dependencies/test_actions.json', 'r') as f:
             test_actions = json.load(f)
 
         # extract the test data for each action from the dictionary
@@ -676,12 +706,11 @@ class DetectionTime:
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 1:
+    if len(sys.argv) != 2:
         print('Invalid number of arguments')
         print('Parameters: [num_of_players]')
         sys.exit()
-
-    if int(sys.argv[0]) == 1:
+    if int(sys.argv[1]) == 1:
         print("SINGLE PLAYER MODE")
         SINGLE_PLAYER_MODE = True
     else:

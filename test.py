@@ -1,3 +1,6 @@
-import os
+x1 = True
+x2 = False
+x3 = False
 
-print(os.getcwd())
+if x1 or x2 or x3:
+    print("Hello")
