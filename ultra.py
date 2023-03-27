@@ -3,6 +3,7 @@ import sys
 # Module Dependencies Directory
 sys.path.append('/home/xilinx/main/dependencies')
 
+import matplotlib.pyplot as plt
 import paho.mqtt.client as mqtt
 import pandas as pd
 import numpy as np
@@ -10,25 +11,24 @@ import websockets
 import threading
 import traceback
 import constants
-import datetime
 import asyncio
 import socket
 import random
-import queue
 import time
 import json
-import pynq
-import csv
-from scipy import stats
-from queue import Queue
-from pynq import Overlay
+import queue
+from GameState import GameState
 from _socket import SHUT_RDWR
+from queue import Queue
 from collections import deque
-from dependencies.GameState import GameState
-from dependencies.ble_packet import BLEPacket
+from ble_packet import BLEPacket
+from packet_type import PacketType
+from scipy.signal import medfilt
+from scipy.ndimage import gaussian_filter1d
 
-# from sklearn.feature_selection import SelectKBest
-# from sklearn.preprocessing import StandardScaler
+# import pynq
+# from scipy import stats
+# from pynq import Overlay
 
 """
 Threads: 
@@ -372,6 +372,7 @@ class Server(threading.Thread):
         if not SINGLE_PLAYER_MODE:
             p2_shot_thread = threading.Thread(target=self.p2_shoot_engine.start)
             p2_shot_thread.start()
+
         self.server_socket.listen(1)
         self.setup()
 
@@ -392,9 +393,9 @@ class Server(threading.Thread):
                 packet_id = self.packer.get_beetle_id()
 
                 if packet_id == 1:
-                    self.shoot_engine.handle_gun_shot()
+                    self.p1_shoot_engine.handle_gun_shot()
                 elif packet_id == 2:
-                    self.shoot_engine.handle_vest_shot()
+                    self.p1_shoot_engine.handle_vest_shot()
                 elif packet_id == 3:
                     packet = self.packer.get_euler_data() + self.packer.get_acc_data()
                     ai_queue.put(packet)
@@ -406,12 +407,7 @@ class Server(threading.Thread):
                     self.p2_shoot_engine.handle_gun_shot()
                 elif packet_id == 5:
                     self.p2_shoot_engine.handle_vest_shot()
-                
                 '''
-
-                # # Remove when Training is complete
-                # if global_flag:
-                #     fpga_queue.put(packet)
 
                 # Sends data back into the relay laptop
                 if len(laptop_queue) != 0:
@@ -431,235 +427,6 @@ class Server(threading.Thread):
                 continue
 
 
-class TrainingModel(threading.Thread):
-    def __init__(self):
-        super().__init__()
-
-        # Flags
-        self.shutdown = threading.Event()
-
-        self.packer = BLEPacket()
-
-        self.columns = ['flex1', 'flex2', 'gx', 'gy', 'gz', 'accX', 'accY', 'accZ']
-
-        self.factors = ['mean', 'std', 'variance', 'min', 'max', 'range', 'peak_to_peak_amplitude',
-                        'mad', 'root_mean_square', 'interquartile_range', 'percentile_75',
-                        'skewness', 'kurtosis', 'zero_crossing_rate', 'energy']
-
-        self.headers = [f'{raw_header}_{factor}' for raw_header in self.columns for factor in self.factors]
-        self.headers.extend(['action', 'timestamp'])
-
-        self.filename = "/home/kenneth/Desktop/CG4002/training/raw_data.csv"
-
-        # defining game action dictionary
-        self.action_map = {0: 'GRENADE', 1: 'LOGOUT', 2: 'SHIELD', 3: 'RELOAD'}
-
-    def sleep(self, seconds):
-        start_time = time.time()
-        while time.time() - start_time < seconds:
-            pass
-
-    def generate_simulated_data(self):
-        yaw = random.uniform(-180, 180)
-        pitch = random.uniform(-180, 180)
-        roll = random.uniform(-180, 180)
-        accX = random.uniform(-9000, 9000)
-        accY = random.uniform(-9000, 9000)
-        accZ = random.uniform(-9000, 9000)
-        flex1 = random.uniform(-1, 1)
-        flex2 = random.uniform(-1, 1)
-        return [flex1, flex2, yaw, pitch, roll, accX, accY, accZ]
-
-        # simulate game movement with noise and action
-
-    def generate_simulated_wave(self):
-
-        # base noise 10s long -> 20Hz*10 = 200 samples
-        t = np.linspace(0, 5, 200)  # Define the time range
-        x1 = 0.2 * np.sin(t) + 0.2 * np.random.randn(200)
-        x1[(x1 > -1) & (x1 < 1)] = 0.0  # TODO - sensor noise within margin of error auto remove
-
-        # movement motion
-        period = 2  # seconds
-        amplitude = 5
-        t = np.linspace(0, 2, int(2 / 0.05))  # Define the time range
-        x2 = amplitude * np.sin(2 * np.pi * t / period)[:40]  # Compute the sine wave for only one cycle
-
-        x = x1
-        # Add to the 40th-80th elements
-        x[20:60] += x2
-        x[80:120] += x2
-
-        return x
-
-    def preprocess_data(self, data):
-        mean = np.mean(data)
-        std = np.std(data)
-        variance = np.var(data)
-        min = np.min(data)
-        max = np.max(data)
-        range = np.max(data) - np.min(data)
-        peak_to_peak_amplitude = np.abs(np.max(data) - np.min(data))
-        mad = np.median(np.abs(data - np.median(data)))
-        root_mean_square = np.sqrt(np.mean(np.square(data)))
-        interquartile_range = stats.iqr(data)
-        percentile_75 = np.percentile(data, 75)
-        skewness = stats.skew(data.reshape(-1, 1))[0]
-        kurtosis = stats.kurtosis(data.reshape(-1, 1))[0]
-        zero_crossing_rate = ((data[:-1] * data[1:]) < 0).sum()
-        energy = np.sum(data ** 2)
-        # entropy = stats.entropy(data, base=2)
-
-        output_array = [mean, std, variance, min, max, range, peak_to_peak_amplitude,
-                        mad, root_mean_square, interquartile_range, percentile_75,
-                        skewness, kurtosis, zero_crossing_rate, energy]
-
-        output_array = np.array(output_array)
-        return output_array.reshape(1, -1)
-
-    def preprocess_dataset(self, df):
-        processed_data = []
-
-        # Loop through each column and compute features
-        for column in df.columns:
-            column_data = df[column].values
-            column_data = column_data.reshape(1, -1)
-            print(f"column_data: {column_data}\n")
-            print("Data type of column_data:", type(column_data))
-            print("Size of column_data:", column_data.size)
-
-            temp_processed = self.preprocess_data(column_data)
-
-            # print(processed_column_data)
-            # Append processed column data to main processed data array
-            processed_data.append(temp_processed)
-
-        processed_data_arr = np.concatenate(processed_data)
-
-        # reshape into a temporary dataframe of 8x14
-        temp_df = pd.DataFrame(processed_data_arr.reshape(8, -1), index=self.columns, columns=self.factors)
-
-        # print the temporary dataframe
-        print(f"processed_data: \n {temp_df} \n")
-        print(f"len processed_data: {len(processed_data_arr)}\n")
-
-        return processed_data_arr
-
-    def MLP(self, data):
-        start_time = time.time()
-        # allocate in and out buffer
-        in_buffer = pynq.allocate(shape=(24,), dtype=np.double)
-
-        # print time taken so far
-        print(f"MLP time taken so far in_buffer: {time.time() - start_time}")
-        # out buffer of 1 integer
-        out_buffer = pynq.allocate(shape=(1,), dtype=np.int32)
-        print(f"MLP time taken so far out_buffer: {time.time() - start_time}")
-
-        # # TODO - copy all data to in buffer
-        # for i, val in enumerate(data):
-        #     in_buffer[i] = val
-
-        for i, val in enumerate(data[:24]):
-            in_buffer[i] = val
-
-        print(f"MLP time taken so far begin trf: {time.time() - start_time}")
-
-        self.dma.sendchannel.transfer(in_buffer)
-        self.dma.recvchannel.transfer(out_buffer)
-
-        print(f"MLP time taken so far end trf: {time.time() - start_time}")
-
-        # wait for transfer to finish
-        self.dma.sendchannel.wait()
-        self.dma.recvchannel.wait()
-
-        print(f"MLP time taken so far wait: {time.time() - start_time}")
-
-        # print("mlp done \n")
-
-        # print output buffer
-        for output in out_buffer:
-            print(f"mlp done with output {output}")
-
-        print(f"MLP time taken so far output: {time.time() - start_time}")
-
-        return [random.random() for _ in range(4)]
-
-    def instantMLP(self, data):
-        # Define the input weights and biases
-        w1 = np.random.rand(24, 10)
-        b1 = np.random.rand(10)
-        w2 = np.random.rand(10, 20)
-        b2 = np.random.rand(20)
-        w3 = np.random.rand(20, 4)
-        b3 = np.random.rand(4)
-
-        # Perform the forward propagation
-        a1 = np.dot(data[:24], w1) + b1
-        h1 = np.maximum(0, a1)  # ReLU activation
-        a2 = np.dot(h1, w2) + b2
-        h2 = np.maximum(0, a2)  # ReLU activation
-        a3 = np.dot(h2, w3) + b3
-
-        c = np.max(a3)
-        exp_a3 = np.exp(a3 - c)
-        softmax_output = exp_a3 / np.sum(exp_a3)  # Softmax activation
-
-        return softmax_output
-
-    def run(self):
-        # Write Row
-        # with open("/home/xilinx/code/training/processed_data.csv", "a") as f:
-        #     writer = csv.writer(f)
-        #     writer.writerow(self.headers)
-
-        while not self.shutdown.is_set():
-            try:
-                input("Start Training Model?")
-
-                start_time = time.time()
-
-                raw_data = []
-
-                global collection_flag
-                collection_flag = True
-
-                training_model_queue.clear()
-
-                while time.time() - start_time < 2:
-                    data = training_model_queue.popleft()
-                    if len(data) == 8:
-                        raw_data.append(data)
-
-                for i in raw_data:
-                    self.packer.unpack(i)
-                    data = self.packer.get_euler_data() + self.packer.get_acc_data()
-                    print(f"data: {data} \n")
-
-                collection_flag = False
-
-                ui = input("Save this Data? y/n")
-
-                if ui.lower() == "y":
-                    with open(self.filename, "a") as f:
-                        writer = csv.writer(f)
-                        for row in raw_data:
-                            writer.writerow(row)
-
-                    # Prompt user for label
-                    # label = input("Enter label (G = GRENADE, R = RELOAD, S = SHIELD, L = LOGOUT): ")
-
-                    print("Data processed and saved to CSV file.")
-                else:
-                    raw_data = []
-                    i = 0
-                    print("not proceed, restart")
-            except Exception as _:
-                traceback.print_exc()
-                continue
-
-
 class AIModel(threading.Thread):
     def __init__(self):
         super().__init__()
@@ -667,173 +434,150 @@ class AIModel(threading.Thread):
         # Flags
         self.shutdown = threading.Event()
 
-        self.columns = ['gx', 'gy', 'gz', 'accX', 'accY', 'accZ']
+        # Load all_arrays.json
+        with open('all_arrays.json', 'r') as f:
+            all_arrays = json.load(f)
 
-        self.factors = ['mean', 'std', 'variance', 'range', 'peak_to_peak_amplitude',
-                        'mad', 'root_mean_square', 'interquartile_range', 'percentile_75',
-                        'energy']
+        # Retrieve values from all_arrays
+        self.scaling_factors = np.array(all_arrays['scaling_factors'])
+        self.mean = np.array(all_arrays['mean'])
+        self.variance = np.array(all_arrays['variance'])
+        self.pca_eigvecs = np.array(all_arrays['pca_eigvecs'])
+        self.weights = [np.array(w) for w in all_arrays['weights']]
 
-        self.num_groups = 8
-        self.headers = [f'grp_{i + 1}_{column}_{factor}' for i in range(self.num_groups)
-                        for column in self.columns for factor in self.factors]
+        # Reshape scaling_factors, mean and variance to (1, 3)
+        self.scaling_factors = self.scaling_factors.reshape(40, 3)
+        self.mean = self.mean.reshape(40, 3)
+        self.variance = self.variance.reshape(40, 3)
 
-        self.headers.extend(['action'])
+        # read in the test actions from the JSON file
+        with open('test_actions.json', 'r') as f:
+            test_actions = json.load(f)
 
-        # defining game action dictionary
-        self.action_map = {0: 'G', 1: 'L', 2: 'R', 3: 'S'}
+        # extract the test data for each action from the dictionary
+        self.test_g = np.array(test_actions['G'])
+        self.test_s = np.array(test_actions['S'])
+        self.test_r = np.array(test_actions['R'])
 
-        # load PCA model
-        # read the contents of the arrays.txt file
-        with open("dependencies/arrays.txt", "r") as f:
-            data = json.load(f)
+        # define the available actions
+        self.test_actions = ['G', 'S', 'R']
 
-        # extract the weights and bias arrays
-        self.scaling_factor = data['scaling_factor']
-        self.mean = data['mean']
-        self.variance = data['variance']
-        self.pca_eigvecs_list = data['pca_eigvecs_list']
-
-        self.pca_eigvecs_transposed = [list(row) for row in zip(*self.pca_eigvecs_list)]
-        
         # PYNQ overlay
-        self.overlay = Overlay("pca_mlp_1.bit")
-        self.dma = self.overlay.axi_dma_0
+        # self.overlay = Overlay("pca_mlp_1.bit")
+        # self.dma = self.overlay.axi_dma_0
 
-        # Allocate input and output buffers once
-        self.in_buffer = pynq.allocate(shape=(35,), dtype=np.float32)
-        self.out_buffer = pynq.allocate(shape=(4,), dtype=np.float32)
-
-        self.detection_time = DetectionTime()
+        # # Allocate input and output buffers once
+        # self.in_buffer = pynq.allocate(shape=(35,), dtype=np.float32)
+        # self.out_buffer = pynq.allocate(shape=(4,), dtype=np.float32)
 
     def sleep(self, seconds):
         start_time = time.time()
         while time.time() - start_time < seconds:
             pass
 
-    def generate_simulated_data(self):
-        gx = random.uniform(-9, 9)  # TODO - assumption: gyro x,y,z change btwn -9 to 9
-        gy = random.uniform(-9, 9)
-        gz = random.uniform(-9, 9)
-        accX = random.uniform(-9, 9)
-        accY = random.uniform(-9, 9)
-        accZ = random.uniform(-9, 9)
-        return [gx, gy, gz, accX, accY, accZ]
+    def blur_3d_movement(self, acc_df):
+        acc_df = pd.DataFrame(acc_df)
+        fs = 20  # sampling frequency
+        dt = 1 / fs
 
-    def preprocess_data(self, data):
-        # standard data processing techniques
-        mean = np.mean(data)
-        std = np.std(data)
-        variance = np.var(data)
-        range = np.max(data) - np.min(data)
-        peak_to_peak_amplitude = np.abs(np.max(data) - np.min(data))
-        mad = np.median(np.abs(data - np.median(data)))
-        root_mean_square = np.sqrt(np.mean(np.square(data)))
-        interquartile_range = stats.iqr(data)
-        percentile_75 = np.percentile(data, 75)
-        energy = np.sum(data ** 2)
+        # Apply median filtering column-wise
+        filtered_acc = acc_df.apply(lambda x: medfilt(x, kernel_size=7))
+        filtered_acc = gaussian_filter1d(filtered_acc.values.astype(float), sigma=3, axis=0)
+        filtered_acc_df = pd.DataFrame(filtered_acc, columns=acc_df.columns)
 
-        output_array = np.empty((1, 10))
-        output_array[0] = [mean, std, variance, range, peak_to_peak_amplitude, mad, root_mean_square,
-                           interquartile_range, percentile_75, energy]
+        ax = filtered_acc_df[0]
+        ay = filtered_acc_df[1]
+        az = filtered_acc_df[2]
 
-        return output_array
+        vx = np.cumsum(ax) * dt
+        vy = np.cumsum(ay) * dt
+        vz = np.cumsum(az) * dt
 
-    def preprocessing_and_mlp(self, arr):
-        processed_data = []
+        x = np.cumsum(vx) * dt
+        y = np.cumsum(vy) * dt
+        z = np.cumsum(vz) * dt
 
-        # Set the window size for the median filter
-        window_size = 7
+        xyz = np.column_stack((x, y, z))
 
-        df = pd.DataFrame(arr)
-        df_filtered = df.rolling(window_size, min_periods=1, center=True).median()
+        return xyz
 
-        arr = df_filtered.values
+    # Define Scaler
+    def scaler(self, X):
+        return (X - self.mean) / np.sqrt(self.variance)
 
-        # Split the rows into 8 groups
-        group_size = 5
-        num_groups = 8
+    # Define PCA
+    def pca(self, X):
+        return np.dot(X, self.pca_eigvecs.T)
 
-        # Loop through each group and column, and compute features
-        for i in range(num_groups):
-            start_idx = i * group_size
-            end_idx = start_idx + group_size
-            group = arr[start_idx:end_idx, :]
+    def rng_test_action(self):
+        # choose a random action from the list
+        chosen_action = random.choice(self.test_actions)
 
-            group_data = []
-            for column in range(arr.shape[1]):
-                column_data = group[:, column]
-                column_data = column_data.reshape(1, -1)
+        # use the chosen action to select the corresponding test data
+        if chosen_action == 'G':
+            test_data = self.test_g
+        elif chosen_action == 'S':
+            test_data = self.test_s
+        else:
+            test_data = self.test_r
 
-                temp_processed = self.preprocess_data(column_data)
-                temp_processed = temp_processed.flatten()
+        return test_data
 
-                group_data.append(temp_processed)
+    # Define MLP
+    def mlp(self, X):
+        H1 = np.dot(X, self.weights[0]) + self.weights[1]
+        H1_relu = np.maximum(0, H1)
+        H2 = np.dot(H1_relu, self.weights[2]) + self.weights[3]
+        H2_relu = np.maximum(0, H2)
+        Y = np.dot(H2_relu, self.weights[4]) + self.weights[5]
+        Y_softmax = np.exp(Y) / np.sum(np.exp(Y), axis=1, keepdims=True)
+        return Y_softmax
 
-            processed_data.append(np.concatenate(group_data))
+    def get_action(self, softmax_array):
+        max_index = np.argmax(softmax_array)
+        action_dict = {0: 'G', 1: 'R', 2: 'S'}
+        action = action_dict[max_index]
+        return action
 
-        processed_data_arr = np.concatenate(processed_data)
+    # def MLP_Overlay(self, data):
+    #     start_time = time.time()
 
-        predicted_label = self.MLP_Driver(processed_data_arr)
+    #     # reshape data to match in_buffer shape
+    #     data = np.reshape(data, (35,))
 
-        return predicted_label
-    
+    #     self.in_buffer[:] = data
 
-    def MLP_Overlay(self, data):
-        start_time = time.time()
+    #     self.dma.sendchannel.transfer(self.in_buffer)
+    #     self.dma.recvchannel.transfer(self.out_buffer)
 
-        # reshape data to match in_buffer shape
-        data = np.reshape(data, (35,))
+    #     # wait for transfer to finish
+    #     self.dma.sendchannel.wait()
+    #     self.dma.recvchannel.wait()
 
-        self.in_buffer[:] = data
+    #     # print output buffer
+    #     print("mlp done with output: " + " ".join(str(x) for x in self.out_buffer))
 
-        self.dma.sendchannel.transfer(self.in_buffer)
-        self.dma.recvchannel.transfer(self.out_buffer)
+    #     print(f"MLP time taken so far output: {time.time() - start_time}")
 
-        # wait for transfer to finish
-        self.dma.sendchannel.wait()
-        self.dma.recvchannel.wait()
+    #     return self.out_buffer
 
-        # print output buffer
-        print("mlp done with output: " + " ".join(str(x) for x in self.out_buffer))
+    def AIDriver(self, test_input):
+        test_input = test_input.reshape(40, 6)
+        acc_df = test_input[:, -3:]
 
-        print(f"MLP time taken so far output: {time.time() - start_time}")
+        # Transform data using Scaler and PCA
+        blurred_data = self.blur_3d_movement(acc_df.reshape(40, 3))
+        data_scaled = self.scaler(blurred_data)
+        data_pca = self.pca(data_scaled.reshape(1, 120))
 
-        return self.out_buffer
+        # Make predictions using MLP
+        predictions = self.mlp(data_pca)
+        action = self.get_action(predictions)
 
-    def MLP_Driver(self, data):
-        # MLP Library
-        # mlp = joblib.load('mlp_model.joblib') # localhost
-        # mlp = joblib.load('/home/xilinx/mlp_model.joblib') # board
+        print(predictions)
+        print(action)
 
-        # sample data for sanity check
-        # test_input = np.array([0.1, 0.2, 0.3, 0.4] * 120).reshape(1, -1)
-
-        # Scaler
-        test_input_rescaled = (data - self.mean) / np.sqrt(self.variance) # TODO - use this for real data
-        # test_input_rescaled = (test_input - self.mean) / np.sqrt(self.variance)
-        # print(f"test_input_rescaled: {test_input_rescaled}\n")
-
-        # PCA
-        test_input_math_pca = np.dot(test_input_rescaled, self.pca_eigvecs_transposed)
-        # print(f"test_input_math_pca: {test_input_math_pca}\n")
-
-        # MLP - TODO PYNQ Overlay
-        predicted_labels = self.MLP_Overlay(test_input_math_pca) # return 1x4 softmax array
-        print(f"MLP pynq overlay predicted: {predicted_labels} \n")
-        np_output = np.array(predicted_labels)
-        largest_index = np_output.argmax()
-
-        predicted_label = self.action_map[largest_index]
-
-        # print largest index and largest action of MLP output
-        print(f"largest index: {largest_index} \n")
-        print(f"MLP overlay predicted: {predicted_label} \n")
-
-        # MLP - LIB Overlay
-        # predicted_label = mlp.predict(test_input_math_pca.reshape(1, -1))
-        # print(f"MLP lib overlay predicted: {predicted_label} \n")
-
-        return predicted_label
+        return action
 
     def close_connection(self):
         self.shutdown.set()
@@ -841,77 +585,75 @@ class AIModel(threading.Thread):
         print("Shutting Down Connection")
 
     def run(self):
-        K = float(input("threshold value? "))
+        # Set the threshold value for movement detection based on user input
+        K = 10
+        # K = float(input("threshold value? "))
 
         # Initialize arrays to hold the current and previous data packets
-        current_packet = np.zeros((6, 6))
-        previous_packet = np.zeros((6, 6))
+        current_packet = np.zeros((5, 6))
+        previous_packet = np.zeros((5, 6))
         data_packet = np.zeros((40, 6))
         is_movement_counter = 0
         movement_watchdog = False
         loop_count = 0
 
-        # Enter the main loop
+        # live integration loop
         while True:
-            # runs loop 6 times and packs the data into groups of 6
-            if ai_queue:
-                q_data = ai_queue.get()
-                ai_queue.task_done()
-                
-                new_data = np.array(q_data)
-                new_data[-3:] = [x/100.0 for x in new_data[-3:]]
-            
-  
+            if ai_queue:  # TODO re-enable for live integration
+                # if 1 == 1: # TODO DIS-enable for live integration
+                # runs loop 6 times and packs the data into groups of 6
+
+                q_data = ai_queue.get()  # TODO re-enable for live integration
+                ai_queue.task_done()  # TODO re-enable for live integration
+                new_data = np.array(q_data)  # TODO re-enable for live integration
+                new_data[-3:] = [x / 100.0 for x in new_data[-3:]]  # TODO re-enable for live integration
+
+                # new_data = np.random.randn(6) # TODO DIS-enable for live integration
                 # print(" ".join([f"{x:.3f}" for x in new_data]))
-                timestamp = time.time()
-                tz = datetime.timezone(datetime.timedelta(hours=8))  # UTC+8
-                dt_object = datetime.datetime.fromtimestamp(timestamp, tz)
-                # print(f"- packet received at {dt_object} \n")
 
                 # Pack the data into groups of 6
                 current_packet[loop_count] = new_data
-            
+
                 # Update loop_count
                 loop_count = (loop_count + 1) % 5
-                
-                if loop_count % 5 == 0:
 
+                if loop_count % 5 == 0:
                     curr_mag = np.sum(np.square(np.mean(current_packet[:, -3:], axis=1)))
                     prev_mag = np.sum(np.square(np.mean(previous_packet[:, -3:], axis=1)))
 
                     # Check for movement detection
                     if not movement_watchdog and curr_mag - prev_mag > K:
-                        self.detection_time.start_timer()
                         print("Movement detected!")
                         # print currr and prev mag for sanity check
                         print(f"curr_mag: {curr_mag} \n")
                         print(f"prev_mag: {prev_mag} \n")
-                        is_movement_counter = 1
                         movement_watchdog = True
                         # append previous and current packet to data packet
                         data_packet = np.concatenate((previous_packet, current_packet), axis=0)
 
                     # movement_watchdog activated, count is_movement_counter from 0 up 6 and append current packet each time
                     if movement_watchdog:
-                        if is_movement_counter <= 6:
+                        if is_movement_counter < 6:
                             data_packet = np.concatenate((data_packet, current_packet), axis=0)
                             is_movement_counter += 1
+
+                        # If we've seen 6 packets since the last movement detection, preprocess and classify the data
                         else:
                             # print dimensions of data packet
                             # print(f"data_packet dimensions: {data_packet.shape} \n")
-                            # display_df = pd.DataFrame(data_packet, columns=self.columns) 
-                            # print(display_df.head(40))
 
-                            # If we've seen 6 packets since the last movement detection, preprocess and classify the data
-                            predicted_label = self.preprocessing_and_mlp(data_packet)
-                            print(f"output from MLP in main: \n {predicted_label} \n")  # print output of MLP
-                            self.detection_time.end_timer()
+                            # rng_test_action = self.rng_test_action() # TODO DIS-enable for live integration
+                            # action = self.AIDriver(rng_test_action) # TODO DIS-enable for live integration
+
+                            action = self.AIDriver(data_packet)  # TODO re-enable for live integration
+                            print(f"action from MLP in main: {action} \n")  # print output of MLP
+
                             # movement_watchdog deactivated, reset is_movement_counter
                             movement_watchdog = False
                             is_movement_counter = 0
                             # reset arrays to zeros
-                            current_packet = np.zeros((6, 6))
-                            previous_packet = np.zeros((6, 6))
+                            current_packet = np.zeros((5, 6))
+                            previous_packet = np.zeros((5, 6))
                             data_packet = np.zeros((40, 6))
 
                     # Update the previous packet
@@ -931,20 +673,6 @@ class DetectionTime:
     def end_timer(self):
         end_time = time.time()
         print("Detection Time Taken: ", end_time - self.start)
-
-
-class WebSocketServer:
-    def __init__(self):
-        super().__init__()
-
-    async def receive(self, websocket):
-        async for message in websocket:
-            print(f'Message Received: {message}'.ljust(40), end='\r')
-            await websocket.send(message.encode())
-
-    async def start_server(self):
-        async with websockets.serve(self.receive, constants.XILINX_SERVER, constants.XILINX_PORT_NUM):
-            await asyncio.Future()
 
 
 if __name__ == '__main__':
