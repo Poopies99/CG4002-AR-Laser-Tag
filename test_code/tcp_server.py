@@ -2,7 +2,7 @@ import threading
 import socket
 import traceback
 from _socket import SHUT_RDWR
-import constants
+from dependencies import constants
 import time
 
 
@@ -68,11 +68,11 @@ class AnyOlHow(threading.Thread):
 
 
 if __name__ == '__main__':
-    server = Server(constants.xilinx_port_num, 'localhost')
+    server = Server(constants.XILINX_PORT_NUM, 'localhost')
     server.start()
 
     any = AnyOlHow()
     any.start()
-    # server = Server(constants.xilinx_port_num, '192.168.95.221')
+    # server = Server(constants.XILINX_PORT_NUM, '192.168.95.221')
     # server.start()
 

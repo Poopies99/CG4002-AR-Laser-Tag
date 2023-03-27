@@ -3,7 +3,6 @@ import socket
 from _socket import SHUT_RDWR
 import time
 import traceback
-import constants
 
 BUFFER_SIZE = 512
 DATA_TO_SEND = b'x' * 20 * 16 # 1 MB of data

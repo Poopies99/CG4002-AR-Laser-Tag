@@ -1,14 +1,10 @@
-import os
 import socket
-import base64
-import sys
 import threading
 import traceback
 from _socket import SHUT_RDWR
-import time
 
-import constants
-from ble_packet import BLEPacket
+from dependencies import constants
+from dependencies.ble_packet import BLEPacket
 
 class Client(threading.Thread):
     def __init__(self, port_num, host_name):
@@ -100,10 +96,10 @@ class Server(threading.Thread):
                 # Append existing data into new data
                 self.data = self.data + message
 
-                if len(self.data) < constants.packet_size:
+                if len(self.data) < constants.PACKET_SIZE:
                     continue
-                packet = self.data[:constants.packet_size]
-                self.data = self.data[constants.packet_size:]
+                packet = self.data[:constants.PACKET_SIZE]
+                self.data = self.data[constants.PACKET_SIZE:]
 
                 print("Message Received from Laptop:", packet)
 

@@ -1,6 +1,6 @@
 import asyncio
 import websockets
-import constants
+from dependencies import constants
 
 
 async def echo(websocket, path):
@@ -8,7 +8,7 @@ async def echo(websocket, path):
         await websocket.send(message)
 
 async def start_server():
-    async with websockets.serve(echo, constants.xilinx_server, constants.xilinx_port_num):
+    async with websockets.serve(echo, constants.XILINX_SERVER, constants.XILINX_PORT_NUM):
         await asyncio.Future()
 
 asyncio.run(start_server())

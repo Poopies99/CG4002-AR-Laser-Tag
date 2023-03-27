@@ -1,4 +1,8 @@
-import matplotlib.pyplot as plt
+import sys
+
+# Module Dependencies Directory
+sys.path.append('/home/xilinx/main/dependencies')
+
 import paho.mqtt.client as mqtt
 import pandas as pd
 import numpy as np
@@ -6,25 +10,23 @@ import websockets
 import threading
 import traceback
 import constants
+import datetime
 import asyncio
 import socket
 import random
-import joblib
+import queue
 import time
 import json
-import csv
 import pynq
-import librosa
-import datetime
-import queue
-from pynq import Overlay
-from GameState import GameState
-from _socket import SHUT_RDWR
+import csv
 from scipy import stats
 from queue import Queue
+from pynq import Overlay
+from _socket import SHUT_RDWR
 from collections import deque
-from ble_packet import BLEPacket
-from packet_type import PacketType
+from dependencies.GameState import GameState
+from dependencies.ble_packet import BLEPacket
+
 # from sklearn.feature_selection import SelectKBest
 # from sklearn.preprocessing import StandardScaler
 
@@ -40,6 +42,8 @@ Message Queues:
 2. eval_queue from Game Engine to Client Thread
 3. subscribe_queue from Game Engine to SW Visualizer
 """
+
+SINGLE_PLAYER_MODE = False
 
 raw_queue = deque()
 action_queue = deque()
@@ -333,7 +337,12 @@ class Server(threading.Thread):
 
         self.packer = BLEPacket()
 
-        self.shoot_engine = ShootEngine()
+        # Player threads
+        self.p1_shoot_engine = ShootEngine()
+        self.p1_ai_engine = AIModel()
+        if not SINGLE_PLAYER_MODE:
+            self.p2_shoot_engine = ShootEngine()
+            self.p2_ai_engine = AIModel()
 
         # Data Buffer
         self.data = b''
@@ -357,8 +366,12 @@ class Server(threading.Thread):
         print("Shutting Down Server")
 
     def run(self):
-        p1_shot_thread = threading.Thread(target=self.shoot_engine.start)
+        p1_shot_thread = threading.Thread(target=self.p1_shoot_engine.start)
         p1_shot_thread.start()
+
+        if not SINGLE_PLAYER_MODE:
+            p2_shot_thread = threading.Thread(target=self.p2_shoot_engine.start)
+            p2_shot_thread.start()
         self.server_socket.listen(1)
         self.setup()
 
@@ -369,11 +382,11 @@ class Server(threading.Thread):
                 # Append existing data into new data
                 self.data = self.data + data
 
-                if len(self.data) < constants.packet_size:
+                if len(self.data) < constants.PACKET_SIZE:
                     continue
 
-                packet = self.data[:constants.packet_size]
-                self.data = self.data[constants.packet_size:]
+                packet = self.data[:constants.PACKET_SIZE]
+                self.data = self.data[constants.PACKET_SIZE:]
                 self.packer.unpack(packet)
 
                 packet_id = self.packer.get_beetle_id()
@@ -385,14 +398,16 @@ class Server(threading.Thread):
                 elif packet_id == 3:
                     packet = self.packer.get_euler_data() + self.packer.get_acc_data()
                     ai_queue.put(packet)
-#                     ai_queue.append(packet)
-#                     print(" ".join([f"{x:.3f}" for x in packet]))
-#                     timestamp = time.time()
-#                     tz = datetime.timezone(datetime.timedelta(hours=8))  # UTC+8
-#                     dt_object = datetime.datetime.fromtimestamp(timestamp, tz)
-#                     print(f"- packet sent at {dt_object} \n")
                 else:
                     print("Invalid Beetle ID")
+
+                '''
+                elif packet_id == 4:
+                    self.p2_shoot_engine.handle_gun_shot()
+                elif packet_id == 5:
+                    self.p2_shoot_engine.handle_vest_shot()
+                
+                '''
 
                 # # Remove when Training is complete
                 # if global_flag:
@@ -669,7 +684,7 @@ class AIModel(threading.Thread):
 
         # load PCA model
         # read the contents of the arrays.txt file
-        with open("arrays.txt", "r") as f:
+        with open("dependencies/arrays.txt", "r") as f:
             data = json.load(f)
 
         # extract the weights and bias arrays
@@ -918,7 +933,6 @@ class DetectionTime:
         print("Detection Time Taken: ", end_time - self.start)
 
 
-
 class WebSocketServer:
     def __init__(self):
         super().__init__()
@@ -929,11 +943,22 @@ class WebSocketServer:
             await websocket.send(message.encode())
 
     async def start_server(self):
-        async with websockets.serve(self.receive, constants.xilinx_server, constants.xilinx_port_num):
+        async with websockets.serve(self.receive, constants.XILINX_SERVER, constants.XILINX_PORT_NUM):
             await asyncio.Future()
 
 
 if __name__ == '__main__':
+    if len(sys.argv) != 1:
+        print('Invalid number of arguments')
+        print('Parameters: [num_of_players]')
+        sys.exit()
+
+    if int(sys.argv[0]) == 1:
+        print("SINGLE PLAYER MODE")
+        SINGLE_PLAYER_MODE = True
+    else:
+        print("TWO PLAYER MODE")
+
     print('---------------<Setup Announcement>---------------')
     # AI Model
     print("Starting AI Model Thread")
@@ -950,7 +975,7 @@ if __name__ == '__main__':
     # Client Connection to Evaluation Server
     # print("Starting Client Thread")
     # # eval_client = EvalClient(9999, "137.132.92.184")
-    # eval_client = EvalClient(constants.eval_port_num, "localhost")
+    # eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
     # eval_client.connect_to_eval()
 
     # Game Engine
@@ -959,7 +984,7 @@ if __name__ == '__main__':
 
     # Server Connection to Laptop
     print("Starting Server Thread")
-    laptop_server = Server(constants.xilinx_port_num, constants.xilinx_server)
+    laptop_server = Server(constants.XILINX_PORT_NUM, constants.XILINX_SERVER)
 
     # print("Starting Web Socket Server Thread")
     # server = WebSocketServer()
