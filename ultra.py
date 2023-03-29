@@ -752,6 +752,10 @@ class AIModel(threading.Thread):
 
                             # rng_test_action = self.rng_test_action() # TODO DIS-enable for live integration
                             # action = self.AIDriver(rng_test_action) # TODO DIS-enable for live integration
+                            
+                            # printing data packet
+                            demo_df = pd.DataFrame(data_packet)
+                            print(demo_df.head(40))
 
                             action = self.AIDriver(data_packet)  # TODO re-enable for live integration
                             print(f"action from MLP in main: {action} \n")  # print output of MLP
