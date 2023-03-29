@@ -14,6 +14,7 @@ import random
 import time
 import json
 import queue
+import tracemalloc
 from queue import Queue
 from GameState import GameState
 from _socket import SHUT_RDWR
@@ -754,6 +755,14 @@ class AIModel(threading.Thread):
 
                     # Update the previous packet
                     previous_packet = current_packet.copy()
+                    
+                    # tracemalloc
+                    snapshot = tracemalloc.take_snapshot()
+                    top_stats = snapshot.statistics('lineno')
+
+                    print("[ Top 10 ]")
+                    for stat in top_stats[:10]:
+                        print(stat)
 
 
 class DetectionTime:
@@ -820,4 +829,7 @@ if __name__ == '__main__':
     # game_engine.start()
     # ai_model.start()
     laptop_server.start()
+    
+    # tracemalloc
+    tracemalloc.start()
 
