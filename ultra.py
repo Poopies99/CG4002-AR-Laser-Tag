@@ -752,17 +752,19 @@ class AIModel(threading.Thread):
                             current_packet = np.zeros((5, 6))
                             previous_packet = np.zeros((5, 6))
                             data_packet = np.zeros((40, 6))
+                            
+                            # tracemalloc
+                            snapshot = tracemalloc.take_snapshot()
+                            top_stats = snapshot.statistics('lineno')
+
+                            print("[ Top 3 ]")
+                            for stat in top_stats[:3]:
+                                print(stat)
 
                     # Update the previous packet
                     previous_packet = current_packet.copy()
                     
-                    # tracemalloc
-                    snapshot = tracemalloc.take_snapshot()
-                    top_stats = snapshot.statistics('lineno')
-
-                    print("[ Top 10 ]")
-                    for stat in top_stats[:10]:
-                        print(stat)
+                    
 
 
 class DetectionTime:
