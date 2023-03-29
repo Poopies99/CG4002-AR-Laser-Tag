@@ -427,6 +427,16 @@ class Server(threading.Thread):
 
         print("Shutting Down Server")
 
+    def send_back_laptop(self):
+        game_state = laptop_queue.popleft()
+        data = [0, game_state['p1']['bullets'], game_state['p1']['hp'], 0, game_state['p2']['bullets'],
+                game_state['p2']['hp'], 0]
+        data = self.packer.pack(data)
+
+        self.connection.send(data)
+
+        print("Sending back to laptop", data)
+
     def run(self):
         action_thread = threading.Thread(target=self.action_engine.start)
         action_thread.start()
@@ -457,8 +467,8 @@ class Server(threading.Thread):
 
                 packet_id = self.packer.get_beetle_id()
 
-                print(packet)
-                print("Packet ID: ", packet_id)
+                # print(packet)
+                # print("Packet ID: ", packet_id)
 
                 if packet_id == 1:
                     self.action_engine.handle_gun_shot(1)
@@ -479,14 +489,7 @@ class Server(threading.Thread):
 
                 # Sends data back into the relay laptop
                 if len(laptop_queue) != 0:
-                    game_state = laptop_queue.popleft()
-                    data = [0, game_state['p1']['bullets'], game_state['p1']['hp'], 0, game_state['p2']['bullets'],
-                            game_state['p2']['hp'], 0]
-                    data = self.packer.pack(data)
-
-                    self.connection.send(data)
-
-                    print("Sending back to laptop", data)
+                    self.send_back_laptop()
             except KeyboardInterrupt as _:
                 traceback.print_exc()
                 self.close_connection()
@@ -783,8 +786,8 @@ if __name__ == '__main__':
 
     print('---------------<Setup Announcement>---------------')
     # AI Model
-    # print("Starting AI Model Thread")
-    # ai_model = AIModel()
+    print("Starting AI Model Thread")
+    ai_model = AIModel()
 
     # Software Visualizer
     # print("Starting Subscriber Send Thread")
@@ -817,6 +820,6 @@ if __name__ == '__main__':
     # hive.start()
     # viz.start()
     # game_engine.start()
-    # ai_model.start()
+    ai_model.start()
     laptop_server.start()
 
