@@ -9,13 +9,15 @@ soc_username="chris99"
 # Xilinx Credentials
 XILINX_SERVER="192.168.95.221"
 xilinx_username="xilinx"
-XILINX_PORT_NUMber="8080"
+XILINX_PORT_NUMBER="8080"
 
 # Setup SSH Port Forward
-ssh -f -N -L $port_num:$XILINX_SERVER:$XILINX_PORT_NUMber $soc_username@$soc_server
+ssh -f -N -L $port_num:$XILINX_SERVER:$XILINX_PORT_NUMBER $soc_username@$soc_server
 # Setup Reverse SSH between Local Machine and stu Server
 #ssh -f -N -R 5050:localhost:5050 chris99@stu.comp.nus.edu.sg
 ## Setup Reverse SSH between stu Server and ultra96
 #ssh -t -N $soc_username@$soc_server ssh -N -R 5050:localhost:5050 xilinx@192.168.95.221
 ssh -t -X $soc_username@$soc_server ssh -X $xilinx_username@$XILINX_SERVER
+#ssh -t -X $soc_username@$soc_server "ssh -X $xilinx_username@$XILINX_SERVER 'cd official && python3 ultra.py 2'"
+
 

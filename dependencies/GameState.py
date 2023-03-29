@@ -43,6 +43,8 @@ class GameState:
         success = True
         plaintext = self._get_data_plain_text()
 
+        print("Printed Plain Text:", plaintext)
+
         # ice_print_debug(f"Sending message to client: {plaintext} (Unencrypted)")
         # send len followed by '_' followed by cypher
         encrypted_message = self.encrypt_message(plaintext)

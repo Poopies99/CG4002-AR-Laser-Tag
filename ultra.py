@@ -21,6 +21,7 @@ from collections import deque
 from ble_packet import BLEPacket
 from scipy.signal import medfilt
 from scipy.ndimage import gaussian_filter1d
+from scipy.ndimage import gaussian_filter
 
 # import pynq
 # from scipy import stats
@@ -96,10 +97,18 @@ class ActionEngine(threading.Thread):
                 # P1 action
                 if self.p1_gun_shot:
                     action[0] = ['shoot', self.p2_vest_shot]
-                    print('Player has been shot')
+                    print('Player 1 has shot')
+                    if self.p2_vest_shot:
+                        print('Player 2 has been shot')
+                    else:
+                        print('Player 1 missed')
                 if self.p2_gun_shot:
                     action[1] = ['shoot', self.p1_vest_shot]
-                    print('Player Missed')
+                    print('Player 2 has shot')
+                    if self.p1_vest_shot:
+                        print('Player 1 has been shot')
+                    else:
+                        print('Player 2 missed')
                 if self.p1_grenade:
                     # TODO - Check whether p2 is in frame
                     action[0] = ['grenade']
@@ -151,41 +160,62 @@ class GameEngine(threading.Thread):
         while not self.shutdown.is_set():
             try:
                 if len(action_queue) != 0:
-                    action_data, status = action_queue.popleft()
+                    p1_action, p2_action = action_queue.popleft() # [[p1_action, status], [p2_action, status]]
                     
-                    print(f"Receive action data by Game Engine: {action_data}")
+                    print(f"P1 action data: {p1_action}")
+                    print(f"P2 action data: {p2_action}")
                 
                     self.p1.update_shield()
                     self.p2.update_shield()
 
-                    valid_action_p1 = self.p1.action_is_valid(action_data)
+                    valid_action_p1 = self.p1.action_is_valid(p1_action[0])
+                    valid_action_p2 = self.p2.action_is_valid(p2_action[0])
 
                     if valid_action_p1:
-                        if action_data == "logout":
+                        if p1_action[0] == "logout":
                             # send to visualizer
                             # send to eval server - eval_queue
                             data = self.eval_client.gamestate._get_data_plain_text()
                             subscribe_queue.put(data)
                             # self.eval_client.submit_to_eval()
                             break
-
-                        if action_data == "grenade":
+                        if p1_action[0] == "grenade":
                             # receiving the status mqtt topic
                             self.p1.throw_grenade()
                             subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
-
-                        elif action_data == "shield":
+                        elif p1_action[0] == "shield":
                             self.p1.activate_shield()
-
-                        elif action_data == "shoot":
+                        elif p1_action[0] == "shoot":
                             self.p1.shoot()
-                            if status:
+                            if p1_action[1]:
                                 self.p2.got_shot()
-
-                        elif action_data == "reload":
+                        elif p1_action[0] == "reload":
                             self.p1.reload()
-
-                        if action_data == "grenade":
+                        if p1_action[0] == "grenade":
+                            if self.determine_grenade_hit():
+                                self.p2.got_hit_grenade()
+                                
+                    if valid_action_p2:
+                        if p2_action[0] == "logout":
+                            # send to visualizer
+                            # send to eval server - eval_queue
+                            data = self.eval_client.gamestate._get_data_plain_text()
+                            subscribe_queue.put(data)
+                            # self.eval_client.submit_to_eval()
+                            break
+                        if p2_action[0] == "grenade":
+                            # receiving the status mqtt topic
+                            self.p1.throw_grenade()
+                            subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
+                        elif p2_action[0] == "shield":
+                            self.p1.activate_shield()
+                        elif p2_action[0] == "shoot":
+                            self.p1.shoot()
+                            if p2_action[1]:
+                                self.p1.got_shot()
+                        elif p2_action[0] == "reload":
+                            self.p1.reload()
+                        if p2_action[0] == "grenade":
                             if self.determine_grenade_hit():
                                 self.p2.got_hit_grenade()
 
@@ -200,16 +230,27 @@ class GameEngine(threading.Thread):
                         self.p2.num_shield = 3
                         self.p2.num_deaths += 1
 
+                    if self.p1.hp <=0:
+                        self.p1.hp = 100
+                        self.p1.action = "none"
+                        self.p1.bullets = 6
+                        self.p1.grenades = 2
+                        self.p1.shield_time = 0
+                        self.p1.shield_health = 0
+                        self.p1.num_shield = 3
+                        self.p1.num_deaths += 1
+
                     # gamestate to eval_server
                     self.eval_client.submit_to_eval()
                     # eval server to subscriber queue
                     self.eval_client.receive_correct_ans()
                     # subscriber queue to sw/feedback queue
 
-                    if valid_action_p1:
+                    if valid_action_p1 or valid_action_p2:
                         subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
                     else:
                         self.p1.update_invalid_action()
+                        self.p2.update_invali_action()
                         subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
 
             except KeyboardInterrupt as _:
@@ -423,18 +464,15 @@ class Server(threading.Thread):
                 elif packet_id == 3:
                     packet = self.packer.get_euler_data() + self.packer.get_acc_data()
                     self.p1_ai_engine.add_packet(packet)
-                else:
-                    print("Invalid Beetle ID")
-
-                '''
                 elif packet_id == 4:
                     self.action_engine.handle_gun_shot(2)
                 elif packet_id == 5:
                     self.action_engine.handle_vest_shot(2)
                 elif packet_id == 6:
-                    packet = self.packer.get_euler_data() + self.packet.get_acc_data()
+                    packet = self.packer.get_euler_data() + self.packer.get_acc_data()
                     self.p2_ai_engine.add_packet(packet)
-                '''
+                else:
+                    print("Invalid Beetle ID")
 
                 # Sends data back into the relay laptop
                 if len(laptop_queue) != 0:
@@ -485,11 +523,13 @@ class AIModel(threading.Thread):
         self.test_g = np.array(test_actions['G'])
         self.test_s = np.array(test_actions['S'])
         self.test_r = np.array(test_actions['R'])
+        self.test_l = np.array(test_actions['L'])
 
         # define the available actions
-        self.test_actions = ['G', 'S', 'R']
+        self.test_actions = ['G', 'S', 'R', 'L']
 
         self.ai_queue = Queue()
+
         # PYNQ overlay
         # self.overlay = Overlay("pca_mlp_1.bit")
         # self.dma = self.overlay.axi_dma_0
@@ -505,13 +545,11 @@ class AIModel(threading.Thread):
 
     def blur_3d_movement(self, acc_df):
         acc_df = pd.DataFrame(acc_df)
+        acc_df = acc_df.apply(pd.to_numeric)
         fs = 20  # sampling frequency
         dt = 1 / fs
 
-        # Apply median filtering column-wise
-        filtered_acc = acc_df.apply(lambda x: medfilt(x, kernel_size=7))
-        filtered_acc = gaussian_filter1d(filtered_acc.values.astype(float), sigma=3, axis=0)
-        filtered_acc_df = pd.DataFrame(filtered_acc, columns=acc_df.columns)
+        filtered_acc_df = acc_df.apply(lambda x: gaussian_filter(x, sigma=5))
 
         ax = filtered_acc_df[0]
         ay = filtered_acc_df[1]
@@ -525,9 +563,23 @@ class AIModel(threading.Thread):
         y = np.cumsum(vy) * dt
         z = np.cumsum(vz) * dt
 
+        x_arr = np.array(x)
+        y_arr = np.array(y)
+        z_arr = np.array(z)
+
+        x_disp = x_arr[-1] - x_arr[0]
+        y_disp = y_arr[-1] - y_arr[0]
+        z_disp = z_arr[-1] - z_arr[0]
+
         xyz = np.column_stack((x, y, z))
 
-        return xyz
+        return xyz, [x_disp, y_disp, z_disp]
+
+    def get_top_2_axes(self, row):
+        row = np.array(row)
+        abs_values = np.abs(row)
+        top_2_idx = abs_values.argsort()[-2:][::-1]
+        return (top_2_idx[0], top_2_idx[1])
 
     # Define Scaler
     def scaler(self, X):
@@ -541,11 +593,16 @@ class AIModel(threading.Thread):
         # choose a random action from the list
         chosen_action = random.choice(self.test_actions)
 
+        # # print chosen action
+        # print(f'Chosen action: {chosen_action} \n')
+
         # use the chosen action to select the corresponding test data
         if chosen_action == 'G':
             test_data = self.test_g
         elif chosen_action == 'S':
             test_data = self.test_s
+        elif chosen_action == 'L':
+            test_data = self.test_l
         else:
             test_data = self.test_r
 
@@ -563,7 +620,7 @@ class AIModel(threading.Thread):
 
     def get_action(self, softmax_array):
         max_index = np.argmax(softmax_array)
-        action_dict = {0: 'G', 1: 'R', 2: 'S'}
+        action_dict = {0: 'G', 1: 'L', 2: 'R', 3: 'S'}
         action = action_dict[max_index]
         return action
 
@@ -594,12 +651,16 @@ class AIModel(threading.Thread):
         acc_df = test_input[:, -3:]
 
         # Transform data using Scaler and PCA
-        blurred_data = self.blur_3d_movement(acc_df.reshape(40, 3))
+        blurred_data, disp_change = self.blur_3d_movement(acc_df.reshape(40, 3))
         data_scaled = self.scaler(blurred_data)
         data_pca = self.pca(data_scaled.reshape(1, 120))
 
+        top_2 = self.get_top_2_axes(disp_change)
+
+        mlp_input = np.hstack((np.array(data_pca), np.array(disp_change).reshape(1, 3), np.array(top_2).reshape(1, 2)))
+
         # Make predictions using MLP
-        predictions = self.mlp(data_pca)
+        predictions = self.mlp(mlp_input)
         action = self.get_action(predictions)
 
         print(predictions)
@@ -637,7 +698,7 @@ class AIModel(threading.Thread):
                 q_data = self.ai_queue.get()  # TODO re-enable for live integration
                 self.ai_queue.task_done()  # TODO re-enable for live integration
                 new_data = np.array(q_data)  # TODO re-enable for live integration
-                new_data[-3:] = [x / 100.0 for x in new_data[-3:]]  # TODO re-enable for live integration
+                new_data = new_data / 100.0  # TODO re-enable for live integration
 
                 # new_data = np.random.randn(6) # TODO DIS-enable for live integration
                 # print(" ".join([f"{x:.3f}" for x in new_data]))
@@ -719,8 +780,8 @@ if __name__ == '__main__':
 
     print('---------------<Setup Announcement>---------------')
     # AI Model
-    print("Starting AI Model Thread")
-    ai_model = AIModel()
+    # print("Starting AI Model Thread")
+    # ai_model = AIModel()
 
     # Software Visualizer
     # print("Starting Subscriber Send Thread")
@@ -731,14 +792,14 @@ if __name__ == '__main__':
     # viz = SubscriberReceive("gamestate")
 
     # Client Connection to Evaluation Server
-    # print("Starting Client Thread")
+    print("Starting Client Thread")
     # # eval_client = EvalClient(9999, "137.132.92.184")
-    # eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
-    # eval_client.connect_to_eval()
+    eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
+    eval_client.connect_to_eval()
 
     # Game Engine
-    # print("Starting Game Engine Thread")
-    # game_engine = GameEngine(eval_client=eval_client)
+    print("Starting Game Engine Thread")
+    game_engine = GameEngine(eval_client=eval_client)
 
     # Server Connection to Laptop
     print("Starting Server Thread")
@@ -753,6 +814,6 @@ if __name__ == '__main__':
     # hive.start()
     # viz.start()
     # game_engine.start()
-    ai_model.start()
+    # ai_model.start()
     laptop_server.start()
 
