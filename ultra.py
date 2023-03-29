@@ -624,9 +624,10 @@ class AIModel(threading.Thread):
         Y_softmax = np.exp(Y) / np.sum(np.exp(Y), axis=1, keepdims=True)
         return Y_softmax
 
-    def get_action(self, softmax_array):
+    def get_action(softmax_array):
         max_index = np.argmax(softmax_array)
-        action_dict = {0: 'G', 1: 'L', 2: 'R', 3: 'S'}
+        # action_dict = {0: 'G', 1: 'L', 2: 'R', 3: 'S'}
+        action_dict = {0: 'G', 1: 'R', 2: 'S'}
         action = action_dict[max_index]
         return action
 
