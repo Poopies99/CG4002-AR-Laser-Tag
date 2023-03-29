@@ -715,6 +715,7 @@ class AIModel(threading.Thread):
                 loop_count = (loop_count + 1) % 5
 
                 if loop_count % 5 == 0:
+                    print(".\n")
                     curr_mag = np.sum(np.square(np.mean(current_packet[:, -3:], axis=1)))
                     prev_mag = np.sum(np.square(np.mean(previous_packet[:, -3:], axis=1)))
 
