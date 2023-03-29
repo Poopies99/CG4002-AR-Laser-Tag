@@ -457,6 +457,8 @@ class Server(threading.Thread):
 
                 packet_id = self.packer.get_beetle_id()
 
+                print(packet)
+
                 if packet_id == 1:
                     self.action_engine.handle_gun_shot(1)
                 elif packet_id == 2:
@@ -792,14 +794,14 @@ if __name__ == '__main__':
     # viz = SubscriberReceive("gamestate")
 
     # Client Connection to Evaluation Server
-    print("Starting Client Thread")
+    # print("Starting Client Thread")
     # # eval_client = EvalClient(9999, "137.132.92.184")
-    eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
-    eval_client.connect_to_eval()
+    # eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
+    # eval_client.connect_to_eval()
 
     # Game Engine
-    print("Starting Game Engine Thread")
-    game_engine = GameEngine(eval_client=eval_client)
+    # print("Starting Game Engine Thread")
+    # game_engine = GameEngine(eval_client=eval_client)
 
     # Server Connection to Laptop
     print("Starting Server Thread")
