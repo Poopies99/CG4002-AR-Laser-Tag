@@ -547,8 +547,8 @@ class AIModel(threading.Thread):
         while time.time() - start_time < seconds:
             pass
 
-    def blur_3d_movement(self, acc_df):
-        acc_df = pd.DataFrame(acc_df)
+    def blur_3d_movement(self, df):
+        acc_df = pd.DataFrame(df)
         acc_df = acc_df.apply(pd.to_numeric)
         fs = 20  # sampling frequency
         dt = 1 / fs
@@ -576,13 +576,18 @@ class AIModel(threading.Thread):
         z_disp = z_arr[-1] - z_arr[0]
 
         xyz = np.column_stack((x, y, z))
+        
+        del acc_df, filtered_acc_df
 
         return xyz, [x_disp, y_disp, z_disp]
 
-    def get_top_2_axes(self, row):
-        row = np.array(row)
+    def get_top_2_axes(self, acc_data):
+        row = np.array(acc_data)
         abs_values = np.abs(row)
         top_2_idx = abs_values.argsort()[-2:][::-1]
+        
+        del row, abs_values
+        
         return (top_2_idx[0], top_2_idx[1])
 
     # Define Scaler
@@ -620,6 +625,9 @@ class AIModel(threading.Thread):
         H2_relu = np.maximum(0, H2)
         Y = np.dot(H2_relu, self.weights[4]) + self.weights[5]
         Y_softmax = np.exp(Y) / np.sum(np.exp(Y), axis=1, keepdims=True)
+        
+        del H1, H1_relu, H2, H2_relu, Y
+        
         return Y_softmax
 
     def get_action(self, softmax_array):
@@ -670,6 +678,8 @@ class AIModel(threading.Thread):
 
         print(predictions)
         print(action)
+        
+        del acc_df, blurred_data, disp_change, data_scaled, data_pca, top_2, mlp_input, predictions
 
         return action
 
