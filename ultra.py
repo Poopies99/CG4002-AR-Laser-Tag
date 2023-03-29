@@ -458,8 +458,8 @@ class Server(threading.Thread):
 
                 packet_id = self.packer.get_beetle_id()
 
-                print(packet)
-                print("Packet ID: ", packet_id)
+                # print(packet)
+                # print("Packet ID: ", packet_id)
 
                 if packet_id == 1:
                     self.action_engine.handle_gun_shot(1)
