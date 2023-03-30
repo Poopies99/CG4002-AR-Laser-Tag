@@ -6,6 +6,9 @@ from _socket import SHUT_RDWR
 # from dependencies import constants
 # from dependencies.ble_packet import BLEPacket
 
+global_test = 2
+print(global_test)
+
 class Client(threading.Thread):
     def __init__(self, port_num, host_name):
         super().__init__()
@@ -121,7 +124,9 @@ if __name__ == '__main__':
 
     # client = Client(8080, 'localhost')
     # client.start()
-    client = Client(1234, 'localhost')
+    client = Client(8080, 'localhost')
     client.start()
+
+    print("ehllo")
     # server = Server(8080, '192.168.95.221')
     # server.start()
