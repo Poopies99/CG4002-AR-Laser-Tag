@@ -101,7 +101,7 @@ class StateStaff(Player):
             if self.bullets > 0:
                 # invalid
                 ret = False
-        self.action = action_self
+        # self.action = action_self
         return ret
     
     def update_invalid_action(self):

@@ -44,13 +44,17 @@ SINGLE_PLAYER_MODE = False
 
 raw_queue = deque()
 action_queue = deque()
-shot_queue = deque()
 subscribe_queue = Queue()
 fpga_queue = deque()
 laptop_queue = deque()
 training_model_queue = deque()
 eval_queue = deque()
 feedback_queue = Queue()
+
+action_p1_queue = deque()
+action_p2_queue = deque()
+viz_p1_queue = deque()
+viz_p2_queue = deque()
 
 
 class ActionEngine(threading.Thread):
@@ -61,12 +65,34 @@ class ActionEngine(threading.Thread):
         self.p1_gun_shot = False
         self.p1_vest_shot = False
         self.p1_grenade = False
+        self.p1_shield = False
+        self.p1_grenade_hit = False
+        self.p1_reload = False
 
         if not SINGLE_PLAYER_MODE:
             self.p2_gun_shot = False
             self.p2_vest_shot = False
             self.p2_grenade = False
-
+            self.p2_shield = False
+            self.p2_grenade_hit = False
+            self.p2_reload = False
+            
+    def determine_grenade_hit(self):
+        
+        while True:
+            while not feedback_queue.empty():
+                data = feedback_queue.get()
+                if data == "6 hit_grenade#":
+                    self.p2_grenade_hit = True
+                elif data == "3 hit_grenade#":
+                    self.p1_grenade_hit = True
+                elif data == "6 no#":
+                    self.p2_grenade_hit = False
+                elif data == "3 no#":
+                    self.p1_grenade_hit = False                    
+                else:
+                    print(data) 
+        
     def handle_gun_shot(self, player):
         if player == 1:
             self.p1_gun_shot = True
@@ -87,44 +113,98 @@ class ActionEngine(threading.Thread):
 
     def action_detected(self):
         return self.p1_gun_shot or self.p1_vest_shot or self.p1_grenade or self.p2_gun_shot or self.p2_vest_shot or self.p2_grenade
-    
+
     def run(self):
         while True:
             if self.action_detected():
-                time.sleep(1)
-
-                action = [['None'], ['None']]
-                # P1 action
+                
                 if self.p1_gun_shot:
-                    action[0] = ['shoot', self.p2_vest_shot]
-                    print('Player 1 has shot')
-                    if self.p2_vest_shot:
-                        print('Player 2 has been shot')
-                    else:
-                        print('Player 1 missed')
+                    viz_p1_queue.put("shoot")
+                
                 if self.p2_gun_shot:
-                    action[1] = ['shoot', self.p1_vest_shot]
-                    print('Player 2 has shot')
-                    if self.p1_vest_shot:
-                        print('Player 1 has been shot')
-                    else:
-                        print('Player 2 missed')
+                    viz_p2_queue.put("shoot")
+                
                 if self.p1_grenade:
-                    # TODO - Check whether p2 is in frame
-                    action[0] = ['grenade']
+                    viz_p1_queue.put("grenade")
+                
                 if self.p2_grenade:
-                    # TODO - Check whether p1 is in frame
-                    action[1] = ['grenade']
+                    viz_p2_queue.put("grenade")
+                    
+                if self.p1_shield:
+                    viz_p1_queue.put("shield")
+                    action_p1_queue.put(["shield", None])
+                
+                if self.p2_shield:
+                    viz_p1_queue.put("shield")
+                    action_p2_queue.put(["shield", None])
+                    
+                if self.p1_reload:
+                    viz_p1_queue.put("reload")
+                    action_p1_queue.put(["shield", None])
+                
+                if self.p2_reload:
+                    viz_p2_queue.put("reload")                
+                    action_p2_queue.put(["shield", None])
+                time.sleep(0.5)
+                
+                if self.p1_gun_shot:
+                    if self.p2_vest_shot:
+                        viz_p1_queue.put("shoot_hit")
+                        viz_p2_queue.put("got_shot")
+                    action_p1_queue.put(["shoot", self.p2_vest_shot])
 
-                self.p1_gun_shot = False
-                self.p1_vest_shot = False
-                self.p1_grenade = False
+                if self.p2_gun_shot:
+                    if self.p1_vest_shot:        
+                        viz_p1_queue.put("got_shot")
+                        viz_p2_queue.put("shoot_hit")
+                    action_p2_queue.put(["shoot", self.p1_vest_shot])
+                    
+                if self.p1_grenade or self.p2_grenade:
+                    self.determine_grenade_hit()
+                    
+                if self.p1_grenade:
+                    action_p1_queue.put(["grenade", self.p2_grenade_hit])
+                    
+                if self.p2_grenade:
+                    action_p1_queue.put(["grenade", self.p1_grenade_hit])
+                          
+    # def run(self):
+    #     while True:
+    #         if self.action_detected():
+    
+    #             time.sleep(1)
+    #             action = None
+    #             # P1 action
+    #             if self.p1_gun_shot:
+    #                 action[0] = ['shoot', self.p2_vest_shot]
+    #                 print('Player 1 has shot')
+    #                 if self.p2_vest_shot:
+    #                     print('Player 2 has been shot')
+    #                 else:
+    #                     print('Player 1 missed')
+    #             if self.p2_gun_shot:
+    #                 action[1] = ['shoot', self.p1_vest_shot]
+    #                 print('Player 2 has shot')
+    #                 if self.p1_vest_shot:
+    #                     print('Player 1 has been shot')
+    #                 else:
+    #                     print('Player 2 missed')
+    #             if self.p1_grenade:
+    #                 # TODO - Check whether p2 is in frame
+    #                 action[0] = ['grenade']
+    #             if self.p2_grenade:
+    #                 # TODO - Check whether p1 is in frame
+    #                 action[1] = ['grenade']
 
-                self.p2_gun_shot = False
-                self.p2_vest_shot = False
-                self.p2_grenade = False
+    #             self.p1_gun_shot = False
+    #             self.p1_vest_shot = False
+    #             self.p1_grenade = False
 
-                action_queue.append(action)
+    #             self.p2_gun_shot = False
+    #             self.p2_vest_shot = False
+    #             self.p2_grenade = False
+
+    #             action_queue.append(action)
 
 
 class GameEngine(threading.Thread):
@@ -135,21 +215,11 @@ class GameEngine(threading.Thread):
         self.eval_client = eval_client
         self.p1 = self.eval_client.gamestate.player_1
         self.p2 = self.eval_client.gamestate.player_2
+        
+        self.p1_grenade_hit = False
+        self.p2_grenade_hit = False
 
         self.shutdown = threading.Event()
-
-    def determine_grenade_hit(self):
-        '''
-        while True:
-            print("Random")
-            while not feedback_queue.empty():
-                data = feedback_queue.get()
-                if data == "6 hit_grenade#":
-                    return True
-                else:
-                    return False
-        '''
-        return True
 
     # one approach is to put it in action queue and continue processing/ or do we want to wait for the grenade actions
     def random_ai_action(self, data):
@@ -159,8 +229,18 @@ class GameEngine(threading.Thread):
     def run(self):
         while not self.shutdown.is_set():
             try:
-                if len(action_queue) != 0:
-                    p1_action, p2_action = action_queue.popleft() # [[p1_action, status], [p2_action, status]]
+                if len(action_p1_queue) != 0 and len(action_p2_queue) != 0:
+                    
+                    p1_action, p2_action = None, None
+                    
+                    if len(action_p1_queue) != 0:
+                        p1_action = action_p1_queue.popleft()
+                    
+                    if len(action_p2_queue) != 0:
+                        p2_action = action_p2_queue.popleft()
+                        
+                    if p1_action == None or p2_action == None:
+                        print(f"Cannot process as {p1_action} or {p2_action} is invalid.") 
                     
                     print(f"P1 action data: {p1_action}")
                     print(f"P2 action data: {p2_action}")
@@ -171,54 +251,57 @@ class GameEngine(threading.Thread):
                     valid_action_p1 = self.p1.action_is_valid(p1_action[0])
                     valid_action_p2 = self.p2.action_is_valid(p2_action[0])
 
-                    if valid_action_p1:
-                        if p1_action[0] == "logout":
-                            # send to visualizer
-                            # send to eval server - eval_queue
-                            data = self.eval_client.gamestate._get_data_plain_text()
-                            subscribe_queue.put(data)
-                            # self.eval_client.submit_to_eval()
-                            break
-                        if p1_action[0] == "grenade":
-                            # receiving the status mqtt topic
-                            self.p1.throw_grenade()
-                            subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
-                        elif p1_action[0] == "shield":
+                    
+                    if p1_action[0] == "logout" and p2_action[0] == "logout":
+                        # send to visualizer
+                        # send to eval server - eval_queue
+                        self.p1.action = "logout"
+                        self.p2.action = "logout"
+                        data = self.eval_client.gamestate._get_data_plain_text()
+                        subscribe_queue.put(data)
+                        self.eval_client.submit_to_eval()
+                        break
+                    
+                    if p1_action[0] == "shield":
+                        if valid_action_p1 and not self.p1.check_shield():
                             self.p1.activate_shield()
-                        elif p1_action[0] == "shoot":
+                    
+                    if p2_action[0] == "shield":
+                        if valid_action_p2 and not self.p2.check_shield():
+                            self.p2.activate_shield()
+                    
+                    if p1_action[0] == "grenade":
+                        if valid_action_p1:
+                            self.p1.throw_grenade()
+                            if p1_action[1]:
+                                self.p2.got_hit_grenade()
+                                
+                    if p2_action[0] == "grenade":
+                        if valid_action_p2:
+                            self.p2.throw_grenade()
+                            if p2_action[1]:
+                                self.p1.got_hit_grenade()
+                    
+                    if p1_action[0] == "shoot":
+                        if valid_action_p1:
                             self.p1.shoot()
                             if p1_action[1]:
                                 self.p2.got_shot()
-                        elif p1_action[0] == "reload":
-                            self.p1.reload()
-                        if p1_action[0] == "grenade":
-                            if self.determine_grenade_hit():
-                                self.p2.got_hit_grenade()
                                 
-                    if valid_action_p2:
-                        if p2_action[0] == "logout":
-                            # send to visualizer
-                            # send to eval server - eval_queue
-                            data = self.eval_client.gamestate._get_data_plain_text()
-                            subscribe_queue.put(data)
-                            # self.eval_client.submit_to_eval()
-                            break
-                        if p2_action[0] == "grenade":
-                            # receiving the status mqtt topic
-                            self.p1.throw_grenade()
-                            subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
-                        elif p2_action[0] == "shield":
-                            self.p1.activate_shield()
-                        elif p2_action[0] == "shoot":
-                            self.p1.shoot()
+                    if p2_action[0] == "shoot":
+                        if valid_action_p2:
+                            self.p2.shoot()
                             if p2_action[1]:
                                 self.p1.got_shot()
-                        elif p2_action[0] == "reload":
+                                
+                    if p1_action[0] == "reload":
+                        if valid_action_p1:
                             self.p1.reload()
-                        if p2_action[0] == "grenade":
-                            if self.determine_grenade_hit():
-                                self.p2.got_hit_grenade()
-
+                                        
+                    if p2_action[0] == "reload":
+                        if valid_action_p2:
+                            self.p2.reload()
+                            
                     # If health drops to 0 then everything resets except for number of deaths
                     if self.p2.hp <= 0:
                         self.p2.hp = 100
@@ -230,7 +313,7 @@ class GameEngine(threading.Thread):
                         self.p2.num_shield = 3
                         self.p2.num_deaths += 1
 
-                    if self.p1.hp <=0:
+                    if self.p1.hp <= 0:
                         self.p1.hp = 100
                         self.p1.action = "none"
                         self.p1.bullets = 6
@@ -246,6 +329,8 @@ class GameEngine(threading.Thread):
                     self.eval_client.receive_correct_ans()
                     # subscriber queue to sw/feedback queue
 
+
+                    
                     if valid_action_p1 or valid_action_p2:
                         subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
                     else:
