@@ -171,12 +171,15 @@ class ActionEngine(threading.Thread):
                 self.p2_action_queue.clear()
                 
             if action_data_p1 == "grenade" or action_data_p2 == "grenade":
+                subscribe_queue.put(json.dumps(action_dic))
                 self.determine_grenade_hit()
                 action[0][1] = self.p2_grenade_hit
                 action[1][1] = self.p1_grenade_hit
                 if action_data_p1 == "grenade":
+                    action_dic["p1"] = None
                     action_data_p1 = False
                 if action_data_p2 == "grenade":
+                    action_dic["p2"] = None
                     action_data_p2 = False
                     
             if not (action_data_p1 is None or action_data_p2 is None): 
@@ -235,11 +238,12 @@ class GameEngine(threading.Thread):
                     valid_action_p1 = self.p1.action_is_valid(p1_action[0])
                     valid_action_p2 = self.p2.action_is_valid(p2_action[0])
 
+                    self.p1.action = p1_action[0]
+                    self.p2.action = p2_action[0]
+                    
                     if p1_action[0] == "logout" and p2_action[0] == "logout":
                         # send to visualizer
                         # send to eval server - eval_queue
-                        self.p1.action = "logout"
-                        self.p2.action = "logout"
                         data = self.eval_client.gamestate._get_data_plain_text()
                         subscribe_queue.put(data)
                         self.eval_client.submit_to_eval()
@@ -275,6 +279,7 @@ class GameEngine(threading.Thread):
                     
                     if p1_action[0] == "shoot":
                         if valid_action_p1:
+                            viz_action_p1 = "shoot"
                             self.p1.shoot()
                             if p1_action[1]:
                                 viz_action_p2 = "hit_bullet"
@@ -284,6 +289,7 @@ class GameEngine(threading.Thread):
                                 
                     if p2_action[0] == "shoot":
                         if valid_action_p2:
+                            viz_action_p2 = "shoot"
                             self.p2.shoot()
                             if p2_action[1]:
                                 viz_action_p1 = "hit_bullet"
@@ -313,12 +319,17 @@ class GameEngine(threading.Thread):
                     self.eval_client.receive_correct_ans()
                     # subscriber queue to sw/feedback queue
 
-                    if valid_action_p1 or valid_action_p2:
-                        subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
+                    if valid_action_p1:
+                        self.p1.action = viz_action_p1
                     else:
-                        self.p1.update_invalid_action()
-                        self.p2.update_invali_action()
-                        subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
+                        self.p1.action = "invalid"
+                        
+                    if valid_action_p2:
+                        self.p2.action = viz_action_p2
+                    else:
+                        self.p2.action = "invalid"
+                        
+                    subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
 
             except KeyboardInterrupt as _:
                 traceback.print_exc()
