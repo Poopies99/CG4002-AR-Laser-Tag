@@ -228,13 +228,13 @@ class GameEngine(threading.Thread):
                 if len(action_queue) != 0:
                     p1_action, p2_action = action_queue.popleft() # [[p1_action, status], [p2_action, status]]
                     
-                    viz_p1_action, viz_p2_action = None, None
+                    viz_action_p1, viz_action_p2 = None, None
                     print(f"P1 action data: {p1_action}")
                     print(f"P2 action data: {p2_action}")
                 
                     self.p1.update_shield()
                     self.p2.update_shield()
-
+                    #TODO Need to check with chris regarding convention, [action, status] -> for grenade [grenade, true] means p1 throws grenade and hit p2?
                     valid_action_p1 = self.p1.action_is_valid(p1_action[0])
                     valid_action_p2 = self.p2.action_is_valid(p2_action[0])
 
