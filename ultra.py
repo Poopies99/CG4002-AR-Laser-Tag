@@ -66,27 +66,25 @@ class ActionEngine(threading.Thread):
         # Flags
         self.p1_gun_shot = False
         self.p1_vest_shot = False
+        self.p1_grenade_hit = False
 
         if not SINGLE_PLAYER_MODE:
             self.p2_action_queue = deque()
 
             self.p2_gun_shot = False
             self.p2_vest_shot = False
+            self.p2_grenade_hit = False
 
     def handle_grenade_throw(self, player):
         if player == 1:
-            # self.p1_grenade = True
             self.p1_action_queue.append('grenade')
         else:
-            # self.p2_grenade = True
             self.p2_action_queue.append('grenade')
 
     def handle_shield(self, player):
         if player == 1:
-            # self.p1_shield = True
             self.p1_action_queue.append('shield')
         else:
-            # self.p2_shield = True
             self.p2_action_queue.append('shield')
 
     def handle_reload(self, player):
@@ -114,52 +112,111 @@ class ActionEngine(threading.Thread):
             self.p1_vest_shot = True
         else:
             self.p2_vest_shot = True
+            
+    def determine_grenade_hit(self):
+        
+        while True:
+            while not feedback_queue.empty():
+                data = feedback_queue.get()
+                if data == "6 hit_grenade#":
+                    self.p2_grenade_hit = True
+                elif data == "3 hit_grenade#":
+                    self.p1_grenade_hit = True
+                elif data == "6 no#":
+                    self.p2_grenade_hit = False
+                elif data == "3 no#":
+                    self.p1_grenade_hit = False                    
+                else:
+                    print(data)
 
     def run(self):
+        action_data_p1, action_data_p2 = None, None
+        
         if self.p1_action_queue or self.p2_action_queue:
+            
             time.sleep(3) # TODO - Based on AI prediction duration
             # Default
             action = [['None', True], ['None', True]]
-
-            if self.p1_action_queue:
-                action_data = self.p1_action_queue.popleft()
-                if action_data == 'shoot':
-                    action[0] = [action_data, self.p2_vest_shot]
-                elif action_data == 'grenade':
-                    status = True # TODO - Check whether p2 is in frame
-                    action[0] = [action_data, status]
-                elif action_data == 'reload':
-                    action[0] = [action_data, True]
-                elif action_data == 'shield':
-                    action[0] = [action_data, True]
-                elif action_data == 'logout':
-                    action[0] = [action_data, True]
-
-            if self.p2_action_queue:
-                action_data = self.p2_action_queue.popleft()
-                if action_data == 'shoot':
-                    action[1] = [action_data, self.p1_vest_shot]
-                elif action_data == 'grenade':
-                    status = True  # TODO - Check whether p1 is in frame
-                    action[1] = [action_data, status]
-                elif action_data == 'reload':
-                    action[1] = [action_data, True]
-                elif action_data == 'shield':
-                    action[1] = [action_data, True]
-                elif action_data == 'logout':
-                    action[1] = [action_data, True]
-
+            
+            action_dic = {
+                "p1": None,
+                "p2": None
+            }
+            
+            if action_data_p1 is None and self.p1_action_queue:
+                action_data_p1 = self.p1_action_queue.popleft()
+                
+                if action_data_p1 == 'shoot':
+                    action[0] = [action_data_p1, self.p2_vest_shot]
+                    action_dic["p1"] = "shoot"
+                    if self.p2_vest_shot:
+                        action_dic["p2"] = "hit_bullet"
+                        
+                elif action_data_p1 == 'grenade':
+                    action_dic["p1"] = "grenade"
+                    action[0] = [action_data_p1, False]
+                    
+                elif action_data_p1 == 'reload':
+                    action_dic["p1"] = action_data_p1
+                    action[0] = [action_data_p1, True]
+                    
+                elif action_data_p1 == 'shield':
+                    action_dic["p1"] = action_data_p1
+                    action[0] = [action_data_p1, True]
+                    
+                elif action_data_p1 == 'logout':
+                    action_dic["p1"] = action_data_p1
+                    action[0] = [action_data_p1, True]
+                    
+            if action_data_p2 is None and self.p2_action_queue:
+                action_data_p2 = self.p1_action_queue.popleft()
+                
+                if action_data_p2 == 'shoot':
+                    action[1] = [action_data_p2, self.p2_vest_shot]
+                    action_dic["p2"] = "shoot"
+                    if self.p2_vest_shot:
+                        action_dic["p1"] = "hit_bullet"
+                        
+                elif action_data_p1 == 'grenade':
+                    action_dic["p2"] = "grenade"
+                    subscribe_queue.put(action_dic)
+                    action[1] = [action_data_p2, False]
+                    
+                elif action_data_p2 == 'reload':
+                    action_dic["p2"] = action_data_p2
+                    action[1] = [action_data_p2, True]
+                    
+                elif action_data_p2 == 'shield':
+                    action_dic["p2"] = action_data_p2
+                    action[1] = [action_data_p2, True]
+                    
+                elif action_data_p2 == 'logout':
+                    action_dic["p2"] = action_data_p2
+                    action[1] = [action_data_p2, True]
+            
+            subscribe_queue.put(action_dic)
+            
+            if action_data_p1 == "grenade" or action_data_p2 == "grenade":
+                self.determine_grenade_hit()
+                action[0][1] = self.p2_grenade_hit
+                action[1][1] = self.p1_grenade_hit
+            
+            self.p1_grenade_hit = False
             self.p1_gun_shot = False
             self.p1_vest_shot = False
 
             if not SINGLE_PLAYER_MODE:
                 self.p2_gun_shot = False
                 self.p2_vest_shot = False
-
-            print(action)
-
-            action_queue.append(action)
-
+                self.p2_grenade_hit = False
+                
+            if not (action_data_p1 is None or action_data_p2 is None): 
+                       
+                action_queue.append(action)
+                action_data_p1, action_data_p2 = None, None
+                self.p1_action_queue.clear()
+                self.p2_action_queue.clear()
+                
 
 class GameEngine(threading.Thread):
     def __init__(self, eval_client):
@@ -171,24 +228,6 @@ class GameEngine(threading.Thread):
         self.p2 = self.eval_client.gamestate.player_2
 
         self.shutdown = threading.Event()
-
-    def determine_grenade_hit(self):
-        '''
-        while True:
-            print("Random")
-            while not feedback_queue.empty():
-                data = feedback_queue.get()
-                if data == "6 hit_grenade#":
-                    return True
-                else:
-                    return False
-        '''
-        return True
-
-    # one approach is to put it in action queue and continue processing/ or do we want to wait for the grenade actions
-    def random_ai_action(self, data):
-        actions = ["shoot", "grenade", "shield", "reload", "invalid"]
-        action_queue.append(([random.choice(actions)], ["False"]))
 
     def parse_action(self, player_action, player1, player2):
         if player_action[0] == "logout":
