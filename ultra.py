@@ -30,18 +30,6 @@ from scipy.ndimage import gaussian_filter
 # from scipy import stats
 # from pynq import Overlay
 
-"""
-Threads: 
-1. Client Thread to connect to eval server
-2. Server Thread for laptop to connect to
-3. Subscriber Thread to publish data to SW Visualizer
-4. Game Engine Thread to process incoming data from Laptop
-
-Message Queues:
-1. raw_queue between Server and Game Engine Thread
-2. eval_queue from Game Engine to Client Thread
-3. subscribe_queue from Game Engine to SW Visualizer
-"""
 
 SINGLE_PLAYER_MODE = False
 
@@ -55,8 +43,6 @@ fpga_queue = deque()
 action_queue = deque()
 laptop_queue = deque()
 training_model_queue = deque()
-viz_action_queue = deque()
-
 
 class ActionEngine(threading.Thread):
     def __init__(self):
@@ -115,7 +101,6 @@ class ActionEngine(threading.Thread):
             self.p2_vest_shot = True
             
     def determine_grenade_hit(self):
-        
         while True:
             while not feedback_queue.empty():
                 data = feedback_queue.get()
@@ -133,11 +118,9 @@ class ActionEngine(threading.Thread):
     def run(self):
         action_data_p1, action_data_p2 = None, None
         action = [['None', True], ['None', True]]
+        
         if self.p1_action_queue or self.p2_action_queue:
-            
-            time.sleep(3) # TODO - Based on AI prediction duration
-            # Default
-            
+                     
             action_dic = {
                 "p1": None,
                 "p2": None
@@ -148,24 +131,18 @@ class ActionEngine(threading.Thread):
                 
                 if action_data_p1 == 'shoot':
                     action[0] = [action_data_p1, self.p2_vest_shot]
-                    action_dic["p1"] = "shoot"
-                    if self.p2_vest_shot:
-                        action_dic["p2"] = "hit_bullet"
                         
                 elif action_data_p1 == 'grenade':
-                    action_dic["p1"] = "grenade"
+                    action_dic["p1"] = "check_grenade"
                     action[0] = [action_data_p1, False]
                     
                 elif action_data_p1 == 'reload':
-                    action_dic["p1"] = action_data_p1
                     action[0] = [action_data_p1, True]
                     
                 elif action_data_p1 == 'shield':
-                    action_dic["p1"] = action_data_p1
                     action[0] = [action_data_p1, True]
                     
                 elif action_data_p1 == 'logout':
-                    action_dic["p1"] = action_data_p1
                     action[0] = [action_data_p1, True]
                     
             if action_data_p2 is None and self.p2_action_queue:
@@ -173,34 +150,35 @@ class ActionEngine(threading.Thread):
                 
                 if action_data_p2 == 'shoot':
                     action[1] = [action_data_p2, self.p2_vest_shot]
-                    action_dic["p2"] = "shoot"
-                    if self.p2_vest_shot:
-                        action_dic["p1"] = "hit_bullet"
                         
                 elif action_data_p1 == 'grenade':
-                    action_dic["p2"] = "grenade"
-                    subscribe_queue.put(action_dic)
+                    action_dic["p2"] = "check_grenade"
                     action[1] = [action_data_p2, False]
                     
                 elif action_data_p2 == 'reload':
-                    action_dic["p2"] = action_data_p2
                     action[1] = [action_data_p2, True]
                     
                 elif action_data_p2 == 'shield':
-                    action_dic["p2"] = action_data_p2
                     action[1] = [action_data_p2, True]
                     
                 elif action_data_p2 == 'logout':
-                    action_dic["p2"] = action_data_p2
                     action[1] = [action_data_p2, True]
             
-            subscribe_queue.put(action_dic)
-            
+            if action_data_p1 is not None:
+                self.p1_action_queue.clear()
+                
+            if action_data_p2 is not None:
+                self.p2_action_queue.clear()
+                
             if action_data_p1 == "grenade" or action_data_p2 == "grenade":
                 self.determine_grenade_hit()
                 action[0][1] = self.p2_grenade_hit
                 action[1][1] = self.p1_grenade_hit
-                           
+                if action_data_p1 == "grenade":
+                    action_data_p1 = False
+                if action_data_p2 == "grenade":
+                    action_data_p2 = False
+                    
             if not (action_data_p1 is None or action_data_p2 is None): 
                        
                 action_queue.append(action)
@@ -219,7 +197,6 @@ class ActionEngine(threading.Thread):
                 self.p1_action_queue.clear()
                 self.p2_action_queue.clear()
                 
-
 class GameEngine(threading.Thread):
     def __init__(self, eval_client):
         super().__init__()
@@ -244,15 +221,11 @@ class GameEngine(threading.Thread):
     def run(self):
         while not self.shutdown.is_set():
             try:
-                if len(viz_action_queue) != 0:
-                    viz_action_dic = viz_action_queue.popleft()
-                    p1_viz_action, p2_viz_action = viz_action_dic['p1'], viz_action_dic['p2']
-                    valid_viz_action_p1 = self.p1.action_is_valid(p1_viz_action)
-                    valid_viz_action_p2 = self.p2.action_is_valid(p2_viz_action)
-                    
+
                 if len(action_queue) != 0:
                     p1_action, p2_action = action_queue.popleft() # [[p1_action, status], [p2_action, status]]
                     
+                    viz_p1_action, viz_p2_action = None, None
                     print(f"P1 action data: {p1_action}")
                     print(f"P2 action data: {p2_action}")
                 
@@ -261,11 +234,6 @@ class GameEngine(threading.Thread):
 
                     valid_action_p1 = self.p1.action_is_valid(p1_action[0])
                     valid_action_p2 = self.p2.action_is_valid(p2_action[0])
-
-                    if valid_action_p1:
-                        self.parse_action(p1_action, self.p1, self.p2)
-                    if valid_action_p2:
-                        self.parse_action(p2_action, self.p2, self.p1)
 
                     if p1_action[0] == "logout" and p2_action[0] == "logout":
                         # send to visualizer
@@ -279,43 +247,59 @@ class GameEngine(threading.Thread):
                     
                     if p1_action[0] == "shield":
                         if valid_action_p1 and not self.p1.check_shield():
+                            viz_action_p1 = "shield"
                             self.p1.activate_shield()
                     
                     if p2_action[0] == "shield":
                         if valid_action_p2 and not self.p2.check_shield():
+                            viz_action_p2 = "shield"
                             self.p2.activate_shield()
                     
                     if p1_action[0] == "grenade":
                         if valid_action_p1:
                             self.p1.throw_grenade()
                             if p1_action[1]:
+                                viz_action_p2 = "hit_grenade"
                                 self.p2.got_hit_grenade()
+                                # if self.p2.check_shield():
+                                #     viz_action_p2 = "hit_grenade_shield"
                                 
                     if p2_action[0] == "grenade":
                         if valid_action_p2:
                             self.p2.throw_grenade()
                             if p2_action[1]:
+                                viz_action_p1 = "hit_grenade"
                                 self.p1.got_hit_grenade()
+                                # if self.p1.check_shield():
+                                #     viz_action_p1 = "hit_grenade_shield"
                     
                     if p1_action[0] == "shoot":
                         if valid_action_p1:
                             self.p1.shoot()
                             if p1_action[1]:
+                                viz_action_p2 = "hit_bullet"
                                 self.p2.got_shot()
+                                # if self.p2.check_shield():
+                                #     viz_action_p2 = "hit_shield"
                                 
                     if p2_action[0] == "shoot":
                         if valid_action_p2:
                             self.p2.shoot()
                             if p2_action[1]:
+                                viz_action_p1 = "hit_bullet"
                                 self.p1.got_shot()
+                                # if self.p1.check_shield():
+                                #     viz_action_p1 = "hit_shield"
                                 
                     if p1_action[0] == "reload":
                         if valid_action_p1:
                             self.p1.reload()
+                            viz_action_p1 = "reload"
                                         
                     if p2_action[0] == "reload":
                         if valid_action_p2:
                             self.p2.reload()
+                            viz_action_p2 = "reload"
                             
                     # If health drops to 0 then everything resets except for number of deaths
                     if self.p1.hp <= 0:
