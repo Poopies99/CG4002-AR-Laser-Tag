@@ -134,8 +134,6 @@ class ActionEngine(threading.Thread):
         
         if self.p1_action_queue or self.p2_action_queue:
             
-            time.sleep(3) # TODO - Based on AI prediction duration
-            # Default
             action = [['None', True], ['None', True]]
             
             action_dic = {
