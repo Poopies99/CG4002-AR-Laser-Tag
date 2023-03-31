@@ -862,7 +862,8 @@ if __name__ == '__main__':
     else:
         print("TWO PLAYER MODE")
 
-    if len(sys.argv) == 3:
+    if len(sys.argv) == 3 and sys.argv[2] == '-p':
+        print('Debugging Mode Enabled')
         DEBUG_MODE = True
 
 
@@ -870,6 +871,7 @@ if __name__ == '__main__':
     # Memory Engine
     print('Starting Memory Thread')
     memory = Memory()
+    memory.start()
 
     # Action Engine
     print('Starting Action Engine Thread')
@@ -911,8 +913,3 @@ if __name__ == '__main__':
     # viz.start()
     # game_engine.start()
     laptop_server.start()
-    
-    # tracemalloc
-    memory.start()
-
-
