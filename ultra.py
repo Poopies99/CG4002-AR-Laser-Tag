@@ -511,7 +511,7 @@ class Server(threading.Thread):
         print("Shutting Down Server")
 
     def send_back_laptop(self):
-        game_state = laptop_queue.popleft()
+        game_state = json.loads(laptop_queue.popleft())
         data = [0, game_state['p1']['bullets'], game_state['p1']['hp'], 0, game_state['p2']['bullets'],
                 game_state['p2']['hp'], 0]
         data = self.packer.pack(data)
