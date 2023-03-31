@@ -75,6 +75,7 @@ class ActionEngine(threading.Thread):
             self.p2_vest_shot = False
 
     def handle_grenade(self, player):
+        print("Handling Grenade")
         if player == 1:
             # self.p1_grenade = True
             self.p1_action_queue.append('grenade')
@@ -83,6 +84,7 @@ class ActionEngine(threading.Thread):
             self.p2_action_queue.append('grenade')
 
     def handle_shield(self, player):
+        print("Handling Shield")
         if player == 1:
             # self.p1_shield = True
             self.p1_action_queue.append('shield')
@@ -91,18 +93,21 @@ class ActionEngine(threading.Thread):
             self.p2_action_queue.append('shield')
 
     def handle_reload(self, player):
+        print("Handling Reload")
         if player == 1:
             self.p1_action_queue.append('reload')
         else:
             self.p2_action_queue.append('reload')
 
     def handle_logout(self, player):
+        print('Handling Logout')
         if player == 1:
             self.p1_action_queue.append('logout')
         else:
             self.p2_action_queue.append('logout')
 
     def handle_gun_shot(self, player):
+        print('Handling Gun Shot')
         if player == 1:
             self.p1_gun_shot = True
             self.p1_action_queue.append('shoot')
@@ -111,6 +116,7 @@ class ActionEngine(threading.Thread):
             self.p2_action_queue.append('shoot')
 
     def handle_vest_shot(self, player):
+        print('Handling Vest Shot')
         if player == 1:
             self.p1_vest_shot = True
         else:
@@ -873,9 +879,9 @@ if __name__ == '__main__':
 
     print('---------------<Setup Announcement>---------------')
     # Memory Engine
-    print('Starting Memory Thread')
-    memory = Memory()
-    memory.start()
+    # print('Starting Memory Thread')
+    # memory = Memory()
+    # memory.start()
 
     # Action Engine
     print('Starting Action Engine Thread')
