@@ -73,7 +73,7 @@ class ActionEngine(threading.Thread):
             self.p2_gun_shot = False
             self.p2_vest_shot = False
 
-    def handle_grenade_throw(self, player):
+    def handle_grenade(self, player):
         if player == 1:
             # self.p1_grenade = True
             self.p1_action_queue.append('grenade')
