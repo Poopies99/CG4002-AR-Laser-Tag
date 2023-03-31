@@ -140,6 +140,13 @@ class Player:
             self.shield_health = 30
             self.shield_timer = time.time()
             self.shield_time = 10 - int(time.time() - self.shield_timer)   
-                        
+
+
+    def shield_active(self):
+        if self.shield_time > 0:
+            return True
+        else:
+            return False
+
     def reload(self):
         self.bullets = self.magazine_size

@@ -16,7 +16,6 @@ import random
 import time
 import json
 import queue
-import tracemalloc
 from queue import Queue
 from GameState import GameState
 from _socket import SHUT_RDWR
@@ -26,12 +25,13 @@ from scipy.signal import medfilt
 from scipy.ndimage import gaussian_filter1d
 from scipy.ndimage import gaussian_filter
 
-# import pynq
-# from scipy import stats
-# from pynq import Overlay
+import pynq
+from scipy import stats
+from pynq import Overlay
 
 
 SINGLE_PLAYER_MODE = False
+DEBUG_MODE = False
 
 subscribe_queue = Queue()
 feedback_queue = Queue()
@@ -43,6 +43,8 @@ fpga_queue = deque()
 action_queue = deque()
 laptop_queue = deque()
 training_model_queue = deque()
+ai_queue_1 = Queue()
+ai_queue_2 = Queue()
 
 class ActionEngine(threading.Thread):
     def __init__(self):
@@ -62,31 +64,36 @@ class ActionEngine(threading.Thread):
             self.p2_vest_shot = False
             self.p2_grenade_hit = False
 
-    def handle_grenade_throw(self, player):
+    def handle_grenade(self, player):
+        print("Handling Grenade")
         if player == 1:
             self.p1_action_queue.append('grenade')
         else:
             self.p2_action_queue.append('grenade')
 
     def handle_shield(self, player):
+        print("Handling Shield")
         if player == 1:
             self.p1_action_queue.append('shield')
         else:
             self.p2_action_queue.append('shield')
 
     def handle_reload(self, player):
+        print("Handling Reload")
         if player == 1:
             self.p1_action_queue.append('reload')
         else:
             self.p2_action_queue.append('reload')
 
     def handle_logout(self, player):
+        print('Handling Logout')
         if player == 1:
             self.p1_action_queue.append('logout')
         else:
             self.p2_action_queue.append('logout')
 
     def handle_gun_shot(self, player):
+        print('Handling Gun Shot')
         if player == 1:
             self.p1_gun_shot = True
             self.p1_action_queue.append('shoot')
@@ -95,6 +102,7 @@ class ActionEngine(threading.Thread):
             self.p2_action_queue.append('shoot')
 
     def handle_vest_shot(self, player):
+        print('Handling Vest Shot')
         if player == 1:
             self.p1_vest_shot = True
         else:
@@ -191,6 +199,7 @@ class ActionEngine(threading.Thread):
                     self.p1_grenade_hit = False
                     self.p1_gun_shot = False
                     self.p1_vest_shot = False
+                    self.p1_action_queue.clear()
 
                     if not SINGLE_PLAYER_MODE:
                         self.p2_gun_shot = False
@@ -198,7 +207,7 @@ class ActionEngine(threading.Thread):
                         self.p2_grenade_hit = False
                         self.p2_action_queue.clear()
 
-                    self.p1_action_queue.clear()
+
 
                 
 class GameEngine(threading.Thread):
@@ -463,7 +472,7 @@ class EvalClient:
 
 
 class Server(threading.Thread):
-    def __init__(self, port_num, host_name, action_engine):
+    def __init__(self, port_num, host_name, action_engine_model):
         super().__init__()
 
         # Create a TCP/IP socket
@@ -478,12 +487,7 @@ class Server(threading.Thread):
         self.packer = BLEPacket()
 
         # Shoot Engine Threads
-        self.action_engine = action_engine
-
-        # AI Model Threads
-        self.p1_ai_engine = AIModel(1, self.action_engine)
-        if not SINGLE_PLAYER_MODE:
-            self.p2_ai_engine = AIModel(2, self.action_engine)
+        self.action_engine = action_engine_model
 
         # Data Buffer
         self.data = b''
@@ -517,13 +521,6 @@ class Server(threading.Thread):
         print("Sending back to laptop", data)
 
     def run(self):
-        p1_ai_thread = threading.Thread(target=self.p1_ai_engine.start)
-        p1_ai_thread.start()
-
-        if not SINGLE_PLAYER_MODE:
-            p2_ai_thread = threading.Thread(target=self.p2_ai_engine.start)
-            p2_ai_thread.start()
-
         self.server_socket.listen(1)
         self.setup()
 
@@ -552,14 +549,14 @@ class Server(threading.Thread):
                     self.action_engine.handle_vest_shot(1)
                 elif packet_id == 3:
                     packet = self.packer.get_euler_data() + self.packer.get_acc_data()
-                    self.p1_ai_engine.add_packet(packet)
+                    ai_queue_1.put(packet)
                 elif packet_id == 4:
                     self.action_engine.handle_gun_shot(2)
                 elif packet_id == 5:
                     self.action_engine.handle_vest_shot(2)
                 elif packet_id == 6:
                     packet = self.packer.get_euler_data() + self.packer.get_acc_data()
-                    self.p2_ai_engine.add_packet(packet)
+                    ai_queue_2.put(packet)
                 else:
                     print("Invalid Beetle ID")
 
@@ -575,53 +572,53 @@ class Server(threading.Thread):
 
 
 class AIModel(threading.Thread):
-    def __init__(self, player, action_engine):
+    def __init__(self, player, action_engine_model, queue_added):
         super().__init__()
 
         self.player = player
-        self.action_engine = action_engine
+        self.action_engine = action_engine_model
 
         # Flags
         self.shutdown = threading.Event()
 
-        # Load all_arrays.json
-        with open('dependencies/all_arrays.json', 'r') as f:
-            all_arrays = json.load(f)
+#         # Load all_arrays.json
+#         with open('dependencies/all_arrays.json', 'r') as f:
+#             all_arrays = json.load(f)
 
-        # Retrieve values from all_arrays
-        self.scaling_factors = np.array(all_arrays['scaling_factors'])
-        self.mean = np.array(all_arrays['mean'])
-        self.variance = np.array(all_arrays['variance'])
-        self.pca_eigvecs = np.array(all_arrays['pca_eigvecs'])
-        self.weights = [np.array(w) for w in all_arrays['weights']]
+#         # Retrieve values from all_arrays
+#         self.scaling_factors = np.array(all_arrays['scaling_factors'])
+#         self.mean = np.array(all_arrays['mean'])
+#         self.variance = np.array(all_arrays['variance'])
+#         self.pca_eigvecs = np.array(all_arrays['pca_eigvecs'])
+#         self.weights = [np.array(w) for w in all_arrays['weights']]
 
-        # Reshape scaling_factors, mean and variance to (1, 3)
-        self.scaling_factors = self.scaling_factors.reshape(40, 3)
-        self.mean = self.mean.reshape(40, 3)
-        self.variance = self.variance.reshape(40, 3)
+#         # Reshape scaling_factors, mean and variance to (1, 3)
+#         self.scaling_factors = self.scaling_factors.reshape(40, 3)
+#         self.mean = self.mean.reshape(40, 3)
+#         self.variance = self.variance.reshape(40, 3)
 
-        # read in the test actions from the JSON file
-        with open('dependencies/test_actions.json', 'r') as f:
-            test_actions = json.load(f)
+#         # read in the test actions from the JSON file
+#         with open('dependencies/test_actions.json', 'r') as f:
+#             test_actions = json.load(f)
 
-        # extract the test data for each action from the dictionary
-        self.test_g = np.array(test_actions['G'])
-        self.test_s = np.array(test_actions['S'])
-        self.test_r = np.array(test_actions['R'])
-        self.test_l = np.array(test_actions['L'])
+#         # extract the test data for each action from the dictionary
+#         self.test_g = np.array(test_actions['G'])
+#         self.test_s = np.array(test_actions['S'])
+#         self.test_r = np.array(test_actions['R'])
+#         self.test_l = np.array(test_actions['L'])
 
-        # define the available actions
-        self.test_actions = ['G', 'S', 'R', 'L']
+#         # define the available actions
+#         self.test_actions = ['G', 'S', 'R', 'L']
 
-        self.ai_queue = Queue()
+        self.ai_queue = queue_added
 
         # PYNQ overlay
-        # self.overlay = Overlay("pca_mlp_1.bit")
-        # self.dma = self.overlay.axi_dma_0
+        self.overlay = Overlay("/home/xilinx/official/dependencies/pca_mlp_1.bit")
+        self.dma = self.overlay.axi_dma_0
 
-        # # Allocate input and output buffers once
-        # self.in_buffer = pynq.allocate(shape=(35,), dtype=np.float32)
-        # self.out_buffer = pynq.allocate(shape=(4,), dtype=np.float32)
+        # Allocate input and output buffers once
+        self.in_buffer = pynq.allocate(shape=(125,), dtype=np.float32)
+        self.out_buffer = pynq.allocate(shape=(3,), dtype=np.float32)
 
     def sleep(self, seconds):
         start_time = time.time()
@@ -718,27 +715,27 @@ class AIModel(threading.Thread):
         action = action_dict[max_index]
         return action
 
-    # def MLP_Overlay(self, data):
-    #     start_time = time.time()
+    def MLP_Overlay(self, data):
+        start_time = time.time()
 
-    #     # reshape data to match in_buffer shape
-    #     data = np.reshape(data, (35,))
+        # reshape data to match in_buffer shape
+        data = np.reshape(data, (125,))
 
-    #     self.in_buffer[:] = data
+        self.in_buffer[:] = data
 
-    #     self.dma.sendchannel.transfer(self.in_buffer)
-    #     self.dma.recvchannel.transfer(self.out_buffer)
+        self.dma.sendchannel.transfer(self.in_buffer)
+        self.dma.recvchannel.transfer(self.out_buffer)
 
-    #     # wait for transfer to finish
-    #     self.dma.sendchannel.wait()
-    #     self.dma.recvchannel.wait()
+        # wait for transfer to finish
+        self.dma.sendchannel.wait()
+        self.dma.recvchannel.wait()
 
-    #     # print output buffer
-    #     print("mlp done with output: " + " ".join(str(x) for x in self.out_buffer))
+        # print output buffer
+        print("mlp done with output: " + " ".join(str(x) for x in self.out_buffer))
 
-    #     print(f"MLP time taken so far output: {time.time() - start_time}")
+        print(f"MLP time taken so far output: {time.time() - start_time}")
 
-    #     return self.out_buffer
+        return self.out_buffer
 
     def AIDriver(self, test_input):
         test_input = test_input.reshape(40, 6)
@@ -746,31 +743,30 @@ class AIModel(threading.Thread):
 
         # Transform data using Scaler and PCA
         blurred_data, disp_change = self.blur_3d_movement(acc_df.reshape(40, 3))
-        data_scaled = self.scaler(blurred_data)
-        data_pca = self.pca(data_scaled.reshape(1, 120))
-
         top_2 = self.get_top_2_axes(disp_change)
-
-        mlp_input = np.hstack((np.array(data_pca), np.array(disp_change).reshape(1, 3), np.array(top_2).reshape(1, 2)))
-
-        # Make predictions using MLP
-        predictions = self.mlp(mlp_input)
-        action = self.get_action(predictions)
-
-        print(predictions)
-        print(action)
+         
+        vivado_input = np.hstack((np.array(blurred_data).reshape(1, 120), np.array(disp_change).reshape(1, 3), np.array(top_2).reshape(1, 2))).flatten()
+        vivado_predictions = self.MLP_Overlay(vivado_input)
+        vivado_action = self.get_action(vivado_predictions)
         
-        del acc_df, blurred_data, disp_change, data_scaled, data_pca, top_2, mlp_input, predictions
+        print(vivado_predictions)
+        print(vivado_action)
+        
+        # Make predictions using MLP
+#         predictions = self.mlp(mlp_input)
+#         action = self.get_action(predictions)
 
-        return action
+#         print(predictions)
+#         print(action)
+        
+        del acc_df, blurred_data, disp_change, top_2, vivado_input, vivado_predictions
+
+        return vivado_action
 
     def close_connection(self):
         self.shutdown.set()
 
         print("Shutting Down Connection")
-
-    def add_packet(self, packet):
-        self.ai_queue.put(packet)
 
     def run(self):
         # Set the threshold value for movement detection based on user input
@@ -806,7 +802,7 @@ class AIModel(threading.Thread):
                 loop_count = (loop_count + 1) % 5
 
                 if loop_count % 5 == 0:
-                    print(".\n")
+                    # print(".\n")
                     curr_mag = np.sum(np.square(np.mean(current_packet[:, -3:], axis=1)))
                     prev_mag = np.sum(np.square(np.mean(previous_packet[:, -3:], axis=1)))
 
@@ -839,6 +835,7 @@ class AIModel(threading.Thread):
                             print(demo_df.head(40))
 
                             action = self.AIDriver(data_packet)  # TODO re-enable for live integration
+                            enable_print()
                             print(f"action from MLP in main: {action} \n")  # print output of MLP
 
                             if action == 'G':
@@ -849,7 +846,7 @@ class AIModel(threading.Thread):
                                 self.action_engine.handle_reload(self.player)
                             elif action == 'L':
                                 self.action_engine.handle_logout(self.player)
-
+                            block_print()
 
                             # movement_watchdog deactivated, reset is_movement_counter
                             movement_watchdog = False
@@ -858,19 +855,9 @@ class AIModel(threading.Thread):
                             current_packet = np.zeros((5, 6))
                             previous_packet = np.zeros((5, 6))
                             data_packet = np.zeros((40, 6))
-                            
-                            # tracemalloc
-                            snapshot = tracemalloc.take_snapshot()
-                            top_stats = snapshot.statistics('lineno')
-
-                            print("[ Top 3 ]")
-                            for stat in top_stats[:3]:
-                                print(stat)
 
                     # Update the previous packet
                     previous_packet = current_packet.copy()
-                    
-                    
 
 
 class DetectionTime:
@@ -888,33 +875,12 @@ class DetectionTime:
         print("Detection Time Taken: ", end_time - self.start)
 
 
-class Memory(threading.Thread):
-    def __init__(self):
-        super().__init__()
-
-    def run(self):
-        tracemalloc.start()
-
-        while True:
-            start_time = time.time()
-
-            while time.time() - start_time > 3:
-                snapshot = tracemalloc.take_snapshot()
-
-                top_stats = snapshot.statistics('lineno')
-
-                print("[ Top 10 ]")
-                for stat in top_stats[:10]:
-                    print(stat)
-
-
 def block_print():
     sys.stdout = open(os.devnull, 'w')
 
 
 def enable_print():
     sys.stdout = sys.__stdout__
-
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
@@ -927,9 +893,9 @@ if __name__ == '__main__':
     else:
         print("TWO PLAYER MODE")
 
-    if len(sys.argv) == 3:
+    if len(sys.argv) == 3 and sys.argv[2] == '-p':
+        print('Debugging Mode Enabled')
         DEBUG_MODE = True
-
 
     print('---------------<Setup Announcement>---------------')
     # Action Engine
@@ -945,31 +911,35 @@ if __name__ == '__main__':
     # print("Starting Subscribe Receive")
     # viz = SubscriberReceive("gamestate")
 
+    # AI Model
+    ai_one = AIModel(1, action_engine, ai_queue_1)
+    ai_one.start()
+
+    if not SINGLE_PLAYER_MODE:
+        ai_two = AIModel(2, action_engine, ai_queue_2)
+        ai_two.start()
+
     # Client Connection to Evaluation Server
-    # print("Starting Client Thread")
-    # # eval_client = EvalClient(9999, "137.132.92.184")
-    # eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
-    # eval_client.connect_to_eval()
+    print("Starting Client Thread")
+    # # # eval_client = EvalClient(9999, "137.132.92.184")
+    eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
+    eval_client.connect_to_eval()
 
     # Game Engine
-    # print("Starting Game Engine Thread")
-    # game_engine = GameEngine(eval_client=eval_client)
+    print("Starting Game Engine Thread")
+    game_engine = GameEngine(eval_client=eval_client)
 
     # Server Connection to Laptop
     print("Starting Server Thread")
     laptop_server = Server(constants.XILINX_PORT_NUM, constants.XILINX_SERVER, action_engine)
 
-    # print("Starting Web Socket Server Thread")
-    # server = WebSocketServer()
-    # asyncio.run(server.start_server())
-
     print('--------------------------------------------------')
+
+    if not DEBUG_MODE:
+        block_print()
 
     # hive.start()
     # viz.start()
-    # game_engine.start()
+    game_engine.start()
     laptop_server.start()
-    
-    # tracemalloc
-    tracemalloc.start()
 
