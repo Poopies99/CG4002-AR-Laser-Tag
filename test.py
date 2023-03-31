@@ -4,10 +4,8 @@ import time
 import threading
 from collections import deque
 
-
-
 SINGLE_PLAYER_MODE = False
-
+action_queue = deque()
 
 class ActionEngine(threading.Thread):
     def __init__(self):
@@ -25,7 +23,8 @@ class ActionEngine(threading.Thread):
             self.p2_gun_shot = False
             self.p2_vest_shot = False
 
-    def handle_grenade_throw(self, player):
+    def handle_grenade(self, player):
+        print("Handling Grenade")
         if player == 1:
             # self.p1_grenade = True
             self.p1_action_queue.append('grenade')
@@ -34,6 +33,7 @@ class ActionEngine(threading.Thread):
             self.p2_action_queue.append('grenade')
 
     def handle_shield(self, player):
+        print("Handling Shield")
         if player == 1:
             # self.p1_shield = True
             self.p1_action_queue.append('shield')
@@ -42,18 +42,21 @@ class ActionEngine(threading.Thread):
             self.p2_action_queue.append('shield')
 
     def handle_reload(self, player):
+        print("Handling Reload")
         if player == 1:
             self.p1_action_queue.append('reload')
         else:
             self.p2_action_queue.append('reload')
 
     def handle_logout(self, player):
+        print('Handling Logout')
         if player == 1:
             self.p1_action_queue.append('logout')
         else:
             self.p2_action_queue.append('logout')
 
     def handle_gun_shot(self, player):
+        print('Handling Gun Shot')
         if player == 1:
             self.p1_gun_shot = True
             self.p1_action_queue.append('shoot')
@@ -62,6 +65,7 @@ class ActionEngine(threading.Thread):
             self.p2_action_queue.append('shoot')
 
     def handle_vest_shot(self, player):
+        print('Handling Vest Shot')
         if player == 1:
             self.p1_vest_shot = True
         else:
@@ -70,7 +74,7 @@ class ActionEngine(threading.Thread):
     def run(self):
         while True:
             if self.p1_action_queue or self.p2_action_queue:
-                time.sleep(1)  # TODO - Based on AI prediction duration
+                time.sleep(3) # TODO - Based on AI prediction duration
                 # Default
                 action = [['None', True], ['None', True]]
 
@@ -79,7 +83,7 @@ class ActionEngine(threading.Thread):
                     if action_data == 'shoot':
                         action[0] = [action_data, self.p2_vest_shot]
                     elif action_data == 'grenade':
-                        status = True  # TODO - Check whether p2 is in frame
+                        status = True # TODO - Check whether p2 is in frame
                         action[0] = [action_data, status]
                     elif action_data == 'reload':
                         action[0] = [action_data, True]
@@ -111,17 +115,33 @@ class ActionEngine(threading.Thread):
 
                 print(action)
 
+                action_queue.append(action)
+
+
+class AIModel(threading.Thread):
+    def __init__(self, action_engine_model):
+        super().__init__()
+
+        self.action_engine = action_engine_model
+
+    def run(self):
+        while True:
+            action = input('Action: ')
+
+            if action == 's':
+                self.action_engine.handle_shield(1)
+            elif action == 'g':
+                self.action_engine.handle_grenade(1)
+            else:
+                self.action_engine.handle_gun_shot(1)
+
+
 if __name__ == '__main__':
     action_engine = ActionEngine()
     action_engine.start()
 
-    action_engine.handle_gun_shot(1)
-    time.sleep(0.5)
-    action_engine.handle_vest_shot(2)
-    action_engine.handle_grenade_throw(2)
-    action_engine.handle_gun_shot(2)
-    time.sleep(2)
-    action_engine.handle_gun_shot(1)
+    ai = AIModel(action_engine)
+    ai.start()
 
 
 

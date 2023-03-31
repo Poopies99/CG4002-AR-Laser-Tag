@@ -123,49 +123,50 @@ class ActionEngine(threading.Thread):
             self.p2_vest_shot = True
 
     def run(self):
-        if self.p1_action_queue or self.p2_action_queue:
-            time.sleep(3) # TODO - Based on AI prediction duration
-            # Default
-            action = [['None', True], ['None', True]]
+        while True:
+            if self.p1_action_queue or self.p2_action_queue:
+                time.sleep(3) # TODO - Based on AI prediction duration
+                # Default
+                action = [['None', True], ['None', True]]
 
-            if self.p1_action_queue:
-                action_data = self.p1_action_queue.popleft()
-                if action_data == 'shoot':
-                    action[0] = [action_data, self.p2_vest_shot]
-                elif action_data == 'grenade':
-                    status = True # TODO - Check whether p2 is in frame
-                    action[0] = [action_data, status]
-                elif action_data == 'reload':
-                    action[0] = [action_data, True]
-                elif action_data == 'shield':
-                    action[0] = [action_data, True]
-                elif action_data == 'logout':
-                    action[0] = [action_data, True]
+                if self.p1_action_queue:
+                    action_data = self.p1_action_queue.popleft()
+                    if action_data == 'shoot':
+                        action[0] = [action_data, self.p2_vest_shot]
+                    elif action_data == 'grenade':
+                        status = True # TODO - Check whether p2 is in frame
+                        action[0] = [action_data, status]
+                    elif action_data == 'reload':
+                        action[0] = [action_data, True]
+                    elif action_data == 'shield':
+                        action[0] = [action_data, True]
+                    elif action_data == 'logout':
+                        action[0] = [action_data, True]
 
-            if self.p2_action_queue:
-                action_data = self.p2_action_queue.popleft()
-                if action_data == 'shoot':
-                    action[1] = [action_data, self.p1_vest_shot]
-                elif action_data == 'grenade':
-                    status = True  # TODO - Check whether p1 is in frame
-                    action[1] = [action_data, status]
-                elif action_data == 'reload':
-                    action[1] = [action_data, True]
-                elif action_data == 'shield':
-                    action[1] = [action_data, True]
-                elif action_data == 'logout':
-                    action[1] = [action_data, True]
+                if self.p2_action_queue:
+                    action_data = self.p2_action_queue.popleft()
+                    if action_data == 'shoot':
+                        action[1] = [action_data, self.p1_vest_shot]
+                    elif action_data == 'grenade':
+                        status = True  # TODO - Check whether p1 is in frame
+                        action[1] = [action_data, status]
+                    elif action_data == 'reload':
+                        action[1] = [action_data, True]
+                    elif action_data == 'shield':
+                        action[1] = [action_data, True]
+                    elif action_data == 'logout':
+                        action[1] = [action_data, True]
 
-            self.p1_gun_shot = False
-            self.p1_vest_shot = False
+                self.p1_gun_shot = False
+                self.p1_vest_shot = False
 
-            if not SINGLE_PLAYER_MODE:
-                self.p2_gun_shot = False
-                self.p2_vest_shot = False
+                if not SINGLE_PLAYER_MODE:
+                    self.p2_gun_shot = False
+                    self.p2_vest_shot = False
 
-            print(action)
+                print(action)
 
-            action_queue.append(action)
+                action_queue.append(action)
 
 
 class GameEngine(threading.Thread):
@@ -512,11 +513,11 @@ class Server(threading.Thread):
 
 
 class AIModel(threading.Thread):
-    def __init__(self, player, action_engine):
+    def __init__(self, player, action_engine_model):
         super().__init__()
 
         self.player = player
-        self.action_engine = action_engine
+        self.action_engine = action_engine_model
 
         # Flags
         self.shutdown = threading.Event()
@@ -826,34 +827,6 @@ class DetectionTime:
         print("Detection Time Taken: ", end_time - self.start)
 
 
-class Memory(threading.Thread):
-    def __init__(self):
-        super().__init__()
-
-    def run(self):
-        tracemalloc.start()
-
-        start_time = time.time()
-
-        while True:
-            while time.time() - start_time > 3:
-                snapshot = tracemalloc.take_snapshot()
-
-                top_stats = snapshot.statistics('lineno')
-
-                enable_print()
-
-                print("[ Top 10 Memory ]")
-                for stat in top_stats[:10]:
-                    print(stat)
-
-                block_print()
-
-                start_time = time.time()
-
-                break
-
-
 def block_print():
     sys.stdout = open(os.devnull, 'w')
 
@@ -878,11 +851,6 @@ if __name__ == '__main__':
         DEBUG_MODE = True
 
     print('---------------<Setup Announcement>---------------')
-    # Memory Engine
-    # print('Starting Memory Thread')
-    # memory = Memory()
-    # memory.start()
-
     # Action Engine
     print('Starting Action Engine Thread')
     action_engine = ActionEngine()
@@ -897,14 +865,14 @@ if __name__ == '__main__':
     # viz = SubscriberReceive("gamestate")
 
     # Client Connection to Evaluation Server
-    print("Starting Client Thread")
-    # # eval_client = EvalClient(9999, "137.132.92.184")
-    eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
-    eval_client.connect_to_eval()
+    # print("Starting Client Thread")
+    # # # eval_client = EvalClient(9999, "137.132.92.184")
+    # eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
+    # eval_client.connect_to_eval()
 
     # Game Engine
-    print("Starting Game Engine Thread")
-    game_engine = GameEngine(eval_client=eval_client)
+    # print("Starting Game Engine Thread")
+    # game_engine = GameEngine(eval_client=eval_client)
 
     # Server Connection to Laptop
     print("Starting Server Thread")
@@ -917,5 +885,5 @@ if __name__ == '__main__':
 
     # hive.start()
     # viz.start()
-    game_engine.start()
+    # game_engine.start()
     laptop_server.start()
