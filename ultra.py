@@ -118,87 +118,88 @@ class ActionEngine(threading.Thread):
     def run(self):
         action_data_p1, action_data_p2 = None, None
         action = [['None', True], ['None', True]]
-        
-        if self.p1_action_queue or self.p2_action_queue:
+        while True:
+            if self.p1_action_queue or self.p2_action_queue:
                      
-            action_dic = {
-                "p1": "",
-                "p2": ""
-            }
-            
-            if action_data_p1 is None and self.p1_action_queue:
-                action_data_p1 = self.p1_action_queue.popleft()
-                
-                if action_data_p1 == 'shoot':
-                    action[0] = [action_data_p1, self.p2_vest_shot]
-                        
-                elif action_data_p1 == 'grenade':
-                    action_dic["p1"] = "check_grenade"
-                    action[0] = [action_data_p1, False]
-                    
-                elif action_data_p1 == 'reload':
-                    action[0] = [action_data_p1, True]
-                    
-                elif action_data_p1 == 'shield':
-                    action[0] = [action_data_p1, True]
-                    
-                elif action_data_p1 == 'logout':
-                    action[0] = [action_data_p1, True]
-                    
-            if action_data_p2 is None and self.p2_action_queue:
-                action_data_p2 = self.p1_action_queue.popleft()
-                
-                if action_data_p2 == 'shoot':
-                    action[1] = [action_data_p2, self.p2_vest_shot]
-                        
-                elif action_data_p1 == 'grenade':
-                    action_dic["p2"] = "check_grenade"
-                    action[1] = [action_data_p2, False]
-                    
-                elif action_data_p2 == 'reload':
-                    action[1] = [action_data_p2, True]
-                    
-                elif action_data_p2 == 'shield':
-                    action[1] = [action_data_p2, True]
-                    
-                elif action_data_p2 == 'logout':
-                    action[1] = [action_data_p2, True]
-            
-            if action_data_p1 is not None:
-                self.p1_action_queue.clear()
-                
-            if action_data_p2 is not None:
-                self.p2_action_queue.clear()
-                
-            if action_data_p1 == "grenade" or action_data_p2 == "grenade":
-                subscribe_queue.put(json.dumps(action_dic))
-                self.determine_grenade_hit()
-                action[0][1] = self.p2_grenade_hit
-                action[1][1] = self.p1_grenade_hit
-                if action_data_p1 == "grenade":
-                    action_dic["p1"] = None
-                    action_data_p1 = False
-                if action_data_p2 == "grenade":
-                    action_dic["p2"] = None
-                    action_data_p2 = False
-                    
-            if not (action_data_p1 is None or action_data_p2 is None): 
-                       
-                action_queue.append(action)
-                action_data_p1, action_data_p2 = None, None
-                action = [['None', True], ['None', True]]
-        
-                self.p1_grenade_hit = False
-                self.p1_gun_shot = False
-                self.p1_vest_shot = False
+                action_dic = {
+                    "p1": "",
+                    "p2": ""
+                }
 
-                if not SINGLE_PLAYER_MODE:
-                    self.p2_gun_shot = False
-                    self.p2_vest_shot = False
-                    self.p2_grenade_hit = False
-        
-                self.p1_action_queue.clear()
-                self.p2_action_queue.clear()
+                if action_data_p1 is None and self.p1_action_queue:
+                    action_data_p1 = self.p1_action_queue.popleft()
+
+                    if action_data_p1 == 'shoot':
+                        action[0] = [action_data_p1, self.p2_vest_shot]
+
+                    elif action_data_p1 == 'grenade':
+                        action_dic["p1"] = "check_grenade"
+                        action[0] = [action_data_p1, False]
+
+                    elif action_data_p1 == 'reload':
+                        action[0] = [action_data_p1, True]
+
+                    elif action_data_p1 == 'shield':
+                        action[0] = [action_data_p1, True]
+
+                    elif action_data_p1 == 'logout':
+                        action[0] = [action_data_p1, True]
+
+                if action_data_p2 is None and self.p2_action_queue:
+                    action_data_p2 = self.p1_action_queue.popleft()
+
+                    if action_data_p2 == 'shoot':
+                        action[1] = [action_data_p2, self.p2_vest_shot]
+
+                    elif action_data_p1 == 'grenade':
+                        action_dic["p2"] = "check_grenade"
+                        action[1] = [action_data_p2, False]
+
+                    elif action_data_p2 == 'reload':
+                        action[1] = [action_data_p2, True]
+
+                    elif action_data_p2 == 'shield':
+                        action[1] = [action_data_p2, True]
+
+                    elif action_data_p2 == 'logout':
+                        action[1] = [action_data_p2, True]
+
+                if action_data_p1 is not None:
+                    self.p1_action_queue.clear()
+
+                if action_data_p2 is not None:
+                    self.p2_action_queue.clear()
+                
+                if action_data_p1 == "grenade" or action_data_p2 == "grenade":
+                    subscribe_queue.put(json.dumps(action_dic))
+                    self.determine_grenade_hit()
+                    action[0][1] = self.p2_grenade_hit
+                    action[1][1] = self.p1_grenade_hit
+                    if action_data_p1 == "grenade":
+                        action_dic["p1"] = None
+                        action_data_p1 = False
+                    if action_data_p2 == "grenade":
+                        action_dic["p2"] = None
+                        action_data_p2 = False
+                    
+                if not (action_data_p1 is None or action_data_p2 is None):
+
+                    action_queue.append(action)
+                    action_data_p1, action_data_p2 = None, None
+                    action = [['None', True], ['None', True]]
+
+                    self.p1_grenade_hit = False
+                    self.p1_gun_shot = False
+                    self.p1_vest_shot = False
+
+                    if not SINGLE_PLAYER_MODE:
+                        self.p2_gun_shot = False
+                        self.p2_vest_shot = False
+                        self.p2_grenade_hit = False
+                        self.p2_action_queue.clear()
+
+                    self.p1_action_queue.clear()
+
                 
 class GameEngine(threading.Thread):
     def __init__(self, eval_client):
