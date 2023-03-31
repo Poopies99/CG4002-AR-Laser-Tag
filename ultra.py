@@ -338,7 +338,7 @@ class GameEngine(threading.Thread):
                         self.p2.action = viz_action_p2
                     else:
                         self.p2.action = "invalid"
-                        
+                    laptop_queue.put(self.eval_client.gamestate._get_data_plain_text())
                     subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
 
             except KeyboardInterrupt as _:
