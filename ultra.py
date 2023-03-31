@@ -581,44 +581,53 @@ class AIModel(threading.Thread):
         # Flags
         self.shutdown = threading.Event()
 
-#         # Load all_arrays.json
-#         with open('dependencies/all_arrays.json', 'r') as f:
-#             all_arrays = json.load(f)
+        #         # Load all_arrays.json
+        #         with open('dependencies/all_arrays.json', 'r') as f:
+        #             all_arrays = json.load(f)
 
-#         # Retrieve values from all_arrays
-#         self.scaling_factors = np.array(all_arrays['scaling_factors'])
-#         self.mean = np.array(all_arrays['mean'])
-#         self.variance = np.array(all_arrays['variance'])
-#         self.pca_eigvecs = np.array(all_arrays['pca_eigvecs'])
-#         self.weights = [np.array(w) for w in all_arrays['weights']]
+        #         # Retrieve values from all_arrays
+        #         self.scaling_factors = np.array(all_arrays['scaling_factors'])
+        #         self.mean = np.array(all_arrays['mean'])
+        #         self.variance = np.array(all_arrays['variance'])
+        #         self.pca_eigvecs = np.array(all_arrays['pca_eigvecs'])
+        #         self.weights = [np.array(w) for w in all_arrays['weights']]
 
-#         # Reshape scaling_factors, mean and variance to (1, 3)
-#         self.scaling_factors = self.scaling_factors.reshape(40, 3)
-#         self.mean = self.mean.reshape(40, 3)
-#         self.variance = self.variance.reshape(40, 3)
+        #         # Reshape scaling_factors, mean and variance to (1, 3)
+        #         self.scaling_factors = self.scaling_factors.reshape(40, 3)
+        #         self.mean = self.mean.reshape(40, 3)
+        #         self.variance = self.variance.reshape(40, 3)
 
-#         # read in the test actions from the JSON file
-#         with open('dependencies/test_actions.json', 'r') as f:
-#             test_actions = json.load(f)
+        #         # read in the test actions from the JSON file
+        #         with open('dependencies/test_actions.json', 'r') as f:
+        #             test_actions = json.load(f)
 
-#         # extract the test data for each action from the dictionary
-#         self.test_g = np.array(test_actions['G'])
-#         self.test_s = np.array(test_actions['S'])
-#         self.test_r = np.array(test_actions['R'])
-#         self.test_l = np.array(test_actions['L'])
+        #         # extract the test data for each action from the dictionary
+        #         self.test_g = np.array(test_actions['G'])
+        #         self.test_s = np.array(test_actions['S'])
+        #         self.test_r = np.array(test_actions['R'])
+        #         self.test_l = np.array(test_actions['L'])
 
-#         # define the available actions
-#         self.test_actions = ['G', 'S', 'R', 'L']
+        #         # define the available actions
+        #         self.test_actions = ['G', 'S', 'R', 'L']
 
         self.ai_queue = queue_added
 
         # PYNQ overlay
-        self.overlay = Overlay("/home/xilinx/official/dependencies/pca_mlp_1.bit")
-        self.dma = self.overlay.axi_dma_0
+        #         self.overlay = Overlay("/home/xilinx/official/dependencies/pca_mlp_1.bit")
+        #         self.dma = self.overlay.axi_dma_0
 
-        # Allocate input and output buffers once
-        self.in_buffer = pynq.allocate(shape=(125,), dtype=np.float32)
-        self.out_buffer = pynq.allocate(shape=(3,), dtype=np.float32)
+        #         # Allocate input and output buffers once
+        #         self.in_buffer = pynq.allocate(shape=(125,), dtype=np.float32)
+        #         self.out_buffer = pynq.allocate(shape=(3,), dtype=np.float32)
+
+        # Load the scaler from a file
+        self.scaler = joblib.load('scaler.joblib')
+
+        # Load the PCA from a file
+        self.pca = joblib.load('pca.joblib')
+
+        # Load the MLP from a file
+        self.mlp = joblib.load('mlp.joblib')
 
     def sleep(self, seconds):
         start_time = time.time()
@@ -654,7 +663,7 @@ class AIModel(threading.Thread):
         z_disp = z_arr[-1] - z_arr[0]
 
         xyz = np.column_stack((x, y, z))
-        
+
         del acc_df, filtered_acc_df
 
         return xyz, [x_disp, y_disp, z_disp]
@@ -663,18 +672,18 @@ class AIModel(threading.Thread):
         row = np.array(acc_data)
         abs_values = np.abs(row)
         top_2_idx = abs_values.argsort()[-2:][::-1]
-        
+
         del row, abs_values
-        
+
         return (top_2_idx[0], top_2_idx[1])
 
-    # Define Scaler
-    def scaler(self, X):
-        return (X - self.mean) / np.sqrt(self.variance)
+    #     # Define Scaler
+    #     def scaler(self, X):
+    #         return (X - self.mean) / np.sqrt(self.variance)
 
-    # Define PCA
-    def pca(self, X):
-        return np.dot(X, self.pca_eigvecs.T)
+    #     # Define PCA
+    #     def pca(self, X):
+    #         return np.dot(X, self.pca_eigvecs.T)
 
     def rng_test_action(self):
         # choose a random action from the list
@@ -695,47 +704,55 @@ class AIModel(threading.Thread):
 
         return test_data
 
-    # Define MLP
-    def mlp(self, X):
-        H1 = np.dot(X, self.weights[0]) + self.weights[1]
-        H1_relu = np.maximum(0, H1)
-        H2 = np.dot(H1_relu, self.weights[2]) + self.weights[3]
-        H2_relu = np.maximum(0, H2)
-        Y = np.dot(H2_relu, self.weights[4]) + self.weights[5]
-        Y_softmax = np.exp(Y) / np.sum(np.exp(Y), axis=1, keepdims=True)
-        
-        del H1, H1_relu, H2, H2_relu, Y
-        
-        return Y_softmax
+    #     # Define MLP
+    #     def mlp(self, X):
+    #         H1 = np.dot(X, self.weights[0]) + self.weights[1]
+    #         H1_relu = np.maximum(0, H1)
+    #         H2 = np.dot(H1_relu, self.weights[2]) + self.weights[3]
+    #         H2_relu = np.maximum(0, H2)
+    #         Y = np.dot(H2_relu, self.weights[4]) + self.weights[5]
+    #         Y_softmax = np.exp(Y) / np.sum(np.exp(Y), axis=1, keepdims=True)
+
+    #         del H1, H1_relu, H2, H2_relu, Y
+
+    #         return Y_softmax
 
     def get_action(self, softmax_array):
         max_index = np.argmax(softmax_array)
-        # action_dict = {0: 'G', 1: 'L', 2: 'R', 3: 'S'}
-        action_dict = {0: 'G', 1: 'R', 2: 'S'}
+        action_dict = {0: 'G', 1: 'L', 2: 'R', 3: 'S'}
+        #         action_dict = {0: 'G', 1: 'R', 2: 'S'}
         action = action_dict[max_index]
         return action
 
-    def MLP_Overlay(self, data):
-        start_time = time.time()
+    def MLPOverlayMockup(self, data):
+        action = data[0:120].reshape(40, 3)
+        scaled_action = self.scaler.transform(action.reshape(1, 120))
+        pca_action = self.pca.transform(scaled_action.reshape(1, 120))
+        mlp_input = np.hstack((pca_action.reshape(1, 6), data[120:125].reshape(1, 5)))
+        Y_softmax = self.mlp.predict(mlp_input)
+        return Y_softmax
 
-        # reshape data to match in_buffer shape
-        data = np.reshape(data, (125,))
+    #     def MLP_Overlay(self, data):
+    #         start_time = time.time()
 
-        self.in_buffer[:] = data
+    #         # reshape data to match in_buffer shape
+    #         data = np.reshape(data, (125,))
 
-        self.dma.sendchannel.transfer(self.in_buffer)
-        self.dma.recvchannel.transfer(self.out_buffer)
+    #         self.in_buffer[:] = data
 
-        # wait for transfer to finish
-        self.dma.sendchannel.wait()
-        self.dma.recvchannel.wait()
+    #         self.dma.sendchannel.transfer(self.in_buffer)
+    #         self.dma.recvchannel.transfer(self.out_buffer)
 
-        # print output buffer
-        print("mlp done with output: " + " ".join(str(x) for x in self.out_buffer))
+    #         # wait for transfer to finish
+    #         self.dma.sendchannel.wait()
+    #         self.dma.recvchannel.wait()
 
-        print(f"MLP time taken so far output: {time.time() - start_time}")
+    #         # print output buffer
+    #         print("mlp done with output: " + " ".join(str(x) for x in self.out_buffer))
 
-        return self.out_buffer
+    #         print(f"MLP time taken so far output: {time.time() - start_time}")
+
+    #         return self.out_buffer
 
     def AIDriver(self, test_input):
         test_input = test_input.reshape(40, 6)
@@ -744,21 +761,23 @@ class AIModel(threading.Thread):
         # Transform data using Scaler and PCA
         blurred_data, disp_change = self.blur_3d_movement(acc_df.reshape(40, 3))
         top_2 = self.get_top_2_axes(disp_change)
-         
-        vivado_input = np.hstack((np.array(blurred_data).reshape(1, 120), np.array(disp_change).reshape(1, 3), np.array(top_2).reshape(1, 2))).flatten()
-        vivado_predictions = self.MLP_Overlay(vivado_input)
+
+        vivado_input = np.hstack((np.array(blurred_data).reshape(1, 120), np.array(disp_change).reshape(1, 3),
+                                  np.array(top_2).reshape(1, 2))).flatten()
+        vivado_predictions = self.MLPOverlayMockup(vivado_input)
+        #         vivado_predictions = self.MLP_Overlay(vivado_input)
         vivado_action = self.get_action(vivado_predictions)
-        
+
         print(vivado_predictions)
         print(vivado_action)
-        
-        # Make predictions using MLP
-#         predictions = self.mlp(mlp_input)
-#         action = self.get_action(predictions)
 
-#         print(predictions)
-#         print(action)
-        
+        # Make predictions using MLP
+        #         predictions = self.mlp(mlp_input)
+        #         action = self.get_action(predictions)
+
+        #         print(predictions)
+        #         print(action)
+
         del acc_df, blurred_data, disp_change, top_2, vivado_input, vivado_predictions
 
         return vivado_action
@@ -829,7 +848,7 @@ class AIModel(threading.Thread):
 
                             # rng_test_action = self.rng_test_action() # TODO DIS-enable for live integration
                             # action = self.AIDriver(rng_test_action) # TODO DIS-enable for live integration
-                            
+
                             # printing data packet
                             demo_df = pd.DataFrame(data_packet)
                             print(demo_df.head(40))
