@@ -16,7 +16,6 @@ import random
 import time
 import json
 import queue
-import tracemalloc
 from queue import Queue
 from GameState import GameState
 from _socket import SHUT_RDWR
@@ -56,6 +55,8 @@ fpga_queue = deque()
 action_queue = deque()
 laptop_queue = deque()
 training_model_queue = deque()
+ai_queue_1 = Queue()
+ai_queue_2 = Queue()
 
 
 class ActionEngine(threading.Thread):
@@ -418,10 +419,10 @@ class Server(threading.Thread):
         # Shoot Engine Threads
         self.action_engine = action_engine
 
-        # AI Model Threads
-        self.p1_ai_engine = AIModel(1, self.action_engine)
-        if not SINGLE_PLAYER_MODE:
-            self.p2_ai_engine = AIModel(2, self.action_engine)
+        # # AI Model Threads
+        # self.p1_ai_engine = AIModel(1, self.action_engine)
+        # if not SINGLE_PLAYER_MODE:
+        #     self.p2_ai_engine = AIModel(2, self.action_engine)
 
         # Data Buffer
         self.data = b''
@@ -455,13 +456,12 @@ class Server(threading.Thread):
         print("Sending back to laptop", data)
 
     def run(self):
-        p1_ai_thread = threading.Thread(target=self.p1_ai_engine.start)
-        p1_ai_thread.start()
-
-        if not SINGLE_PLAYER_MODE:
-            p2_ai_thread = threading.Thread(target=self.p2_ai_engine.start)
-            p2_ai_thread.start()
-
+        # p1_ai_thread = threading.Thread(target=self.p1_ai_engine.start)
+        # p1_ai_thread.start()
+        #
+        # if not SINGLE_PLAYER_MODE:
+        #     p2_ai_thread = threading.Thread(target=self.p2_ai_engine.start)
+        #     p2_ai_thread.start()
         self.server_socket.listen(1)
         self.setup()
 
@@ -490,14 +490,14 @@ class Server(threading.Thread):
                     self.action_engine.handle_vest_shot(1)
                 elif packet_id == 3:
                     packet = self.packer.get_euler_data() + self.packer.get_acc_data()
-                    self.p1_ai_engine.add_packet(packet)
+                    ai_queue_1.put(packet)
                 elif packet_id == 4:
                     self.action_engine.handle_gun_shot(2)
                 elif packet_id == 5:
                     self.action_engine.handle_vest_shot(2)
                 elif packet_id == 6:
                     packet = self.packer.get_euler_data() + self.packer.get_acc_data()
-                    self.p2_ai_engine.add_packet(packet)
+                    ai_queue_2.put(packet)
                 else:
                     print("Invalid Beetle ID")
 
@@ -513,7 +513,7 @@ class Server(threading.Thread):
 
 
 class AIModel(threading.Thread):
-    def __init__(self, player, action_engine_model):
+    def __init__(self, player, action_engine_model, queue_added):
         super().__init__()
 
         self.player = player
@@ -551,7 +551,7 @@ class AIModel(threading.Thread):
 #         # define the available actions
 #         self.test_actions = ['G', 'S', 'R', 'L']
 
-        self.ai_queue = Queue()
+        self.ai_queue = queue_added
 
         # PYNQ overlay
         self.overlay = Overlay("/home/xilinx/official/dependencies/pca_mlp_1.bit")
@@ -709,9 +709,6 @@ class AIModel(threading.Thread):
 
         print("Shutting Down Connection")
 
-    def add_packet(self, packet):
-        self.ai_queue.put(packet)
-
     def run(self):
         # Set the threshold value for movement detection based on user input
         K = 10
@@ -746,7 +743,7 @@ class AIModel(threading.Thread):
                 loop_count = (loop_count + 1) % 5
 
                 if loop_count % 5 == 0:
-                    print(".\n")
+                    # print(".\n")
                     curr_mag = np.sum(np.square(np.mean(current_packet[:, -3:], axis=1)))
                     prev_mag = np.sum(np.square(np.mean(previous_packet[:, -3:], axis=1)))
 
@@ -799,10 +796,6 @@ class AIModel(threading.Thread):
                             current_packet = np.zeros((5, 6))
                             previous_packet = np.zeros((5, 6))
                             data_packet = np.zeros((40, 6))
-                            
-                            # tracemalloc
-                            snapshot = tracemalloc.take_snapshot()
-                            top_stats = snapshot.statistics('lineno')
 
                             print("[ Top 3 ]")
                             for stat in top_stats[:3]:
@@ -834,7 +827,6 @@ def block_print():
 def enable_print():
     sys.stdout = sys.__stdout__
 
-
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         print('Invalid number of arguments')
@@ -864,15 +856,23 @@ if __name__ == '__main__':
     # print("Starting Subscribe Receive")
     # viz = SubscriberReceive("gamestate")
 
+    # AI Model
+    ai_one = AIModel(1, action_engine, ai_queue_1)
+    ai_one.start()
+
+    if not SINGLE_PLAYER_MODE:
+        ai_two = AIModel(2, action_engine, ai_queue_2)
+        ai_two.start()
+
     # Client Connection to Evaluation Server
-    # print("Starting Client Thread")
+    print("Starting Client Thread")
     # # # eval_client = EvalClient(9999, "137.132.92.184")
-    # eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
-    # eval_client.connect_to_eval()
+    eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
+    eval_client.connect_to_eval()
 
     # Game Engine
-    # print("Starting Game Engine Thread")
-    # game_engine = GameEngine(eval_client=eval_client)
+    print("Starting Game Engine Thread")
+    game_engine = GameEngine(eval_client=eval_client)
 
     # Server Connection to Laptop
     print("Starting Server Thread")
@@ -885,5 +885,6 @@ if __name__ == '__main__':
 
     # hive.start()
     # viz.start()
-    # game_engine.start()
+    game_engine.start()
     laptop_server.start()
+
