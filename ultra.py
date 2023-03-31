@@ -513,7 +513,7 @@ class Server(threading.Thread):
     def send_back_laptop(self):
         game_state = json.loads(laptop_queue.popleft())
         data = [0, game_state['p1']['bullets'], game_state['p1']['hp'], 0, game_state['p2']['bullets'],
-                game_state['p2']['hp'], 0]
+                game_state['p2']['hp'], 0, 0]
         data = self.packer.pack(data)
 
         self.connection.send(data)
