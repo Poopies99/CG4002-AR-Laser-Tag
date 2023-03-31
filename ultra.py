@@ -154,7 +154,7 @@ class ActionEngine(threading.Thread):
                         action[0] = [action_data_p1, True]
 
                 if action_data_p2 is None and self.p2_action_queue:
-                    action_data_p2 = self.p1_action_queue.popleft()
+                    action_data_p2 = self.p2_action_queue.popleft()
 
                     if action_data_p2 == 'shoot':
                         action[1] = [action_data_p2, self.p2_vest_shot]
