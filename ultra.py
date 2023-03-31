@@ -621,13 +621,13 @@ class AIModel(threading.Thread):
         #         self.out_buffer = pynq.allocate(shape=(3,), dtype=np.float32)
 
         # Load the scaler from a file
-        self.scaler = joblib.load('/scaler.joblib')
+        self.scaler = joblib.load('scaler.joblib')
 
         # Load the PCA from a file
-        self.pca = joblib.load('/pca.joblib')
+        self.pca = joblib.load('pca.joblib')
 
         # Load the MLP from a file
-        self.mlp = joblib.load('/mlp.joblib')
+        self.mlp = joblib.load('mlp.joblib')
 
     def sleep(self, seconds):
         start_time = time.time()
