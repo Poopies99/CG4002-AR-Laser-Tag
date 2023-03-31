@@ -402,7 +402,7 @@ class EvalClient:
 
 
 class Server(threading.Thread):
-    def __init__(self, port_num, host_name, action_engine):
+    def __init__(self, port_num, host_name, action_engine_model):
         super().__init__()
 
         # Create a TCP/IP socket
@@ -417,12 +417,7 @@ class Server(threading.Thread):
         self.packer = BLEPacket()
 
         # Shoot Engine Threads
-        self.action_engine = action_engine
-
-        # # AI Model Threads
-        # self.p1_ai_engine = AIModel(1, self.action_engine)
-        # if not SINGLE_PLAYER_MODE:
-        #     self.p2_ai_engine = AIModel(2, self.action_engine)
+        self.action_engine = action_engine_model
 
         # Data Buffer
         self.data = b''
@@ -456,12 +451,6 @@ class Server(threading.Thread):
         print("Sending back to laptop", data)
 
     def run(self):
-        # p1_ai_thread = threading.Thread(target=self.p1_ai_engine.start)
-        # p1_ai_thread.start()
-        #
-        # if not SINGLE_PLAYER_MODE:
-        #     p2_ai_thread = threading.Thread(target=self.p2_ai_engine.start)
-        #     p2_ai_thread.start()
         self.server_socket.listen(1)
         self.setup()
 
@@ -796,10 +785,6 @@ class AIModel(threading.Thread):
                             current_packet = np.zeros((5, 6))
                             previous_packet = np.zeros((5, 6))
                             data_packet = np.zeros((40, 6))
-
-                            print("[ Top 3 ]")
-                            for stat in top_stats[:3]:
-                                print(stat)
 
                     # Update the previous packet
                     previous_packet = current_packet.copy()
