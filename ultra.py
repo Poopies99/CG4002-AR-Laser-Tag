@@ -26,9 +26,9 @@ from scipy.signal import medfilt
 from scipy.ndimage import gaussian_filter1d
 from scipy.ndimage import gaussian_filter
 
-# import pynq
-# from scipy import stats
-# from pynq import Overlay
+import pynq
+from scipy import stats
+from pynq import Overlay
 
 """
 Threads: 
@@ -514,44 +514,44 @@ class AIModel(threading.Thread):
         # Flags
         self.shutdown = threading.Event()
 
-        # Load all_arrays.json
-        with open('dependencies/all_arrays.json', 'r') as f:
-            all_arrays = json.load(f)
+#         # Load all_arrays.json
+#         with open('dependencies/all_arrays.json', 'r') as f:
+#             all_arrays = json.load(f)
 
-        # Retrieve values from all_arrays
-        self.scaling_factors = np.array(all_arrays['scaling_factors'])
-        self.mean = np.array(all_arrays['mean'])
-        self.variance = np.array(all_arrays['variance'])
-        self.pca_eigvecs = np.array(all_arrays['pca_eigvecs'])
-        self.weights = [np.array(w) for w in all_arrays['weights']]
+#         # Retrieve values from all_arrays
+#         self.scaling_factors = np.array(all_arrays['scaling_factors'])
+#         self.mean = np.array(all_arrays['mean'])
+#         self.variance = np.array(all_arrays['variance'])
+#         self.pca_eigvecs = np.array(all_arrays['pca_eigvecs'])
+#         self.weights = [np.array(w) for w in all_arrays['weights']]
 
-        # Reshape scaling_factors, mean and variance to (1, 3)
-        self.scaling_factors = self.scaling_factors.reshape(40, 3)
-        self.mean = self.mean.reshape(40, 3)
-        self.variance = self.variance.reshape(40, 3)
+#         # Reshape scaling_factors, mean and variance to (1, 3)
+#         self.scaling_factors = self.scaling_factors.reshape(40, 3)
+#         self.mean = self.mean.reshape(40, 3)
+#         self.variance = self.variance.reshape(40, 3)
 
-        # read in the test actions from the JSON file
-        with open('dependencies/test_actions.json', 'r') as f:
-            test_actions = json.load(f)
+#         # read in the test actions from the JSON file
+#         with open('dependencies/test_actions.json', 'r') as f:
+#             test_actions = json.load(f)
 
-        # extract the test data for each action from the dictionary
-        self.test_g = np.array(test_actions['G'])
-        self.test_s = np.array(test_actions['S'])
-        self.test_r = np.array(test_actions['R'])
-        self.test_l = np.array(test_actions['L'])
+#         # extract the test data for each action from the dictionary
+#         self.test_g = np.array(test_actions['G'])
+#         self.test_s = np.array(test_actions['S'])
+#         self.test_r = np.array(test_actions['R'])
+#         self.test_l = np.array(test_actions['L'])
 
-        # define the available actions
-        self.test_actions = ['G', 'S', 'R', 'L']
+#         # define the available actions
+#         self.test_actions = ['G', 'S', 'R', 'L']
 
         self.ai_queue = Queue()
 
         # PYNQ overlay
-        # self.overlay = Overlay("pca_mlp_1.bit")
-        # self.dma = self.overlay.axi_dma_0
+        self.overlay = Overlay("/home/xilinx/official/dependencies/pca_mlp_1.bit")
+        self.dma = self.overlay.axi_dma_0
 
-        # # Allocate input and output buffers once
-        # self.in_buffer = pynq.allocate(shape=(35,), dtype=np.float32)
-        # self.out_buffer = pynq.allocate(shape=(4,), dtype=np.float32)
+        # Allocate input and output buffers once
+        self.in_buffer = pynq.allocate(shape=(125,), dtype=np.float32)
+        self.out_buffer = pynq.allocate(shape=(3,), dtype=np.float32)
 
     def sleep(self, seconds):
         start_time = time.time()
@@ -648,27 +648,27 @@ class AIModel(threading.Thread):
         action = action_dict[max_index]
         return action
 
-    # def MLP_Overlay(self, data):
-    #     start_time = time.time()
+    def MLP_Overlay(self, data):
+        start_time = time.time()
 
-    #     # reshape data to match in_buffer shape
-    #     data = np.reshape(data, (35,))
+        # reshape data to match in_buffer shape
+        data = np.reshape(data, (125,))
 
-    #     self.in_buffer[:] = data
+        self.in_buffer[:] = data
 
-    #     self.dma.sendchannel.transfer(self.in_buffer)
-    #     self.dma.recvchannel.transfer(self.out_buffer)
+        self.dma.sendchannel.transfer(self.in_buffer)
+        self.dma.recvchannel.transfer(self.out_buffer)
 
-    #     # wait for transfer to finish
-    #     self.dma.sendchannel.wait()
-    #     self.dma.recvchannel.wait()
+        # wait for transfer to finish
+        self.dma.sendchannel.wait()
+        self.dma.recvchannel.wait()
 
-    #     # print output buffer
-    #     print("mlp done with output: " + " ".join(str(x) for x in self.out_buffer))
+        # print output buffer
+        print("mlp done with output: " + " ".join(str(x) for x in self.out_buffer))
 
-    #     print(f"MLP time taken so far output: {time.time() - start_time}")
+        print(f"MLP time taken so far output: {time.time() - start_time}")
 
-    #     return self.out_buffer
+        return self.out_buffer
 
     def AIDriver(self, test_input):
         test_input = test_input.reshape(40, 6)
@@ -676,23 +676,25 @@ class AIModel(threading.Thread):
 
         # Transform data using Scaler and PCA
         blurred_data, disp_change = self.blur_3d_movement(acc_df.reshape(40, 3))
-        data_scaled = self.scaler(blurred_data)
-        data_pca = self.pca(data_scaled.reshape(1, 120))
-
         top_2 = self.get_top_2_axes(disp_change)
-
-        mlp_input = np.hstack((np.array(data_pca), np.array(disp_change).reshape(1, 3), np.array(top_2).reshape(1, 2)))
-
-        # Make predictions using MLP
-        predictions = self.mlp(mlp_input)
-        action = self.get_action(predictions)
-
-        print(predictions)
-        print(action)
+         
+        vivado_input = np.hstack((np.array(blurred_data).reshape(1, 120), np.array(disp_change).reshape(1, 3), np.array(top_2).reshape(1, 2))).flatten()
+        vivado_predictions = self.MLP_Overlay(vivado_input)
+        vivado_action = self.get_action(vivado_predictions)
         
-        del acc_df, blurred_data, disp_change, data_scaled, data_pca, top_2, mlp_input, predictions
+        print(vivado_predictions)
+        print(vivado_action)
+        
+        # Make predictions using MLP
+#         predictions = self.mlp(mlp_input)
+#         action = self.get_action(predictions)
 
-        return action
+#         print(predictions)
+#         print(action)
+        
+        del acc_df, blurred_data, disp_change, top_2, vivado_input, vivado_predictions
+
+        return vivado_action
 
     def close_connection(self):
         self.shutdown.set()
