@@ -26,9 +26,9 @@ from scipy.signal import medfilt
 from scipy.ndimage import gaussian_filter1d
 from scipy.ndimage import gaussian_filter
 
-# import pynq
-# from scipy import stats
-# from pynq import Overlay
+import pynq
+from scipy import stats
+from pynq import Overlay
 
 """
 Threads: 
