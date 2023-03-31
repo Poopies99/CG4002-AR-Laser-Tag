@@ -621,6 +621,8 @@ class AIModel(threading.Thread):
         #         self.in_buffer = pynq.allocate(shape=(125,), dtype=np.float32)
         #         self.out_buffer = pynq.allocate(shape=(3,), dtype=np.float32)
 
+        print(os.getcwd())
+
         # Load the scaler from a file
         self.scaler = joblib.load('scaler.joblib')
 
