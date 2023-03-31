@@ -692,7 +692,7 @@ class AIModel(threading.Thread):
 #         print(predictions)
 #         print(action)
         
-        del acc_df, blurred_data, disp_change, data_scaled, data_pca, top_2, mlp_input, predictions
+        del acc_df, blurred_data, disp_change, top_2, vivado_input, vivado_predictions
 
         return vivado_action
 
