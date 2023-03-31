@@ -44,6 +44,7 @@ Message Queues:
 """
 
 SINGLE_PLAYER_MODE = False
+DEBUG_MODE = False
 
 subscribe_queue = Queue()
 feedback_queue = Queue()
@@ -839,6 +840,8 @@ class Memory(threading.Thread):
                 for stat in top_stats[:10]:
                     print(stat)
 
+                break
+
 
 def block_print():
     sys.stdout = open(os.devnull, 'w')
@@ -864,6 +867,10 @@ if __name__ == '__main__':
 
 
     print('---------------<Setup Announcement>---------------')
+    # Memory Engine
+    print('Starting Memory Thread')
+    memory = Memory()
+
     # Action Engine
     print('Starting Action Engine Thread')
     action_engine = ActionEngine()
@@ -897,11 +904,15 @@ if __name__ == '__main__':
 
     print('--------------------------------------------------')
 
+    if not DEBUG_MODE:
+        block_print()
+
     # hive.start()
     # viz.start()
     # game_engine.start()
     laptop_server.start()
     
     # tracemalloc
-    tracemalloc.start()
+    memory.start()
+
 
