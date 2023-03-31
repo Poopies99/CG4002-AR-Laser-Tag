@@ -803,8 +803,6 @@ class AIModel(threading.Thread):
 
                     # Update the previous packet
                     previous_packet = current_packet.copy()
-                    
-                    
 
 
 class DetectionTime:
@@ -837,9 +835,13 @@ class Memory(threading.Thread):
 
                 top_stats = snapshot.statistics('lineno')
 
-                print("[ Top 10 ]")
+                enable_print()
+
+                print("[ Top 10 Memory ]")
                 for stat in top_stats[:10]:
                     print(stat)
+
+                block_print()
 
                 start_time = time.time()
 
