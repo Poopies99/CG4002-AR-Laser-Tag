@@ -157,7 +157,7 @@ class ActionEngine(threading.Thread):
                     action_data_p2 = self.p2_action_queue.popleft()
 
                     if action_data_p2 == 'shoot':
-                        action[1] = [action_data_p2, self.p2_vest_shot]
+                        action[1] = [action_data_p2, self.p1_vest_shot]
 
                     elif action_data_p1 == 'grenade':
                         action_dic["p2"] = "check_grenade"
