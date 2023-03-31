@@ -122,8 +122,8 @@ class ActionEngine(threading.Thread):
         if self.p1_action_queue or self.p2_action_queue:
                      
             action_dic = {
-                "p1": None,
-                "p2": None
+                "p1": "",
+                "p2": ""
             }
             
             if action_data_p1 is None and self.p1_action_queue:
