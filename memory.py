@@ -13,7 +13,7 @@ class Memory(threading.Thread):
         start_time = time.time()
 
         while True:
-            while time.time() - start_time > 3:
+            while time.time() - start_time > 5:
                 snapshot = tracemalloc.take_snapshot()
 
                 top_stats = snapshot.statistics('lineno')
@@ -21,6 +21,8 @@ class Memory(threading.Thread):
                 print("[ Top 10 ]")
                 for stat in top_stats[:10]:
                     print(stat)
+
+                start_time = time.time()
 
                 break
 

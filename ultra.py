@@ -772,6 +772,7 @@ class AIModel(threading.Thread):
                             print(demo_df.head(40))
 
                             action = self.AIDriver(data_packet)  # TODO re-enable for live integration
+                            enable_print()
                             print(f"action from MLP in main: {action} \n")  # print output of MLP
 
                             if action == 'G':
@@ -782,7 +783,7 @@ class AIModel(threading.Thread):
                                 self.action_engine.handle_reload(self.player)
                             elif action == 'L':
                                 self.action_engine.handle_logout(self.player)
-
+                            block_print()
 
                             # movement_watchdog deactivated, reset is_movement_counter
                             movement_watchdog = False
@@ -828,9 +829,9 @@ class Memory(threading.Thread):
     def run(self):
         tracemalloc.start()
 
-        while True:
-            start_time = time.time()
+        start_time = time.time()
 
+        while True:
             while time.time() - start_time > 3:
                 snapshot = tracemalloc.take_snapshot()
 
@@ -839,6 +840,8 @@ class Memory(threading.Thread):
                 print("[ Top 10 ]")
                 for stat in top_stats[:10]:
                     print(stat)
+
+                start_time = time.time()
 
                 break
 
@@ -866,7 +869,6 @@ if __name__ == '__main__':
         print('Debugging Mode Enabled')
         DEBUG_MODE = True
 
-
     print('---------------<Setup Announcement>---------------')
     # Memory Engine
     print('Starting Memory Thread')
@@ -887,22 +889,18 @@ if __name__ == '__main__':
     # viz = SubscriberReceive("gamestate")
 
     # Client Connection to Evaluation Server
-    # print("Starting Client Thread")
+    print("Starting Client Thread")
     # # eval_client = EvalClient(9999, "137.132.92.184")
-    # eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
-    # eval_client.connect_to_eval()
+    eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
+    eval_client.connect_to_eval()
 
     # Game Engine
-    # print("Starting Game Engine Thread")
-    # game_engine = GameEngine(eval_client=eval_client)
+    print("Starting Game Engine Thread")
+    game_engine = GameEngine(eval_client=eval_client)
 
     # Server Connection to Laptop
     print("Starting Server Thread")
     laptop_server = Server(constants.XILINX_PORT_NUM, constants.XILINX_SERVER, action_engine)
-
-    # print("Starting Web Socket Server Thread")
-    # server = WebSocketServer()
-    # asyncio.run(server.start_server())
 
     print('--------------------------------------------------')
 
@@ -911,5 +909,5 @@ if __name__ == '__main__':
 
     # hive.start()
     # viz.start()
-    # game_engine.start()
+    game_engine.start()
     laptop_server.start()
