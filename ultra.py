@@ -546,7 +546,7 @@ class AIModel(threading.Thread):
         self.ai_queue = Queue()
 
         # PYNQ overlay
-        self.overlay = Overlay("pca_mlp_1.bit")
+        self.overlay = Overlay("/home/xilinx/official/dependencies/pca_mlp_1.bit")
         self.dma = self.overlay.axi_dma_0
 
         # Allocate input and output buffers once
