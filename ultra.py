@@ -624,13 +624,13 @@ class AIModel(threading.Thread):
         print(os.getcwd())
 
         # Load the scaler from a file
-        self.scaler = joblib.load('scaler.joblib')
+        self.scaler = joblib.load('dependencies/scaler.joblib')
 
         # Load the PCA from a file
-        self.pca = joblib.load('pca.joblib')
+        self.pca = joblib.load('dependencies/pca.joblib')
 
         # Load the MLP from a file
-        self.mlp = joblib.load('mlp.joblib')
+        self.mlp = joblib.load('dependencies/mlp.joblib')
 
     def sleep(self, seconds):
         start_time = time.time()
