@@ -928,9 +928,9 @@ if __name__ == '__main__':
 
     print('---------------<Setup Announcement>---------------')
     # Action Engine
-    # print('Starting Action Engine Thread')
-    # action_engine = ActionEngine()
-    # action_engine.start()
+    print('Starting Action Engine Thread')
+    action_engine = ActionEngine()
+    action_engine.start()
 
     # Software Visualizer
     # print("Starting Subscriber Send Thread")
