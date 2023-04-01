@@ -793,16 +793,16 @@ class AIModel(threading.Thread):
 
         # live integration loop
         while True:
-            # if self.ai_queue: # TODO re-enable for live integration
-            if 1 == 1: # TODO DIS-enable for live integration
-
+            if self.ai_queue: # TODO re-enable for live integration
+            # if 1 == 1: # TODO DIS-enable for live integration
+            
                 # runs loop 6 times and packs the data into groups of 6
-                # q_data = self.ai_queue.get()  # TODO re-enable for live integration
-                # self.ai_queue.task_done()  # TODO re-enable for live integration
-                # new_data = np.array(q_data) # TODO re-enable for live integration
-                # new_data = new_data / 100.0 # TODO re-enable for live integration
+                q_data = self.ai_queue.get()  # TODO re-enable for live integration
+                self.ai_queue.task_done()  # TODO re-enable for live integration
+                new_data = np.array(q_data) # TODO re-enable for live integration
+                new_data = new_data / 100.0 # TODO re-enable for live integration
                 
-                new_data = np.random.randn(6) # TODO DIS-enable for live integration
+                # new_data = np.random.randn(6) # TODO DIS-enable for live integration
                 # print(" ".join([f"{x:.3f}" for x in new_data]))
             
                 # Pack the data into groups of 6
@@ -836,10 +836,10 @@ class AIModel(threading.Thread):
                             # print dimensions of data packet
                             # print(f"data_packet dimensions: {data_packet.shape} \n")
 
-                            rng_test_action = self.rng_test_action() # TODO DIS-enable for live integration
-                            action = self.AIDriver(rng_test_action) # TODO DIS-enable for live integration
+                            # rng_test_action = self.rng_test_action() # TODO DIS-enable for live integration
+                            # action = self.AIDriver(rng_test_action) # TODO DIS-enable for live integration
 
-                            # action = self.AIDriver(data_packet) # TODO re-enable for live integration
+                            action = self.AIDriver(data_packet) # TODO re-enable for live integration
                             print(f"action from MLP in main: {action} \n")  # print output of MLP
 
                             # movement_watchdog deactivated, reset is_movement_counter
@@ -893,9 +893,9 @@ if __name__ == '__main__':
 
     print('---------------<Setup Announcement>---------------')
     # Action Engine
-    # print('Starting Action Engine Thread')
-    # action_engine = ActionEngine()
-    # action_engine.start()
+    print('Starting Action Engine Thread')
+    action_engine = ActionEngine()
+    action_engine.start()
 
     # Software Visualizer
     # print("Starting Subscriber Send Thread")
@@ -906,37 +906,37 @@ if __name__ == '__main__':
     # viz = SubscriberReceive("gamestate")
 
     # AI Model
-    ai_test = AIModel(1, [], [])
-    ai_test.start()
+    # ai_test = AIModel(1, [], [])
+    # ai_test.start()
 
-    # ai_one = AIModel(1, action_engine, ai_queue_1)
-    # ai_one.start()
+    ai_one = AIModel(1, action_engine, ai_queue_1)
+    ai_one.start()
 
-    # if not SINGLE_PLAYER_MODE:
-    #     ai_two = AIModel(2, action_engine, ai_queue_2)
-    #     ai_two.start()
+    if not SINGLE_PLAYER_MODE:
+        ai_two = AIModel(2, action_engine, ai_queue_2)
+        ai_two.start()
 
-    # # # Client Connection to Evaluation Server
-    # print("Starting Client Thread")
-    # # # # eval_client = EvalClient(9999, "137.132.92.184")
-    # eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
-    # eval_client.connect_to_eval()
+    # # Client Connection to Evaluation Server
+    print("Starting Client Thread")
+    # # # eval_client = EvalClient(9999, "137.132.92.184")
+    eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
+    eval_client.connect_to_eval()
 
-    # # Game Engine
-    # print("Starting Game Engine Thread")
-    # game_engine = GameEngine(eval_client=eval_client)
+    # Game Engine
+    print("Starting Game Engine Thread")
+    game_engine = GameEngine(eval_client=eval_client)
 
-    # # # Server Connection to Laptop
-    # print("Starting Server Thread")
-    # laptop_server = Server(constants.XILINX_PORT_NUM, constants.XILINX_SERVER, action_engine)
+    # # Server Connection to Laptop
+    print("Starting Server Thread")
+    laptop_server = Server(constants.XILINX_PORT_NUM, constants.XILINX_SERVER, action_engine)
 
-    # print('--------------------------------------------------')
+    print('--------------------------------------------------')
 
-    # if not DEBUG_MODE:
-    #     block_print()
+    if not DEBUG_MODE:
+        block_print()
 
-    # # hive.start()
-    # # viz.start()
-    # game_engine.start()
-    # laptop_server.start()
+    # hive.start()
+    # viz.start()
+    game_engine.start()
+    laptop_server.start()
 
