@@ -621,7 +621,6 @@ class AIModel(threading.Thread):
         #         self.in_buffer = pynq.allocate(shape=(125,), dtype=np.float32)
         #         self.out_buffer = pynq.allocate(shape=(3,), dtype=np.float32)
 
-        print(os.getcwd())
 
         # Load the scaler from a file
         self.scaler = joblib.load('dependencies/scaler.joblib')
@@ -822,7 +821,7 @@ class AIModel(threading.Thread):
                 # new_data = new_data / 100.0  # TODO re-enable for live integration
 
                 new_data = np.random.randn(6) # TODO DIS-enable for live integration
-                # print(" ".join([f"{x:.3f}" for x in new_data]))
+                print(" ".join([f"{x:.3f}" for x in new_data]))
 
                 # Pack the data into groups of 6
                 current_packet[loop_count] = new_data
@@ -831,7 +830,7 @@ class AIModel(threading.Thread):
                 loop_count = (loop_count + 1) % 5
 
                 if loop_count % 5 == 0:
-                    # print(".\n")
+                    print(".\n")
                     curr_mag = np.sum(np.square(np.mean(current_packet[:, -3:], axis=1)))
                     prev_mag = np.sum(np.square(np.mean(previous_packet[:, -3:], axis=1)))
 
