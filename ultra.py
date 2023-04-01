@@ -593,7 +593,7 @@ class AIModel(threading.Thread):
         self.variance = self.variance.reshape(40, 3)
 
         # read in the test actions from the JSON file
-        with open('test_actions.json', 'r') as f:
+        with open('dependencies/test_actions.json', 'r') as f:
             test_actions = json.load(f)
 
         # extract the test data for each action from the dictionary
