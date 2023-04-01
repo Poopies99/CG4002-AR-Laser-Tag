@@ -608,11 +608,15 @@ class AIModel(threading.Thread):
 
         self.ai_queue = queue_added
         
-        # PYNQ overlay
+        # PYNQ overlay NEW
+        self.overlay = Overlay("pca_mlp_2.bit")
+        self.dma = self.overlay.axi_dma_0
+        self.in_buffer = pynq.allocate(shape=(128,), dtype=np.float32)
+        self.out_buffer = pynq.allocate(shape=(4,), dtype=np.float32)
+
+        # PYNQ overlay OLD backup
         # self.overlay = Overlay("pca_mlp_1.bit")
         # self.dma = self.overlay.axi_dma_0
-
-        # # Allocate input and output buffers once
         # self.in_buffer = pynq.allocate(shape=(35,), dtype=np.float32)
         # self.out_buffer = pynq.allocate(shape=(4,), dtype=np.float32)
 
@@ -714,27 +718,27 @@ class AIModel(threading.Thread):
         return action
 
 
-    # def mlp_vivado(self, data):
-    #     start_time = time.time()
+    def mlp_vivado(self, data):
+        start_time = time.time()
 
-    #     # reshape data to match in_buffer shape
-    #     data = np.reshape(data, (35,))
+        # reshape data to match in_buffer shape
+        data = np.reshape(data, (128,))
 
-    #     self.in_buffer[:] = data
+        self.in_buffer[:] = data
 
-    #     self.dma.sendchannel.transfer(self.in_buffer)
-    #     self.dma.recvchannel.transfer(self.out_buffer)
+        self.dma.sendchannel.transfer(self.in_buffer)
+        self.dma.recvchannel.transfer(self.out_buffer)
 
-    #     # wait for transfer to finish
-    #     self.dma.sendchannel.wait()
-    #     self.dma.recvchannel.wait()
+        # wait for transfer to finish
+        self.dma.sendchannel.wait()
+        self.dma.recvchannel.wait()
 
-    #     # print output buffer
-    #     print("mlp done with output: " + " ".join(str(x) for x in self.out_buffer))
+        # print output buffer
+        print("mlp done with output: " + " ".join(str(x) for x in self.out_buffer))
 
-    #     print(f"MLP time taken so far output: {time.time() - start_time}")
+        print(f"MLP time taken so far output: {time.time() - start_time}")
 
-    #     return self.out_buffer
+        return self.out_buffer
 
     def mlp_vivado_mockup(self, data):
         action = data[0:120].reshape(40, 3)
@@ -759,8 +763,8 @@ class AIModel(threading.Thread):
                           np.array(metric_ratios).reshape(1,3)
                           )).flatten()
 
-        # vivado_predictions = self.mlp_vivado(vivado_input)
-        vivado_predictions = self.mlp_vivado_mockup(vivado_input)
+        vivado_predictions = self.mlp_vivado(vivado_input)
+        # vivado_predictions = self.mlp_vivado_mockup(vivado_input)
 
         action = self.get_action(vivado_predictions)
 
