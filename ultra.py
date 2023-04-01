@@ -798,8 +798,8 @@ class AIModel(threading.Thread):
 
     def run(self):
         # Set the threshold value for movement detection based on user input
-        K = 10
-        # K = float(input("threshold value? "))
+        # K = 10
+        K = float(input("threshold value? "))
 
         # Initialize arrays to hold the current and previous data packets
         current_packet = np.zeros((5, 6))
@@ -808,6 +808,8 @@ class AIModel(threading.Thread):
         is_movement_counter = 0
         movement_watchdog = False
         loop_count = 0
+
+        test_flip_flop = True
 
         # live integration loop
         while True:
@@ -830,7 +832,11 @@ class AIModel(threading.Thread):
                 loop_count = (loop_count + 1) % 5
 
                 if loop_count % 5 == 0:
-                    print(".\n")
+                    
+                    # sanity check printing
+                    print(".\n") if test_flip_flop else print("..\n")
+                    test_flip_flop = not test_flip_flop
+
                     curr_mag = np.sum(np.square(np.mean(current_packet[:, -3:], axis=1)))
                     prev_mag = np.sum(np.square(np.mean(previous_packet[:, -3:], axis=1)))
 
