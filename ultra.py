@@ -589,7 +589,7 @@ class AIModel(threading.Thread):
         self.mean = loaded_arrays['mean']
         self.variance = loaded_arrays['variance']
         self.pca_eigvecs = loaded_arrays['pca_eigvecs']
-        self.weights = [loaded_arrays['weights'][i] for i in range(len(self.weights))]
+        self.weights = [arr for arr in loaded_arrays['weights']]
 
         # read in the test actions from the JSON file
         with open('dependencies/test_actions.json', 'r') as f:
