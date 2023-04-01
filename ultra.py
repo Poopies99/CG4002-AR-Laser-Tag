@@ -602,7 +602,8 @@ class AIModel(threading.Thread):
         self.test_l = np.array(test_actions['L'])
 
         # define the available actions
-        self.test_actions = ['G', 'S', 'R', 'L']
+        # self.action_dict = {0: 'G', 1: 'L', 2: 'R', 3: 'S'}
+        self.action_dict = {0: 'G', 1: 'R', 2: 'S'}
 
         self.ai_queue = queue_added
 
@@ -689,7 +690,7 @@ class AIModel(threading.Thread):
 
     def rng_test_action(self):
         # choose a random action from the list
-        chosen_action = random.choice(self.test_actions)
+        chosen_action = random.choice(list(self.action_dict.values()))
 
         # # print chosen action
         print(f'RNG Chosen action: {chosen_action} \n')
@@ -721,9 +722,7 @@ class AIModel(threading.Thread):
 
     def get_action(self, softmax_array):
         max_index = np.argmax(softmax_array)
-        # action_dict = {0: 'G', 1: 'L', 2: 'R', 3: 'S'}
-        action_dict = {0: 'G', 1: 'R', 2: 'S'}
-        action = action_dict[max_index]
+        action = self.action_dict[max_index]
         return action
 
     def MLPOverlayMockup(self, data):
