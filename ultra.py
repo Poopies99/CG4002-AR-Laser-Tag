@@ -730,7 +730,7 @@ class AIModel(threading.Thread):
         action = data[0:120].reshape(40, 3)
         scaled_action = self.scaler(action.reshape(1, 120))
         pca_action = self.pca(scaled_action.reshape(1, 120))
-        mlp_input = np.hstack((pca_action.reshape(1, 6), data[120:125].reshape(1, 5)))
+        mlp_input = np.hstack((pca_action.reshape(1, 5), data[120:125].reshape(1, 5)))
         Y_softmax = self.mlp(mlp_input)
         return Y_softmax
 
