@@ -766,10 +766,11 @@ class AIModel(threading.Thread):
         vivado_input = np.hstack((np.array(blurred_data).reshape(1, 120), np.array(disp_change).reshape(1, 3),
                                   np.array(top_2).reshape(1, 2))).flatten()
         vivado_predictions = self.MLPOverlayMockup(vivado_input)
-        #         vivado_predictions = self.MLP_Overlay(vivado_input)
+        print(vivado_predictions)
+
+        # vivado_predictions = self.MLP_Overlay(vivado_input)
         vivado_action = self.get_action(vivado_predictions)
 
-        print(vivado_predictions)
         print(vivado_action)
 
         # Make predictions using MLP
