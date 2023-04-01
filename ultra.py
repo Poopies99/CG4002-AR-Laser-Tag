@@ -739,7 +739,7 @@ class AIModel(threading.Thread):
         scaled_action = self.scaler.transform(action.reshape(1, 120))
         pca_action = self.pca.transform(scaled_action.reshape(1, 120))
         mlp_input = np.hstack((pca_action.reshape(1, 6), data[120:125].reshape(1, 5)))
-        Y_softmax = self.mlp.predict(mlp_input)
+        Y_softmax = self.mlp(mlp_input)
         return Y_softmax
 
     #     def MLP_Overlay(self, data):
