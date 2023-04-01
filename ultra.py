@@ -834,8 +834,8 @@ class AIModel(threading.Thread):
                 if loop_count % 5 == 0:
                     
                     # sanity check printing
-                    print(".\n") if test_flip_flop else print("..\n")
-                    test_flip_flop = not test_flip_flop
+                    # print(".\n") if test_flip_flop else print("..\n")
+                    # test_flip_flop = not test_flip_flop
 
                     curr_mag = np.sum(np.square(np.mean(current_packet[:, -3:], axis=1)))
                     prev_mag = np.sum(np.square(np.mean(previous_packet[:, -3:], axis=1)))
