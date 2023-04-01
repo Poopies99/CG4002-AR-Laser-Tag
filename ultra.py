@@ -699,7 +699,7 @@ class AIModel(threading.Thread):
         chosen_action = random.choice(self.test_actions)
 
         # # print chosen action
-        # print(f'Chosen action: {chosen_action} \n')
+        print(f'RNG Chosen action: {chosen_action} \n')
 
         # use the chosen action to select the corresponding test data
         if chosen_action == 'G':
@@ -728,8 +728,8 @@ class AIModel(threading.Thread):
 
     def get_action(self, softmax_array):
         max_index = np.argmax(softmax_array)
-        action_dict = {0: 'G', 1: 'L', 2: 'R', 3: 'S'}
-        #         action_dict = {0: 'G', 1: 'R', 2: 'S'}
+        # action_dict = {0: 'G', 1: 'L', 2: 'R', 3: 'S'}
+        action_dict = {0: 'G', 1: 'R', 2: 'S'}
         action = action_dict[max_index]
         return action
 
