@@ -582,21 +582,14 @@ class AIModel(threading.Thread):
         # Flags
         self.shutdown = threading.Event()
 
-        #         # Load all_arrays.json
-        #         with open('dependencies/all_arrays.json', 'r') as f:
-        #             all_arrays = json.load(f)
+        # Load the arrays from the npz file
+        loaded_arrays = np.load('dependencies/my_arrays.npz')
 
-        #         # Retrieve values from all_arrays
-        #         self.scaling_factors = np.array(all_arrays['scaling_factors'])
-        #         self.mean = np.array(all_arrays['mean'])
-        #         self.variance = np.array(all_arrays['variance'])
-        #         self.pca_eigvecs = np.array(all_arrays['pca_eigvecs'])
-        #         self.weights = [np.array(w) for w in all_arrays['weights']]
-
-        #         # Reshape scaling_factors, mean and variance to (1, 3)
-        #         self.scaling_factors = self.scaling_factors.reshape(40, 3)
-        #         self.mean = self.mean.reshape(40, 3)
-        #         self.variance = self.variance.reshape(40, 3)
+        # Retrieve the values from the loaded arrays
+        self.mean = loaded_arrays['mean']
+        self.variance = loaded_arrays['variance']
+        self.pca_eigvecs = loaded_arrays['pca_eigvecs']
+        self.weights = [loaded_arrays['weights'][i] for i in range(len(self.weights))]
 
         # read in the test actions from the JSON file
         with open('dependencies/test_actions.json', 'r') as f:
@@ -622,21 +615,21 @@ class AIModel(threading.Thread):
         #         self.out_buffer = pynq.allocate(shape=(3,), dtype=np.float32)
 
 
-        # Load the scaler from a file
-        self.scaler = joblib.load('dependencies/scaler.joblib')
+        # # Load the scaler from a file
+        # self.scaler = joblib.load('dependencies/scaler.joblib')
 
-        # Load the PCA from a file
-        self.pca = joblib.load('dependencies/pca.joblib')
+        # # Load the PCA from a file
+        # self.pca = joblib.load('dependencies/pca.joblib')
 
-        # Load the MLP from a file
-        self.mlp_weights = np.load('dependencies/model_weights.npz')
-        # Access the weight and bias arrays 
-        self.w1 = self.mlp_weights['arr_0']
-        self.b1 = self.mlp_weights['arr_1']
-        self.w2 = self.mlp_weights['arr_2']
-        self.b2 = self.mlp_weights['arr_3']
-        self.w3 = self.mlp_weights['arr_4']
-        self.b3 = self.mlp_weights['arr_5']
+        # # Load the MLP from a file
+        # self.mlp_weights = np.load('dependencies/model_weights.npz')
+        # # Access the weight and bias arrays 
+        # self.w1 = self.mlp_weights['arr_0']
+        # self.b1 = self.mlp_weights['arr_1']
+        # self.w2 = self.mlp_weights['arr_2']
+        # self.b2 = self.mlp_weights['arr_3']
+        # self.w3 = self.mlp_weights['arr_4']
+        # self.b3 = self.mlp_weights['arr_5']
 
     def sleep(self, seconds):
         start_time = time.time()
@@ -715,11 +708,11 @@ class AIModel(threading.Thread):
 
     # Define MLP
     def mlp(self, X):
-        H1 = np.dot(X, self.w1) + self.b1
+        H1 = np.dot(X, self.weights[0]) + self.weights[1]
         H1_relu = np.maximum(0, H1)
-        H2 = np.dot(H1_relu, self.w2) + self.b2
+        H2 = np.dot(H1_relu, self.weights[2]) + self.weights[3]
         H2_relu = np.maximum(0, H2)
-        Y = np.dot(H2_relu, self.w3) + self.b3
+        Y = np.dot(H2_relu, self.weights[4]) + self.weights[5]
         Y_softmax = np.exp(Y) / np.sum(np.exp(Y), axis=1, keepdims=True)
 
         del H1, H1_relu, H2, H2_relu, Y
