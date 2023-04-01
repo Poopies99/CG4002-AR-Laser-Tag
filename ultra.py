@@ -55,14 +55,14 @@ class ActionEngine(threading.Thread):
         # Flags
         self.p1_gun_shot = False
         self.p1_vest_shot = False
-        self.p1_grenade_hit = False
+        self.p1_grenade_hit = None
 
         if not SINGLE_PLAYER_MODE:
             self.p2_action_queue = deque()
 
             self.p2_gun_shot = False
             self.p2_vest_shot = False
-            self.p2_grenade_hit = False
+            self.p2_grenade_hit = None
 
     def handle_grenade(self, player):
         print("Handling Grenade")
@@ -108,10 +108,12 @@ class ActionEngine(threading.Thread):
         else:
             self.p2_vest_shot = True
             
-    def determine_grenade_hit(self):
+    def determine_grenade_hit(self, action_data_p1, action_data_p2):
+        print("called determine grenade hit")
         while True:
             while not feedback_queue.empty():
                 data = feedback_queue.get()
+                print(data)
                 if data == "6 hit_grenade#":
                     self.p2_grenade_hit = True
                 elif data == "3 hit_grenade#":
@@ -120,8 +122,18 @@ class ActionEngine(threading.Thread):
                     self.p2_grenade_hit = False
                 elif data == "3 no#":
                     self.p1_grenade_hit = False                    
-                else:
-                    break
+                
+                if ((action_data_p1 == "grenade") and self.p2_grenade_hit is not None) and \
+                    ((action_data_p2 == "grenade") and self.p1_grenade_hit is not None):
+                        return
+                
+                if ((action_data_p1 == "grenade") and self.p2_grenade_hit is not None) and \
+                    (action_data_p2 != "grenade"):
+                    return
+                    
+                if ((action_data_p2 == "grenade") and self.p1_grenade_hit is not None) and \
+                    (action_data_p1 != "grenade"):
+                    return
 
     def run(self):
         action_data_p1, action_data_p2 = None, None
@@ -130,8 +142,12 @@ class ActionEngine(threading.Thread):
             if self.p1_action_queue or self.p2_action_queue:
                      
                 action_dic = {
-                    "p1": "",
-                    "p2": ""
+                    "p1": {
+                        "action": ""
+                        },
+                    "p2": {
+                        "action": ""
+                    } 
                 }
 
                 if action_data_p1 is None and self.p1_action_queue:
@@ -141,7 +157,7 @@ class ActionEngine(threading.Thread):
                         action[0] = [action_data_p1, self.p2_vest_shot]
 
                     elif action_data_p1 == 'grenade':
-                        action_dic["p1"] = "check_grenade"
+                        action_dic["p1"]["action"] = "check_grenade"
                         action[0] = [action_data_p1, False]
 
                     elif action_data_p1 == 'reload':
@@ -160,7 +176,7 @@ class ActionEngine(threading.Thread):
                         action[1] = [action_data_p2, self.p1_vest_shot]
 
                     elif action_data_p1 == 'grenade':
-                        action_dic["p2"] = "check_grenade"
+                        action_dic["p2"]["action"] = "check_grenade"
                         action[1] = [action_data_p2, False]
 
                     elif action_data_p2 == 'reload':
@@ -180,15 +196,18 @@ class ActionEngine(threading.Thread):
                 
                 if action_data_p1 == "grenade" or action_data_p2 == "grenade":
                     subscribe_queue.put(json.dumps(action_dic))
-                    self.determine_grenade_hit()
+                    self.determine_grenade_hit(action_data_p1, action_data_p2)
+                    print("done")
                     action[0][1] = self.p2_grenade_hit
                     action[1][1] = self.p1_grenade_hit
                     if action_data_p1 == "grenade":
-                        action_dic["p1"] = None
+                        action_dic["p1"]["action"] = ""
                         action_data_p1 = False
                     if action_data_p2 == "grenade":
-                        action_dic["p2"] = None
+                        action_dic["p2"]["action"] = ""
                         action_data_p2 = False
+                        
+                    print(action)
                     
                 if not (action_data_p1 is None or action_data_p2 is None):
 
@@ -196,7 +215,7 @@ class ActionEngine(threading.Thread):
                     action_data_p1, action_data_p2 = None, None
                     action = [['None', True], ['None', True]]
 
-                    self.p1_grenade_hit = False
+                    self.p1_grenade_hit = None
                     self.p1_gun_shot = False
                     self.p1_vest_shot = False
                     self.p1_action_queue.clear()
@@ -204,12 +223,8 @@ class ActionEngine(threading.Thread):
                     if not SINGLE_PLAYER_MODE:
                         self.p2_gun_shot = False
                         self.p2_vest_shot = False
-                        self.p2_grenade_hit = False
+                        self.p2_grenade_hit = None
                         self.p2_action_queue.clear()
-
-
-
-                
 class GameEngine(threading.Thread):
     def __init__(self, eval_client):
         super().__init__()
@@ -343,7 +358,6 @@ class GameEngine(threading.Thread):
 
             except KeyboardInterrupt as _:
                 traceback.print_exc()
-
 
 class SubscriberSend(threading.Thread):
     def __init__(self, topic):
