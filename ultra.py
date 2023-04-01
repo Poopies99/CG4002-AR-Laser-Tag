@@ -608,13 +608,13 @@ class AIModel(threading.Thread):
 
         self.ai_queue = queue_added
         
-        # PYNQ overlay NEW
+        # PYNQ overlay NEW - pca_mlp_2
         self.overlay = Overlay("dependencies/pca_mlp_2.bit")
         self.dma = self.overlay.axi_dma_0
         self.in_buffer = pynq.allocate(shape=(128,), dtype=np.float32)
         self.out_buffer = pynq.allocate(shape=(4,), dtype=np.float32)
 
-        # PYNQ overlay OLD backup
+        # PYNQ overlay OLD backup - pca_mlp_1
         # self.overlay = Overlay("pca_mlp_1.bit")
         # self.dma = self.overlay.axi_dma_0
         # self.in_buffer = pynq.allocate(shape=(35,), dtype=np.float32)
@@ -793,65 +793,65 @@ class AIModel(threading.Thread):
 
         # live integration loop
         while True:
-            # if ai_queue: # TODO re-enable for live integration
+            # if self.ai_queue: # TODO re-enable for live integration
             if 1 == 1: # TODO DIS-enable for live integration
+
                 # runs loop 6 times and packs the data into groups of 6
-
-                    # q_data = ai_queue.get() # TODO re-enable for live integration
-                    # ai_queue.task_done() # TODO re-enable for live integration
-                    # new_data = np.array(q_data) # TODO re-enable for live integration
-                    # new_data = new_data / 100.0 # TODO re-enable for live integration
-                    
-                    new_data = np.random.randn(6) # TODO DIS-enable for live integration
-                    # print(" ".join([f"{x:.3f}" for x in new_data]))
+                # q_data = self.ai_queue.get()  # TODO re-enable for live integration
+                # self.ai_queue.task_done()  # TODO re-enable for live integration
+                # new_data = np.array(q_data) # TODO re-enable for live integration
+                # new_data = new_data / 100.0 # TODO re-enable for live integration
                 
-                    # Pack the data into groups of 6
-                    current_packet[loop_count] = new_data
-                
-                    # Update loop_count
-                    loop_count = (loop_count + 1) % 5
+                new_data = np.random.randn(6) # TODO DIS-enable for live integration
+                # print(" ".join([f"{x:.3f}" for x in new_data]))
+            
+                # Pack the data into groups of 6
+                current_packet[loop_count] = new_data
+            
+                # Update loop_count
+                loop_count = (loop_count + 1) % 5
 
-                    if loop_count % 5 == 0:
-                        curr_mag = np.sum(np.square(np.mean(current_packet[:, -3:], axis=1)))
-                        prev_mag = np.sum(np.square(np.mean(previous_packet[:, -3:], axis=1)))
+                if loop_count % 5 == 0:
+                    curr_mag = np.sum(np.square(np.mean(current_packet[:, -3:], axis=1)))
+                    prev_mag = np.sum(np.square(np.mean(previous_packet[:, -3:], axis=1)))
 
-                        # Check for movement detection
-                        if not movement_watchdog and curr_mag - prev_mag > K:
-                            print("Movement detected!")
-                            # print currr and prev mag for sanity check
-                            print(f"curr_mag: {curr_mag} \n")
-                            print(f"prev_mag: {prev_mag} \n")
-                            movement_watchdog = True
-                            # append previous and current packet to data packet
-                            data_packet = np.concatenate((previous_packet, current_packet), axis=0)
+                    # Check for movement detection
+                    if not movement_watchdog and curr_mag - prev_mag > K:
+                        print("Movement detected!")
+                        # print currr and prev mag for sanity check
+                        print(f"curr_mag: {curr_mag} \n")
+                        print(f"prev_mag: {prev_mag} \n")
+                        movement_watchdog = True
+                        # append previous and current packet to data packet
+                        data_packet = np.concatenate((previous_packet, current_packet), axis=0)
 
-                        # movement_watchdog activated, count is_movement_counter from 0 up 6 and append current packet each time
-                        if movement_watchdog:
-                            if is_movement_counter < 6:
-                                data_packet = np.concatenate((data_packet, current_packet), axis=0)
-                                is_movement_counter += 1
-                            
-                            # If we've seen 6 packets since the last movement detection, preprocess and classify the data
-                            else:
-                                # print dimensions of data packet
-                                # print(f"data_packet dimensions: {data_packet.shape} \n")
+                    # movement_watchdog activated, count is_movement_counter from 0 up 6 and append current packet each time
+                    if movement_watchdog:
+                        if is_movement_counter < 6:
+                            data_packet = np.concatenate((data_packet, current_packet), axis=0)
+                            is_movement_counter += 1
+                        
+                        # If we've seen 6 packets since the last movement detection, preprocess and classify the data
+                        else:
+                            # print dimensions of data packet
+                            # print(f"data_packet dimensions: {data_packet.shape} \n")
 
-                                rng_test_action = self.rng_test_action() # TODO DIS-enable for live integration
-                                action = self.AIDriver(rng_test_action) # TODO DIS-enable for live integration
+                            rng_test_action = self.rng_test_action() # TODO DIS-enable for live integration
+                            action = self.AIDriver(rng_test_action) # TODO DIS-enable for live integration
 
-                                # action = self.AIDriver(data_packet) # TODO re-enable for live integration
-                                print(f"action from MLP in main: {action} \n")  # print output of MLP
+                            # action = self.AIDriver(data_packet) # TODO re-enable for live integration
+                            print(f"action from MLP in main: {action} \n")  # print output of MLP
 
-                                # movement_watchdog deactivated, reset is_movement_counter
-                                movement_watchdog = False
-                                is_movement_counter = 0
-                                # reset arrays to zeros
-                                current_packet = np.zeros((5,6))
-                                previous_packet = np.zeros((5,6))
-                                data_packet = np.zeros((40,6))
+                            # movement_watchdog deactivated, reset is_movement_counter
+                            movement_watchdog = False
+                            is_movement_counter = 0
+                            # reset arrays to zeros
+                            current_packet = np.zeros((5,6))
+                            previous_packet = np.zeros((5,6))
+                            data_packet = np.zeros((40,6))
 
-                        # Update the previous packet
-                        previous_packet = current_packet.copy()
+                    # Update the previous packet
+                    previous_packet = current_packet.copy()
 
 
 class DetectionTime:
@@ -893,9 +893,9 @@ if __name__ == '__main__':
 
     print('---------------<Setup Announcement>---------------')
     # Action Engine
-    # print('Starting Action Engine Thread')
-    # action_engine = ActionEngine()
-    # action_engine.start()
+    print('Starting Action Engine Thread')
+    action_engine = ActionEngine()
+    action_engine.start()
 
     # Software Visualizer
     # print("Starting Subscriber Send Thread")
@@ -906,36 +906,37 @@ if __name__ == '__main__':
     # viz = SubscriberReceive("gamestate")
 
     # AI Model
-    ai_test = AIModel(1, [], [])
-    ai_test.start()
-    # ai_one = AIModel(1, action_engine, ai_queue_1)
-    # ai_one.start()
+    # ai_test = AIModel(1, [], [])
+    # ai_test.start()
 
-    # if not SINGLE_PLAYER_MODE:
-    #     ai_two = AIModel(2, action_engine, ai_queue_2)
-    #     ai_two.start()
+    ai_one = AIModel(1, action_engine, ai_queue_1)
+    ai_one.start()
+
+    if not SINGLE_PLAYER_MODE:
+        ai_two = AIModel(2, action_engine, ai_queue_2)
+        ai_two.start()
 
     # # Client Connection to Evaluation Server
-    # print("Starting Client Thread")
-    # # # # eval_client = EvalClient(9999, "137.132.92.184")
-    # eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
-    # eval_client.connect_to_eval()
+    print("Starting Client Thread")
+    # # # eval_client = EvalClient(9999, "137.132.92.184")
+    eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
+    eval_client.connect_to_eval()
 
     # Game Engine
-    # print("Starting Game Engine Thread")
-    # game_engine = GameEngine(eval_client=eval_client)
+    print("Starting Game Engine Thread")
+    game_engine = GameEngine(eval_client=eval_client)
 
     # # Server Connection to Laptop
-    # print("Starting Server Thread")
-    # laptop_server = Server(constants.XILINX_PORT_NUM, constants.XILINX_SERVER, action_engine)
+    print("Starting Server Thread")
+    laptop_server = Server(constants.XILINX_PORT_NUM, constants.XILINX_SERVER, action_engine)
 
-    # print('--------------------------------------------------')
+    print('--------------------------------------------------')
 
-    # if not DEBUG_MODE:
-    #     block_print()
+    if not DEBUG_MODE:
+        block_print()
 
     # hive.start()
     # viz.start()
-    # game_engine.start()
-    # laptop_server.start()
+    game_engine.start()
+    laptop_server.start()
 
