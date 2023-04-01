@@ -609,7 +609,7 @@ class AIModel(threading.Thread):
         self.ai_queue = queue_added
         
         # PYNQ overlay NEW
-        self.overlay = Overlay("pca_mlp_2.bit")
+        self.overlay = Overlay("dependencies/pca_mlp_2.bit")
         self.dma = self.overlay.axi_dma_0
         self.in_buffer = pynq.allocate(shape=(128,), dtype=np.float32)
         self.out_buffer = pynq.allocate(shape=(4,), dtype=np.float32)
