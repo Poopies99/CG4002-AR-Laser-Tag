@@ -17,7 +17,6 @@ import time
 import json
 import joblib
 import queue
-import tensorflow, keras
 from queue import Queue
 from GameState import GameState
 from _socket import SHUT_RDWR
@@ -599,18 +598,18 @@ class AIModel(threading.Thread):
         #         self.mean = self.mean.reshape(40, 3)
         #         self.variance = self.variance.reshape(40, 3)
 
-        #         # read in the test actions from the JSON file
-        #         with open('dependencies/test_actions.json', 'r') as f:
-        #             test_actions = json.load(f)
+        # read in the test actions from the JSON file
+        with open('dependencies/test_actions.json', 'r') as f:
+            test_actions = json.load(f)
 
-        #         # extract the test data for each action from the dictionary
-        #         self.test_g = np.array(test_actions['G'])
-        #         self.test_s = np.array(test_actions['S'])
-        #         self.test_r = np.array(test_actions['R'])
-        #         self.test_l = np.array(test_actions['L'])
+        # extract the test data for each action from the dictionary
+        self.test_g = np.array(test_actions['G'])
+        self.test_s = np.array(test_actions['S'])
+        self.test_r = np.array(test_actions['R'])
+        self.test_l = np.array(test_actions['L'])
 
-        #         # define the available actions
-        #         self.test_actions = ['G', 'S', 'R', 'L']
+        # define the available actions
+        self.test_actions = ['G', 'S', 'R', 'L']
 
         self.ai_queue = queue_added
 
@@ -631,7 +630,14 @@ class AIModel(threading.Thread):
         self.pca = joblib.load('dependencies/pca.joblib')
 
         # Load the MLP from a file
-        self.mlp = joblib.load('dependencies/mlp.joblib')
+        self.mlp_weights = np.load('model_weights.npz')
+        # Access the weight and bias arrays 
+        self.w1 = self.mlp_weights['arr_0']
+        self.b1 = self.mlp_weights['arr_1']
+        self.w2 = self.mlp_weights['arr_2']
+        self.b2 = self.mlp_weights['arr_3']
+        self.w3 = self.mlp_weights['arr_4']
+        self.b3 = self.mlp_weights['arr_5']
 
     def sleep(self, seconds):
         start_time = time.time()
@@ -708,18 +714,18 @@ class AIModel(threading.Thread):
 
         return test_data
 
-    #     # Define MLP
-    #     def mlp(self, X):
-    #         H1 = np.dot(X, self.weights[0]) + self.weights[1]
-    #         H1_relu = np.maximum(0, H1)
-    #         H2 = np.dot(H1_relu, self.weights[2]) + self.weights[3]
-    #         H2_relu = np.maximum(0, H2)
-    #         Y = np.dot(H2_relu, self.weights[4]) + self.weights[5]
-    #         Y_softmax = np.exp(Y) / np.sum(np.exp(Y), axis=1, keepdims=True)
+    # Define MLP
+    def mlp(self, X):
+        H1 = np.dot(X, self.w1) + self.b1
+        H1_relu = np.maximum(0, H1)
+        H2 = np.dot(H1_relu, self.w2) + self.b2
+        H2_relu = np.maximum(0, H2)
+        Y = np.dot(H2_relu, self.w3) + self.b3
+        Y_softmax = np.exp(Y) / np.sum(np.exp(Y), axis=1, keepdims=True)
 
-    #         del H1, H1_relu, H2, H2_relu, Y
+        del H1, H1_relu, H2, H2_relu, Y
 
-    #         return Y_softmax
+        return Y_softmax
 
     def get_action(self, softmax_array):
         max_index = np.argmax(softmax_array)
@@ -806,16 +812,16 @@ class AIModel(threading.Thread):
 
         # live integration loop
         while True:
-            if self.ai_queue:  # TODO re-enable for live integration
-                # if 1 == 1: # TODO DIS-enable for live integration
+            # if self.ai_queue:  # TODO re-enable for live integration
+            if 1 == 1: # TODO DIS-enable for live integration
                 # runs loop 6 times and packs the data into groups of 6
 
-                q_data = self.ai_queue.get()  # TODO re-enable for live integration
-                self.ai_queue.task_done()  # TODO re-enable for live integration
-                new_data = np.array(q_data)  # TODO re-enable for live integration
-                new_data = new_data / 100.0  # TODO re-enable for live integration
+                # q_data = self.ai_queue.get()  # TODO re-enable for live integration
+                # self.ai_queue.task_done()  # TODO re-enable for live integration
+                # new_data = np.array(q_data)  # TODO re-enable for live integration
+                # new_data = new_data / 100.0  # TODO re-enable for live integration
 
-                # new_data = np.random.randn(6) # TODO DIS-enable for live integration
+                new_data = np.random.randn(6) # TODO DIS-enable for live integration
                 # print(" ".join([f"{x:.3f}" for x in new_data]))
 
                 # Pack the data into groups of 6
@@ -850,14 +856,14 @@ class AIModel(threading.Thread):
                             # print dimensions of data packet
                             # print(f"data_packet dimensions: {data_packet.shape} \n")
 
-                            # rng_test_action = self.rng_test_action() # TODO DIS-enable for live integration
-                            # action = self.AIDriver(rng_test_action) # TODO DIS-enable for live integration
+                            rng_test_action = self.rng_test_action() # TODO DIS-enable for live integration
+                            action = self.AIDriver(rng_test_action) # TODO DIS-enable for live integration
 
                             # printing data packet
                             demo_df = pd.DataFrame(data_packet)
                             print(demo_df.head(40))
 
-                            action = self.AIDriver(data_packet)  # TODO re-enable for live integration
+                            # action = self.AIDriver(data_packet)  # TODO re-enable for live integration
                             enable_print()
                             print(f"action from MLP in main: {action} \n")  # print output of MLP
 
