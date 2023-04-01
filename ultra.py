@@ -679,13 +679,13 @@ class AIModel(threading.Thread):
 
         return (top_2_idx[0], top_2_idx[1])
 
-    #     # Define Scaler
-    #     def scaler(self, X):
-    #         return (X - self.mean) / np.sqrt(self.variance)
+    # Define Scaler
+    def scaler(self, X):
+        return (X - self.mean) / np.sqrt(self.variance)
 
-    #     # Define PCA
-    #     def pca(self, X):
-    #         return np.dot(X, self.pca_eigvecs.T)
+    # Define PCA
+    def pca(self, X):
+        return np.dot(X, self.pca_eigvecs.T)
 
     def rng_test_action(self):
         # choose a random action from the list
@@ -728,8 +728,8 @@ class AIModel(threading.Thread):
 
     def MLPOverlayMockup(self, data):
         action = data[0:120].reshape(40, 3)
-        scaled_action = self.scaler.transform(action.reshape(1, 120))
-        pca_action = self.pca.transform(scaled_action.reshape(1, 120))
+        scaled_action = self.scaler(action.reshape(1, 120))
+        pca_action = self.pca(scaled_action.reshape(1, 120))
         mlp_input = np.hstack((pca_action.reshape(1, 6), data[120:125].reshape(1, 5)))
         Y_softmax = self.mlp(mlp_input)
         return Y_softmax
