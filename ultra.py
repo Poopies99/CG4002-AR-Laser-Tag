@@ -583,7 +583,7 @@ class AIModel(threading.Thread):
         self.shutdown = threading.Event()
 
         # Load the arrays from the npz file
-        loaded_arrays = np.load('dependencies/my_arrays.npz')
+        loaded_arrays = np.load('dependencies/my_arrays.npz', allow_pickle=True)
 
         # Retrieve the values from the loaded arrays
         self.mean = loaded_arrays['mean']
