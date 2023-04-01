@@ -942,7 +942,7 @@ if __name__ == '__main__':
 
     # AI Model
     ai_test = AIModel()
-    ai_test.start()
+    ai_test.start(1, [], [])
     # ai_one = AIModel(1, action_engine, ai_queue_1)
     # ai_one.start()
 
