@@ -573,8 +573,11 @@ class Server(threading.Thread):
 
 
 class AIModel(threading.Thread):
-    def __init__(self):
+    def __init__(self, player, action_engine_model, queue_added):
         super().__init__()
+
+        self.player = player
+        self.action_engine = action_engine_model
 
         # Flags
         self.shutdown = threading.Event()
@@ -602,6 +605,8 @@ class AIModel(threading.Thread):
 
         # define the available actions
         self.test_actions = ['G', 'S', 'R', 'L']
+
+        self.ai_queue = queue_added
         
         # PYNQ overlay
         # self.overlay = Overlay("pca_mlp_1.bit")
