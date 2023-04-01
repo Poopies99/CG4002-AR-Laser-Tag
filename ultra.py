@@ -872,15 +872,16 @@ class AIModel(threading.Thread):
                             enable_print()
                             print(f"action from MLP in main: {action} \n")  # print output of MLP
 
-                            if action == 'G':
-                                self.action_engine.handle_grenade(self.player)
-                            elif action == 'S':
-                                self.action_engine.handle_shield(self.player)
-                            elif action == 'R':
-                                self.action_engine.handle_reload(self.player)
-                            elif action == 'L':
-                                self.action_engine.handle_logout(self.player)
-                            block_print()
+                            # TODO re-enable for live integration
+                            # if action == 'G':
+                            #     self.action_engine.handle_grenade(self.player)
+                            # elif action == 'S':
+                            #     self.action_engine.handle_shield(self.player)
+                            # elif action == 'R':
+                            #     self.action_engine.handle_reload(self.player)
+                            # elif action == 'L':
+                            #     self.action_engine.handle_logout(self.player)
+                            # block_print()
 
                             # movement_watchdog deactivated, reset is_movement_counter
                             movement_watchdog = False
