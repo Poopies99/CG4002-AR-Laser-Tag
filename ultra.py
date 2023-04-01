@@ -630,7 +630,7 @@ class AIModel(threading.Thread):
         self.pca = joblib.load('dependencies/pca.joblib')
 
         # Load the MLP from a file
-        self.mlp_weights = np.load('model_weights.npz')
+        self.mlp_weights = np.load('dependencies/model_weights.npz')
         # Access the weight and bias arrays 
         self.w1 = self.mlp_weights['arr_0']
         self.b1 = self.mlp_weights['arr_1']
@@ -928,9 +928,9 @@ if __name__ == '__main__':
 
     print('---------------<Setup Announcement>---------------')
     # Action Engine
-    print('Starting Action Engine Thread')
-    action_engine = ActionEngine()
-    action_engine.start()
+    # print('Starting Action Engine Thread')
+    # action_engine = ActionEngine()
+    # action_engine.start()
 
     # Software Visualizer
     # print("Starting Subscriber Send Thread")
@@ -941,12 +941,14 @@ if __name__ == '__main__':
     # viz = SubscriberReceive("gamestate")
 
     # AI Model
-    ai_one = AIModel(1, action_engine, ai_queue_1)
-    ai_one.start()
+    ai_test = AIModel()
+    ai_test.start()
+    # ai_one = AIModel(1, action_engine, ai_queue_1)
+    # ai_one.start()
 
-    if not SINGLE_PLAYER_MODE:
-        ai_two = AIModel(2, action_engine, ai_queue_2)
-        ai_two.start()
+    # if not SINGLE_PLAYER_MODE:
+    #     ai_two = AIModel(2, action_engine, ai_queue_2)
+    #     ai_two.start()
 
     # # Client Connection to Evaluation Server
     # print("Starting Client Thread")
