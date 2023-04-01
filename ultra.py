@@ -17,6 +17,7 @@ import time
 import json
 import joblib
 import queue
+import tensorflow, keras
 from queue import Queue
 from GameState import GameState
 from _socket import SHUT_RDWR
