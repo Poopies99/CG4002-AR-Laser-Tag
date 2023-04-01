@@ -928,9 +928,9 @@ if __name__ == '__main__':
 
     print('---------------<Setup Announcement>---------------')
     # Action Engine
-    print('Starting Action Engine Thread')
-    action_engine = ActionEngine()
-    action_engine.start()
+    # print('Starting Action Engine Thread')
+    # action_engine = ActionEngine()
+    # action_engine.start()
 
     # Software Visualizer
     # print("Starting Subscriber Send Thread")
@@ -948,27 +948,27 @@ if __name__ == '__main__':
         ai_two = AIModel(2, action_engine, ai_queue_2)
         ai_two.start()
 
-    # Client Connection to Evaluation Server
-    print("Starting Client Thread")
-    # # # eval_client = EvalClient(9999, "137.132.92.184")
-    eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
-    eval_client.connect_to_eval()
+    # # Client Connection to Evaluation Server
+    # print("Starting Client Thread")
+    # # # # eval_client = EvalClient(9999, "137.132.92.184")
+    # eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
+    # eval_client.connect_to_eval()
 
     # Game Engine
-    print("Starting Game Engine Thread")
-    game_engine = GameEngine(eval_client=eval_client)
+    # print("Starting Game Engine Thread")
+    # game_engine = GameEngine(eval_client=eval_client)
 
-    # Server Connection to Laptop
-    print("Starting Server Thread")
-    laptop_server = Server(constants.XILINX_PORT_NUM, constants.XILINX_SERVER, action_engine)
+    # # Server Connection to Laptop
+    # print("Starting Server Thread")
+    # laptop_server = Server(constants.XILINX_PORT_NUM, constants.XILINX_SERVER, action_engine)
 
-    print('--------------------------------------------------')
+    # print('--------------------------------------------------')
 
-    if not DEBUG_MODE:
-        block_print()
+    # if not DEBUG_MODE:
+    #     block_print()
 
     # hive.start()
     # viz.start()
-    game_engine.start()
-    laptop_server.start()
+    # game_engine.start()
+    # laptop_server.start()
 
