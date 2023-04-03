@@ -529,7 +529,6 @@ class Server(threading.Thread):
             try:
                 # Receive up to 64 Bytes of data
                 data = self.connection.recv(64)
-                print(f"[Server] {data} received ")
 
                 # Append existing data into new data
                 self.data = self.data + data
