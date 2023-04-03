@@ -528,7 +528,7 @@ class Server(threading.Thread):
         while not self.shutdown.is_set():
             try:
                 # Receive up to 64 Bytes of data
-                data = self.connection.recv(16)
+                data = self.connection.recv(64)
                 print(f"[Server] {data} received ")
 
                 # Append existing data into new data
@@ -546,7 +546,7 @@ class Server(threading.Thread):
                 packet_id = packer.get_beetle_id()
 
                 # print(packet)
-                print("Packet ID: ", packet_id)
+                # print("Packet ID: ", packet_id)
 
                 if packet_id == 1:
                     self.action_engine.handle_gun_shot(1)
@@ -914,12 +914,12 @@ if __name__ == '__main__':
     # ai_test = AIModel(1, [], [])
     # ai_test.start()
 
-    # ai_one = AIModel(1, action_engine, ai_queue_1)
-    # ai_one.start()
+    ai_one = AIModel(1, action_engine, ai_queue_1)
+    ai_one.start()
 
-    # if not SINGLE_PLAYER_MODE:
-    #     ai_two = AIModel(2, action_engine, ai_queue_2)
-    #     ai_two.start()
+    if not SINGLE_PLAYER_MODE:
+        ai_two = AIModel(2, action_engine, ai_queue_2)
+        ai_two.start()
 
     # # Client Connection to Evaluation Server
     print("Starting Client Thread")
