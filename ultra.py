@@ -603,48 +603,18 @@ class AIModel(threading.Thread):
         while time.time() - start_time < seconds:
             pass
     
-    def blur_3d_movement(acc_df):
-        acc_df = pd.DataFrame(acc_df)
-        acc_df = acc_df.apply(pd.to_numeric)
-        fs = 20 # sampling frequency
+    def blur_3d_movement(self, acc_df):
+        acc_arr = np.array(acc_df, dtype=np.float32)
+        fs = 20  # sampling frequency
         dt = 1/fs
 
-        filtered_acc_df = acc_df.apply(lambda x: gaussian_filter(x, sigma=5))
-        
-        ax = filtered_acc_df[0]
-        ay = filtered_acc_df[1]
-        az = filtered_acc_df[2]
+        filtered_acc_arr = gaussian_filter(acc_arr, sigma=5)
 
-        vx = np.cumsum(ax) * dt
-        vy = np.cumsum(ay) * dt
-        vz = np.cumsum(az) * dt
+        xyz = np.cumsum(np.cumsum(filtered_acc_arr, axis=0) * dt, axis=0)
 
-        x = np.cumsum(vx) * dt
-        y = np.cumsum(vy) * dt
-        z = np.cumsum(vz) * dt
-
-        # x_arr = np.array(x)
-        # y_arr = np.array(y)
-        # z_arr = np.array(z)
-
-        # x_disp = x_arr[-1] - x_arr[0]
-        # y_disp = y_arr[-1] - y_arr[0]
-        # z_disp = z_arr[-1] - z_arr[0]
-
-        xyz = np.column_stack((x, y, z))
-        traj_arr = np.cumsum(xyz, axis=0)
-
-        x = traj_arr[:, 0]
-        y = traj_arr[:, 1]
-        z = traj_arr[:, 2]
-
-        x_arr = np.array(x)
-        y_arr = np.array(y)
-        z_arr = np.array(z)
-
-        x_disp = x_arr[-1] - x_arr[0]
-        y_disp = y_arr[-1] - y_arr[0]
-        z_disp = z_arr[-1] - z_arr[0]
+        x_disp = xyz[-1, 0] - xyz[0, 0]
+        y_disp = xyz[-1, 1] - xyz[0, 1]
+        z_disp = xyz[-1, 2] - xyz[0, 2]
 
         return xyz, [x_disp, y_disp, z_disp]
     
