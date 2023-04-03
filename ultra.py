@@ -620,8 +620,8 @@ class AIModel(threading.Thread):
         # PYNQ overlay OLD backup - pca_mlp_1
         self.overlay = Overlay("dependencies/pca_mlp_1.bit")
         self.dma = self.overlay.axi_dma_0
-        self.in_buffer = pynq.allocate(shape=(35,), dtype=np.float32)
-        self.out_buffer = pynq.allocate(shape=(4,), dtype=np.float32)
+        self.in_buffer = pynq.allocate(shape=(125,), dtype=np.float32)
+        self.out_buffer = pynq.allocate(shape=(3,), dtype=np.float32)
 
     def sleep(self, seconds):
         start_time = time.time()
@@ -716,7 +716,8 @@ class AIModel(threading.Thread):
 
     def get_action(self, softmax_array):
         max_index = np.argmax(softmax_array)
-        action_dict = {0: 'G', 1: 'L', 2: 'R', 3: 'S'}
+        # action_dict = {0: 'G', 1: 'L', 2: 'R', 3: 'S'}
+        action_dict = {0: 'G', 1: 'R', 2: 'S'}
         action = action_dict[max_index]
         return action
 
@@ -725,7 +726,7 @@ class AIModel(threading.Thread):
         start_time = time.time()
 
         # reshape data to match in_buffer shape
-        data = np.reshape(data, (128,))
+        data = np.reshape(data, (125,))
 
         self.in_buffer[:] = data
 
@@ -760,11 +761,7 @@ class AIModel(threading.Thread):
         top_2 = self.get_top_2_axes(disp_change)
         metric_ratios = self.get_metric_ratios(disp_change)
 
-        vivado_input = np.hstack((np.array(blurred_data).reshape(1,120), 
-                          np.array(disp_change).reshape(1,3), 
-                          np.array(top_2).reshape(1,2),
-                          np.array(metric_ratios).reshape(1,3)
-                          )).flatten()
+        vivado_input = np.hstack((np.array(blurred_data).reshape(1, 120), np.array(disp_change).reshape(1, 3), np.array(top_2).reshape(1, 2))).flatten()
 
         vivado_predictions = self.mlp_vivado(vivado_input)
         # vivado_predictions = self.mlp_vivado_mockup(vivado_input)
