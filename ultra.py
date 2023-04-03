@@ -129,7 +129,7 @@ class ActionEngine(threading.Thread):
         action = [['None', True], ['None', True]]
         while True:
             if self.p1_action_queue or self.p2_action_queue:
-                     
+
                 action_dic = {
                     "p1": "",
                     "p2": ""
@@ -529,6 +529,7 @@ class Server(threading.Thread):
             try:
                 # Receive up to 64 Bytes of data
                 data = self.connection.recv(64)
+
                 # Append existing data into new data
                 self.data = self.data + data
 
@@ -541,6 +542,7 @@ class Server(threading.Thread):
 
                 packet_id = self.packer.get_beetle_id()
 
+                print("Packet: ".ljust(constants.STD_OP_LENGTH).format(packet))
                 # print(packet)
                 # print("Packet ID: ", packet_id)
 
@@ -876,6 +878,7 @@ def block_print():
 def enable_print():
     sys.stdout = sys.__stdout__
 
+
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         print('Invalid number of arguments')
@@ -909,12 +912,12 @@ if __name__ == '__main__':
     # ai_test = AIModel(1, [], [])
     # ai_test.start()
 
-    ai_one = AIModel(1, action_engine, ai_queue_1)
-    ai_one.start()
+    # ai_one = AIModel(1, action_engine, ai_queue_1)
+    # ai_one.start()
 
-    if not SINGLE_PLAYER_MODE:
-        ai_two = AIModel(2, action_engine, ai_queue_2)
-        ai_two.start()
+    # if not SINGLE_PLAYER_MODE:
+    #     ai_two = AIModel(2, action_engine, ai_queue_2)
+    #     ai_two.start()
 
     # # Client Connection to Evaluation Server
     print("Starting Client Thread")
