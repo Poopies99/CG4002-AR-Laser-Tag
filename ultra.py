@@ -541,29 +541,29 @@ class Server(threading.Thread):
 
                 packer = BLEPacket()
                 packer.unpack(packet)
-                print("Beetle {}, Packet Type: {}".format(packer.get_beetle_id(), packer.get_packet_type()))
-                print("Eul: {}, Acc: {}".format(packer.get_euler_data(), packer.get_acc_data()))
-                #packet_id = self.packer.get_beetle_id()
+                # print("Beetle {}, Packet Type: {}".format(packer.get_beetle_id(), packer.get_packet_type()))
+                # print("Eul: {}, Acc: {}".format(packer.get_euler_data(), packer.get_acc_data()))
+                packet_id = packer.get_beetle_id()
 
                 # print(packet)
-                # print("Packet ID: ", packet_id)
+                print("Packet ID: ", packet_id)
 
-                # if packet_id == 1:
-                #     self.action_engine.handle_gun_shot(1)
-                # elif packet_id == 2:
-                #     self.action_engine.handle_vest_shot(1)
-                # elif packet_id == 3:
-                #     packet = self.packer.get_euler_data() + self.packer.get_acc_data()
-                #     ai_queue_1.put(packet)
-                # elif packet_id == 4:
-                #     self.action_engine.handle_gun_shot(2)
-                # elif packet_id == 5:
-                #     self.action_engine.handle_vest_shot(2)
-                # elif packet_id == 6:
-                #     packet = self.packer.get_euler_data() + self.packer.get_acc_data()
-                #     ai_queue_2.put(packet)
-                # else:
-                #     print("Invalid Beetle ID")
+                if packet_id == 1:
+                    self.action_engine.handle_gun_shot(1)
+                elif packet_id == 2:
+                    self.action_engine.handle_vest_shot(1)
+                elif packet_id == 3:
+                    packet = packer.get_euler_data() + packer.get_acc_data()
+                    ai_queue_1.put(packet)
+                elif packet_id == 4:
+                    self.action_engine.handle_gun_shot(2)
+                elif packet_id == 5:
+                    self.action_engine.handle_vest_shot(2)
+                elif packet_id == 6:
+                    packet = packer.get_euler_data() + packer.get_acc_data()
+                    ai_queue_2.put(packet)
+                else:
+                    print("Invalid Beetle ID")
 
                 # Sends data back into the relay laptop
                 if len(laptop_queue) != 0:
