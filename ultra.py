@@ -784,8 +784,8 @@ class AIModel(threading.Thread):
 
     def run(self):
         # Set the threshold value for movement detection based on user input
-        # K = 10
-        K = float(input("threshold value? "))
+        K = 10
+        # K = float(input("threshold value? "))
 
         # Initialize arrays to hold the current and previous data packets
         current_packet = np.zeros((5,6))
