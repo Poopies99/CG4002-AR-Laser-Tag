@@ -533,9 +533,7 @@ class Server(threading.Thread):
 
                 # Append existing data into new data
                 self.data = self.data + data
-                print("[Server] Data: ".ljust(constants.STD_OP_LENGTH).format(data))
                 if len(self.data) < constants.PACKET_SIZE:
-                    print("[Server] data not of expected length")
                     continue
 
                 packet = self.data[:constants.PACKET_SIZE]
@@ -544,7 +542,6 @@ class Server(threading.Thread):
 
                 packet_id = self.packer.get_beetle_id()
 
-                print("Packet: ".ljust(constants.STD_OP_LENGTH).format(packet))
                 # print(packet)
                 # print("Packet ID: ", packet_id)
 
@@ -552,16 +549,16 @@ class Server(threading.Thread):
                     self.action_engine.handle_gun_shot(1)
                 elif packet_id == 2:
                     self.action_engine.handle_vest_shot(1)
-                elif packet_id == 3:
-                    packet = self.packer.get_euler_data() + self.packer.get_acc_data()
-                    ai_queue_1.put(packet)
+                # elif packet_id == 3:
+                #     packet = self.packer.get_euler_data() + self.packer.get_acc_data()
+                #     ai_queue_1.put(packet)
                 elif packet_id == 4:
                     self.action_engine.handle_gun_shot(2)
                 elif packet_id == 5:
                     self.action_engine.handle_vest_shot(2)
-                elif packet_id == 6:
-                    packet = self.packer.get_euler_data() + self.packer.get_acc_data()
-                    ai_queue_2.put(packet)
+                # elif packet_id == 6:
+                #     packet = self.packer.get_euler_data() + self.packer.get_acc_data()
+                #     ai_queue_2.put(packet)
                 else:
                     print("Invalid Beetle ID")
 
