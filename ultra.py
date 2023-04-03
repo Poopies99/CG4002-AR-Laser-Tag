@@ -560,7 +560,7 @@ class AIModel(threading.Thread):
         # Flags
         self.shutdown = threading.Event()
 
-        features = np.load('dependencies/features_v3.3.3.2.npz', allow_pickle=True)
+        features = np.load('dependencies/features_v3.4.npz', allow_pickle=True)
         self.mean = features['mean']
         self.variance = features['variance']
         self.pca_eigvecs = features['pca_eigvecs']
@@ -603,7 +603,7 @@ class AIModel(threading.Thread):
         while time.time() - start_time < seconds:
             pass
     
-    def blur_3d_movement(self, acc_df):
+    def blur_3d_movement(acc_df):
         acc_df = pd.DataFrame(acc_df)
         acc_df = acc_df.apply(pd.to_numeric)
         fs = 20 # sampling frequency
@@ -623,6 +623,21 @@ class AIModel(threading.Thread):
         y = np.cumsum(vy) * dt
         z = np.cumsum(vz) * dt
 
+        # x_arr = np.array(x)
+        # y_arr = np.array(y)
+        # z_arr = np.array(z)
+
+        # x_disp = x_arr[-1] - x_arr[0]
+        # y_disp = y_arr[-1] - y_arr[0]
+        # z_disp = z_arr[-1] - z_arr[0]
+
+        xyz = np.column_stack((x, y, z))
+        traj_arr = np.cumsum(xyz, axis=0)
+
+        x = traj_arr[:, 0]
+        y = traj_arr[:, 1]
+        z = traj_arr[:, 2]
+
         x_arr = np.array(x)
         y_arr = np.array(y)
         z_arr = np.array(z)
@@ -630,8 +645,6 @@ class AIModel(threading.Thread):
         x_disp = x_arr[-1] - x_arr[0]
         y_disp = y_arr[-1] - y_arr[0]
         z_disp = z_arr[-1] - z_arr[0]
-
-        xyz = np.column_stack((x, y, z))
 
         return xyz, [x_disp, y_disp, z_disp]
     
@@ -807,11 +820,11 @@ class AIModel(threading.Thread):
                         print(f"prev_mag: {prev_mag} \n")
                         movement_watchdog = True
                         # append previous and current packet to data packet
-                        # data_packet = np.concatenate((previous_packet, current_packet), axis=0)
+                        data_packet = np.concatenate((previous_packet, current_packet), axis=0)
 
                     # movement_watchdog activated, count is_movement_counter from 0 up 6 and append current packet each time
                     if movement_watchdog:
-                        if is_movement_counter < 8:
+                        if is_movement_counter < 6:
                             data_packet = np.concatenate((data_packet, current_packet), axis=0)
                             is_movement_counter += 1
                         
