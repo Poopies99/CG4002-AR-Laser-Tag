@@ -543,7 +543,7 @@ class Server(threading.Thread):
                 packet_id = self.packer.get_beetle_id()
 
                 # print(packet)
-                # print("Packet ID: ", packet_id)
+                print("Packet ID: ", packet_id)
 
                 if packet_id == 1:
                     self.action_engine.handle_gun_shot(1)
@@ -559,8 +559,8 @@ class Server(threading.Thread):
                 # elif packet_id == 6:
                 #     packet = self.packer.get_euler_data() + self.packer.get_acc_data()
                 #     ai_queue_2.put(packet)
-                else:
-                    print("Invalid Beetle ID")
+                # else:
+                #     print("Invalid Beetle ID")
 
                 # Sends data back into the relay laptop
                 if len(laptop_queue) != 0:
