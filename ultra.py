@@ -485,7 +485,7 @@ class Server(threading.Thread):
 
         self.server_socket = server_socket
 
-        self.packer = BLEPacket()
+        #self.packer = BLEPacket()
 
         # Shoot Engine Threads
         self.action_engine = action_engine_model
@@ -528,7 +528,7 @@ class Server(threading.Thread):
         while not self.shutdown.is_set():
             try:
                 # Receive up to 64 Bytes of data
-                data = self.connection.recv(64)
+                data = self.connection.recv(16)
                 print(f"[Server] {data} received ")
 
                 # Append existing data into new data
@@ -538,9 +538,12 @@ class Server(threading.Thread):
 
                 packet = self.data[:constants.PACKET_SIZE]
                 self.data = self.data[constants.PACKET_SIZE:]
-                self.packer.unpack(packet)
 
-                packet_id = self.packer.get_beetle_id()
+                packer = BLEPacket()
+                packer.unpack(packet)
+                print("Beetle {}, Packet Type: {}".format(packer.get_beetle_id(), packer.get_packet_type()))
+                print("Eul: {}, Acc: {}".format(packer.get_euler_data(), packer.get_acc_data()))
+                #packet_id = self.packer.get_beetle_id()
 
                 # print(packet)
                 print("Packet ID: ", packet_id)
@@ -549,18 +552,18 @@ class Server(threading.Thread):
                     self.action_engine.handle_gun_shot(1)
                 elif packet_id == 2:
                     self.action_engine.handle_vest_shot(1)
-                # elif packet_id == 3:
-                #     packet = self.packer.get_euler_data() + self.packer.get_acc_data()
-                #     ai_queue_1.put(packet)
+                elif packet_id == 3:
+                    packet = self.packer.get_euler_data() + self.packer.get_acc_data()
+                    ai_queue_1.put(packet)
                 elif packet_id == 4:
                     self.action_engine.handle_gun_shot(2)
                 elif packet_id == 5:
                     self.action_engine.handle_vest_shot(2)
-                # elif packet_id == 6:
-                #     packet = self.packer.get_euler_data() + self.packer.get_acc_data()
-                #     ai_queue_2.put(packet)
-                # else:
-                #     print("Invalid Beetle ID")
+                elif packet_id == 6:
+                    packet = self.packer.get_euler_data() + self.packer.get_acc_data()
+                    ai_queue_2.put(packet)
+                else:
+                    print("Invalid Beetle ID")
 
                 # Sends data back into the relay laptop
                 if len(laptop_queue) != 0:
