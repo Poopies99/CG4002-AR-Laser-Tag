@@ -765,8 +765,16 @@ class AIModel(threading.Thread):
 
         vivado_predictions = self.mlp_vivado(vivado_input)
         # vivado_predictions = self.mlp_vivado_mockup(vivado_input)
-
-        action = self.get_action(vivado_predictions)
+        
+        # GOAL - hardcode G
+        # kenneth edit here; arr[0],[1],[2] = G,R,S
+        # see the values and watch for special changes only for G, eg 
+        if vivado_predictions[0] >= 0.5 and vivado_predictions[1] >= 0.3:
+            action = 'G'
+        else: 
+            action = self.get_action(vivado_predictions)
+            
+        # action = self.get_action(vivado_predictions)
 
         print(vivado_predictions)
         print(action)
