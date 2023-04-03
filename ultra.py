@@ -585,7 +585,7 @@ class AIModel(threading.Thread):
         # Flags
         self.shutdown = threading.Event()
 
-        features = np.load('dependencies/features_v3.3.2.npz', allow_pickle=True)
+        features = np.load('dependencies/features_v3.3.3.2.npz', allow_pickle=True)
         self.mean = features['mean']
         self.variance = features['variance']
         self.pca_eigvecs = features['pca_eigvecs']
@@ -716,8 +716,8 @@ class AIModel(threading.Thread):
 
     def get_action(self, softmax_array):
         max_index = np.argmax(softmax_array)
-        action_dict = {0: 'G', 1: 'L', 2: 'R', 3: 'S'}
-        # action_dict = {0: 'G', 1: 'R', 2: 'S'}
+        # action_dict = {0: 'G', 1: 'L', 2: 'R', 3: 'S'} # TODO check if Logout is present
+        action_dict = {0: 'G', 1: 'R', 2: 'S'}
         action = action_dict[max_index]
         return action
 
