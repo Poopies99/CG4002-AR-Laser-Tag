@@ -941,6 +941,6 @@ if __name__ == '__main__':
 
     # hive.start()
     # viz.start()
-    game_engine.start()
+    # game_engine.start()
     laptop_server.start()
 
