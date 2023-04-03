@@ -807,11 +807,11 @@ class AIModel(threading.Thread):
                         print(f"prev_mag: {prev_mag} \n")
                         movement_watchdog = True
                         # append previous and current packet to data packet
-                        data_packet = np.concatenate((previous_packet, current_packet), axis=0)
+                        # data_packet = np.concatenate((previous_packet, current_packet), axis=0)
 
                     # movement_watchdog activated, count is_movement_counter from 0 up 6 and append current packet each time
                     if movement_watchdog:
-                        if is_movement_counter < 6:
+                        if is_movement_counter < 8:
                             data_packet = np.concatenate((data_packet, current_packet), axis=0)
                             is_movement_counter += 1
                         
