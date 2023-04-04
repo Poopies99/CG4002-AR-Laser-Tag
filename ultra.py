@@ -990,17 +990,17 @@ if __name__ == '__main__':
     game_engine.start()
     laptop_server.start()
 
-    tracemalloc.start()
-    start_time = time.time()
-    while True:
-        if time.time() - start_time > 5:
-            snapshot = tracemalloc.take_snapshot()
-            top_stats = snapshot.statistics('lineno')
-
-            print("[ Top 10 ]")
-            for stat in top_stats[:10]:
-                print(stat)
-
-            start_time = time.time()
+    # tracemalloc.start()
+    # start_time = time.time()
+    # while True:
+    #     if time.time() - start_time > 5:
+    #         snapshot = tracemalloc.take_snapshot()
+    #         top_stats = snapshot.statistics('lineno')
+    #
+    #         print("[ Top 10 ]")
+    #         for stat in top_stats[:10]:
+    #             print(stat)
+    #
+    #         start_time = time.time()
 
 
