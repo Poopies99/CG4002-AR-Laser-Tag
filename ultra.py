@@ -530,7 +530,6 @@ class Server(threading.Thread):
         while not self.shutdown.is_set():
             try:
                 packer = BLEPacket()
-
                 # Receive up to 64 Bytes of data
                 data = self.connection.recv(64)
 
@@ -760,9 +759,9 @@ class AIModel(threading.Thread):
         # else:
         #     action = self.get_action(vivado_predictions)
         #
-        # action = self.get_action(vivado_predictions)
-
-        return vivado_predictions
+        action = self.get_action(vivado_predictions)
+        print(vivado_predictions)
+        return str(action)
         
     def close_connection(self):
         self.shutdown.set()
@@ -906,26 +905,22 @@ if __name__ == '__main__':
     # print("Starting Subscribe Receive")
     # viz = SubscriberReceive("gamestate")
 
-    # AI Model
-    # ai_test = AIModel(1, [], [])
-    # ai_test.start()
-
-    ai_one = AIModel(1, action_engine, ai_queue_1, 2.5)
+    ai_one = AIModel(1, action_engine, ai_queue_1, 5)
     ai_one.start()
 
     if not SINGLE_PLAYER_MODE:
-        ai_two = AIModel(2, action_engine, ai_queue_2, 3)
+        ai_two = AIModel(2, action_engine, ai_queue_2, 5)
         ai_two.start()
 
     # # Client Connection to Evaluation Server
-    # print("Starting Client Thread")
-    # # # eval_client = EvalClient(9999, "137.132.92.184")
-    # eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
-    # eval_client.connect_to_eval()
+    print("Starting Client Thread")
+    # eval_client = EvalClient(9999, "137.132.92.184")
+    eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
+    eval_client.connect_to_eval()
 
     # Game Engine
-    # print("Starting Game Engine Thread")
-    # game_engine = GameEngine(eval_client=eval_client)
+    print("Starting Game Engine Thread")
+    game_engine = GameEngine(eval_client=eval_client)
 
     # # Server Connection to Laptop
     print("Starting Server Thread")
@@ -938,6 +933,6 @@ if __name__ == '__main__':
 
     # hive.start()
     # viz.start()
-    # game_engine.start()
+    game_engine.start()
     laptop_server.start()
 
