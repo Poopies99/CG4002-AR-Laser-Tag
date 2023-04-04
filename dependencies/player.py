@@ -1,6 +1,34 @@
 import time
 import json
 
+
+class PlayerAction:
+    def __init__(self):
+        super().__init__()
+
+        self.actions = {'grenade': 4, 'shield': 4, 'reload': 4}
+
+    def shield(self):
+        self.actions['shield'] -= 1
+
+    def reload(self):
+        self.actions['reload'] -= 1
+
+    def grenade(self):
+        self.actions['grenade'] -= 1
+
+    def secret_sauce(self):
+        print('Activating Secret Sauce')
+        max_action = max(self.actions, key=self.actions.get)
+        return max_action
+
+    def check(self, action):
+        if self.actions[action] <= 0:
+            return False
+        else:
+            return True
+
+
 class Player:
     def __init__(self):
         super().__init__()
