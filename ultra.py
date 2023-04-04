@@ -15,11 +15,6 @@ import socket
 import random
 import time
 import json
-<<<<<<< HEAD
-import joblib
-=======
-import queue
->>>>>>> 1698024d56a243ff68dd31f25b6b5883e9c179ea
 from queue import Queue
 from _socket import SHUT_RDWR
 from collections import deque
