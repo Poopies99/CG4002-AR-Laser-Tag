@@ -15,15 +15,12 @@ import socket
 import random
 import time
 import json
-import joblib
-import queue
 from queue import Queue
-from GameState import GameState
 from _socket import SHUT_RDWR
 from collections import deque
+from player import PlayerAction
+from GameState import GameState
 from ble_packet import BLEPacket
-from scipy.signal import medfilt
-from scipy.ndimage import gaussian_filter1d
 from scipy.ndimage import gaussian_filter
 
 import pynq
@@ -52,9 +49,9 @@ class ActionEngine(threading.Thread):
     def __init__(self):
         super().__init__()
 
+        # Flags
         self.p1_action_queue = deque()
 
-        # Flags
         self.p1_gun_shot = False
         self.p1_vest_shot = False
         self.p1_grenade_hit = None
@@ -111,7 +108,7 @@ class ActionEngine(threading.Thread):
             self.p2_vest_shot = True
             
     def determine_grenade_hit(self, action_data_p1, action_data_p2):
-        print("called determine grenade hit")
+        
         while True:
             while not feedback_queue.empty():
                 data = feedback_queue.get()
@@ -227,6 +224,20 @@ class GameEngine(threading.Thread):
 
         self.shutdown = threading.Event()
 
+        self.p1_action = PlayerAction()
+
+        if not SINGLE_PLAYER_MODE:
+            self.p2_action = PlayerAction()
+
+
+    def update_actions(self, player_action_value, player_action):
+        if player_action_value == 'grenade':
+            player_action.grenade()
+        elif player_action_value == 'reload':
+            player_action.reload()
+        elif player_action_value == 'shield':
+            player_action.shield()
+
     def reset_player(self, player):
         player.hp = 100
         player.bullets = 6
@@ -240,10 +251,24 @@ class GameEngine(threading.Thread):
         while not self.shutdown.is_set():
             try:
                 if len(action_queue) != 0:
-                    p1_action, p2_action = action_queue.popleft()  # [[p1_action, status], [p2_action, status]]
+                    p1_action, p2_action = action_queue.popleft()
                     
+                    action_dic = {
+                        "p1": {
+                            "action": ""
+                        },
+                        "p2": {
+                            "action": ""
+                        } 
+                    }
+
+                    if not self.p1_action.check(p1_action) and p1_action != 'shoot':
+                        p1_action[0] = self.p1_action.secret_sauce()
+                    if not self.p1_action.check(p2_action) and p1_action != 'shoot':
+                        p2_action[0] = self.p2_action.secret_sauce()
+
                     viz_action_p1, viz_action_p2 = None, None
-                    viz_flag = False
+
                     print(f"P1 action data: {p1_action}")
                     print(f"P2 action data: {p2_action}")
                 
@@ -253,8 +278,17 @@ class GameEngine(threading.Thread):
                     valid_action_p1 = self.p1.action_is_valid(p1_action[0])
                     valid_action_p2 = self.p2.action_is_valid(p2_action[0])
 
-                    self.p1.action = p1_action[0]
-                    self.p2.action = p2_action[0]
+                    if valid_action_p1:
+                        action_dic["p1"]["action"] = p1_action[0]
+                    else:
+                        action_dic["p1"]["action"] = p1_action[0] + "#"
+                        
+                    if valid_action_p2:
+                        action_dic["p2"]["action"] = p2_action[0]
+                    else:
+                        action_dic["p2"]["action"] = p2_action[0] + "#"
+                        
+                    subscribe_queue.put(action_dic)
                     
                     if p1_action[0] == "logout" and p2_action[0] == "logout":
                         # send to visualizer
@@ -311,11 +345,15 @@ class GameEngine(threading.Thread):
                     if p1_action[0] == "reload":
                         if valid_action_p1:
                             self.p1.reload()
-                        
-                                        
+                                                                
                     if p2_action[0] == "reload":
                         if valid_action_p2:
                             self.p2.reload()
+        
+                    # gamestate to eval_server
+                    self.eval_client.submit_to_eval()
+                    # eval server to subscriber queue
+                    correct_actions = self.eval_client.receive_correct_ans()
                     
                     # If health drops to 0 then everything resets except for number of deaths
                     if self.p1.hp <= 0:
@@ -323,39 +361,17 @@ class GameEngine(threading.Thread):
                     if self.p2.hp <= 0:
                         self.reset_player(self.p2)
                         
-                    action_p1, action_p2 = self.p1.action, self.p2.action
-                    # gamestate to eval_server
-                    self.eval_client.submit_to_eval()
-                    # eval server to subscriber queue
-                    self.eval_client.receive_correct_ans()
-                    # subscriber queue to sw/feedback queue
+                    p1_action, p2_action = correct_actions['p1']['action'], correct_actions['p2']['action']
+                    self.update_actions(p1_action, self.p1_action)
+                    self.update_actions(p2_action, self.p2_action)
 
-                    action_dic = {
-                        "p1": {
-                            "action": ""
-                        },
-                        "p2": {
-                            "action": ""
-                        } 
-                    }
-                      
-                    if valid_action_p1 and action_p1 == self.p1.action:
-                        action_dic["p1"]["action"] = viz_action_p1
-                        viz_flag = True
-                    
-                    if valid_action_p2 and action_p2 == self.p2.action:
-                        action_dic["p2"]["action"] = viz_action_p2
-                        viz_flag = True
-                        
-                    if not valid_action_p1:
-                        self.p1.action = self.p1.action + "#"
-                    if not valid_action_p2:
-                        self.p2.action = self.p2.action + "#"
-                    
+                    # subscriber queue to sw/feedback que
+                    self.p2.action = viz_action_p2                    
+                    self.p1.action = viz_action_p1
+
                     laptop_queue.append(self.eval_client.gamestate._get_data_plain_text())
                     subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
-                    if viz_flag:
-                        subscribe_queue.put(action_dic)
+
 
             except KeyboardInterrupt as _:
                 traceback.print_exc()
@@ -481,6 +497,7 @@ class EvalClient:
         print(f'[EvalClient] Received Game State: {self.gamestate._get_data_plain_text()}'.ljust(80), end='\r')
         self.gamestate.recv_and_update(self.client_socket)
 
+
     def close_connection(self):
         self.client_socket.close()
         print("Shutting Down EvalClient Connection")
@@ -592,7 +609,7 @@ class AIModel(threading.Thread):
         # Flags
         self.shutdown = threading.Event()
 
-        features = np.load('dependencies/features_v3.3.3.2.npz', allow_pickle=True)
+        features = np.load('dependencies/features_v3.4.npz', allow_pickle=True)
         self.mean = features['mean']
         self.variance = features['variance']
         self.pca_eigvecs = features['pca_eigvecs']
@@ -636,34 +653,17 @@ class AIModel(threading.Thread):
             pass
     
     def blur_3d_movement(self, acc_df):
-        acc_df = pd.DataFrame(acc_df)
-        acc_df = acc_df.apply(pd.to_numeric)
-        fs = 20 # sampling frequency
+        acc_arr = np.array(acc_df, dtype=np.float32)
+        fs = 20  # sampling frequency
         dt = 1/fs
 
-        filtered_acc_df = acc_df.apply(lambda x: gaussian_filter(x, sigma=5))
-        
-        ax = filtered_acc_df[0]
-        ay = filtered_acc_df[1]
-        az = filtered_acc_df[2]
+        filtered_acc_arr = gaussian_filter(acc_arr, sigma=5)
 
-        vx = np.cumsum(ax) * dt
-        vy = np.cumsum(ay) * dt
-        vz = np.cumsum(az) * dt
+        xyz = np.cumsum(np.cumsum(filtered_acc_arr, axis=0) * dt, axis=0)
 
-        x = np.cumsum(vx) * dt
-        y = np.cumsum(vy) * dt
-        z = np.cumsum(vz) * dt
-
-        x_arr = np.array(x)
-        y_arr = np.array(y)
-        z_arr = np.array(z)
-
-        x_disp = x_arr[-1] - x_arr[0]
-        y_disp = y_arr[-1] - y_arr[0]
-        z_disp = z_arr[-1] - z_arr[0]
-
-        xyz = np.column_stack((x, y, z))
+        x_disp = xyz[-1, 0] - xyz[0, 0]
+        y_disp = xyz[-1, 1] - xyz[0, 1]
+        z_disp = xyz[-1, 2] - xyz[0, 2]
 
         return xyz, [x_disp, y_disp, z_disp]
     
@@ -839,11 +839,11 @@ class AIModel(threading.Thread):
                         print(f"prev_mag: {prev_mag} \n")
                         movement_watchdog = True
                         # append previous and current packet to data packet
-                        # data_packet = np.concatenate((previous_packet, current_packet), axis=0)
+                        data_packet = np.concatenate((previous_packet, current_packet), axis=0)
 
                     # movement_watchdog activated, count is_movement_counter from 0 up 6 and append current packet each time
                     if movement_watchdog:
-                        if is_movement_counter < 8:
+                        if is_movement_counter < 6:
                             data_packet = np.concatenate((data_packet, current_packet), axis=0)
                             is_movement_counter += 1
                         
