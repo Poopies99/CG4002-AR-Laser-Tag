@@ -560,7 +560,7 @@ class AIModel(threading.Thread):
         # Flags
         self.shutdown = threading.Event()
 
-        features = np.load('dependencies/features_v3.3.3.2.npz', allow_pickle=True)
+        features = np.load('dependencies/features_v3.5.npz', allow_pickle=True)
         self.mean = features['mean']
         self.variance = features['variance']
         self.pca_eigvecs = features['pca_eigvecs']
@@ -586,11 +586,11 @@ class AIModel(threading.Thread):
 
         self.ai_queue = queue_added
         
-        # PYNQ overlay NEW - pca_mlp_2
-        # self.overlay = Overlay("dependencies/pca_mlp_2.bit")
-        # self.dma = self.overlay.axi_dma_0
-        # self.in_buffer = pynq.allocate(shape=(128,), dtype=np.float32)
-        # self.out_buffer = pynq.allocate(shape=(4,), dtype=np.float32)
+        # PYNQ overlay NEW - pca_mlp_v3.5
+        self.overlay = Overlay("dependencies/pca_mlp_3_5.bit")
+        self.dma = self.overlay.axi_dma_0
+        self.in_buffer = pynq.allocate(shape=(129,), dtype=np.float32)
+        self.out_buffer = pynq.allocate(shape=(3,), dtype=np.float32)
 
         # PYNQ overlay OLD backup - pca_mlp_1
         # self.overlay = Overlay("dependencies/pca_mlp_1.bit")
@@ -604,36 +604,37 @@ class AIModel(threading.Thread):
             pass
     
     def blur_3d_movement(self, acc_df):
-        acc_df = pd.DataFrame(acc_df)
-        acc_df = acc_df.apply(pd.to_numeric)
-        fs = 20 # sampling frequency
+        acc_arr = np.array(acc_df, dtype=np.float32)
+        fs = 20  # sampling frequency
         dt = 1/fs
 
-        filtered_acc_df = acc_df.apply(lambda x: gaussian_filter(x, sigma=5))
-        
-        ax = filtered_acc_df[0]
-        ay = filtered_acc_df[1]
-        az = filtered_acc_df[2]
+        filtered_acc_arr = gaussian_filter(acc_arr, sigma=5)
 
-        vx = np.cumsum(ax) * dt
-        vy = np.cumsum(ay) * dt
-        vz = np.cumsum(az) * dt
+        xyz = np.cumsum(np.cumsum(filtered_acc_arr, axis=0) * dt, axis=0)
 
-        x = np.cumsum(vx) * dt
-        y = np.cumsum(vy) * dt
-        z = np.cumsum(vz) * dt
+        x_disp = xyz[-1, 0] - xyz[0, 0]
+        y_disp = xyz[-1, 1] - xyz[0, 1]
+        z_disp = xyz[-1, 2] - xyz[0, 2]
 
-        x_arr = np.array(x)
-        y_arr = np.array(y)
-        z_arr = np.array(z)
+        xz_proj = xyz[:, [0, 2]]  # Select the first and third columns for xz projection
 
-        x_disp = x_arr[-1] - x_arr[0]
-        y_disp = y_arr[-1] - y_arr[0]
-        z_disp = z_arr[-1] - z_arr[0]
+        # Calculate the absolute distance between the first and last point in the xz projection
+        first_point = xz_proj[0]
+        last_point = xz_proj[-1]
+        # distance = np.abs(last_point - first_point)
+        distance_num = np.sum(np.abs(last_point - first_point))
 
-        xyz = np.column_stack((x, y, z))
+        arc_length = 0
 
-        return xyz, [x_disp, y_disp, z_disp]
+        for i in range(1, len(xz_proj)):
+            point1 = xz_proj[i-1]
+            point2 = xz_proj[i]
+            distance = np.linalg.norm(point2 - point1)
+            arc_length += distance
+
+        gap_ratio = distance_num/arc_length
+
+        return xyz, [x_disp, y_disp, z_disp], gap_ratio
     
     def get_top_2_axes(self, row):
         row = np.array(row)
@@ -697,33 +698,33 @@ class AIModel(threading.Thread):
         return action
 
 
-#     def mlp_vivado(self, data):
-#         start_time = time.time()
+    def mlp_vivado(self, data):
+        start_time = time.time()
 
-#         # reshape data to match in_buffer shape
-#         data = np.reshape(data, (125,))
+        # reshape data to match in_buffer shape
+        data = np.reshape(data, (129,))
 
-#         self.in_buffer[:] = data
+        self.in_buffer[:] = data
 
-#         self.dma.sendchannel.transfer(self.in_buffer)
-#         self.dma.recvchannel.transfer(self.out_buffer)
+        self.dma.sendchannel.transfer(self.in_buffer)
+        self.dma.recvchannel.transfer(self.out_buffer)
 
-#         # wait for transfer to finish
-#         self.dma.sendchannel.wait()
-#         self.dma.recvchannel.wait()
+        # wait for transfer to finish
+        self.dma.sendchannel.wait()
+        self.dma.recvchannel.wait()
 
-#         # print output buffer
-#         print("mlp done with output: " + " ".join(str(x) for x in self.out_buffer))
+        # print output buffer
+        print("mlp done with output: " + " ".join(str(x) for x in self.out_buffer))
 
-#         print(f"MLP time taken so far output: {time.time() - start_time}")
+        print(f"MLP time taken so far output: {time.time() - start_time}")
 
-#         return self.out_buffer
+        return self.out_buffer
 
     def mlp_vivado_mockup(self, data):
         action = data[0:120].reshape(40, 3)
         scaled_action = self.scaler(action)
         pca_action = self.pca(scaled_action.reshape(1,120))
-        mlp_input = np.hstack((pca_action.reshape(1,6), data[120:128].reshape(1,8)))
+        mlp_input = np.hstack((pca_action.reshape(1,6), data[120:].reshape(1,9)))
         Y_softmax = self.mlp(mlp_input)
         return Y_softmax
 
@@ -732,29 +733,20 @@ class AIModel(threading.Thread):
         acc_df = test_input[:, -3:]
         
         # Transform data using Scaler and PCA
-        blurred_data, disp_change = self.blur_3d_movement(acc_df.reshape(40,3))
+        blurred_data, disp_change, gap_ratio = self.blur_3d_movement(acc_df)
         top_2 = self.get_top_2_axes(disp_change)
         metric_ratios = self.get_metric_ratios(disp_change)
 
         vivado_input = np.hstack((np.array(blurred_data).reshape(1,120), 
-                          np.array(disp_change).reshape(1,3), 
-                          np.array(top_2).reshape(1,2),
-                          np.array(metric_ratios).reshape(1,3)
-                          )).flatten()
+                            np.array(disp_change).reshape(1,3), 
+                            np.array(top_2).reshape(1,2),
+                            np.array(metric_ratios).reshape(1,3),
+                            np.array(gap_ratio).reshape(1,1)
+                            )).flatten()
 
-        # vivado_predictions = self.mlp_vivado(vivado_input)
-        vivado_predictions = self.mlp_vivado_mockup(vivado_input)
+        vivado_predictions = self.mlp_vivado(vivado_input)
+        # vivado_predictions = self.mlp_vivado_mockup(vivado_input)
         
-        # GOAL - hardcode G
-        # kenneth edit here; arr[0],[1],[2] = G,R,S
-        # see the values and watch for special changes only for G, eg
-        # if vivado_predictions[0] >= 0.5 and vivado_predictions[1] >= 0.3:
-        #     action = 'G'
-        # else:
-        #     action = self.get_action(vivado_predictions)
-        #
-        # action = self.get_action(vivado_predictions)
-
         return vivado_predictions
         
     def close_connection(self):
