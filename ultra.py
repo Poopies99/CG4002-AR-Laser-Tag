@@ -183,10 +183,10 @@ class ActionEngine(threading.Thread):
                     action[0][1] = self.p2_grenade_hit
                     action[1][1] = self.p1_grenade_hit
                     if action_data_p1 == "grenade":
-                        action_dic["p1"]["action"] = ""
+                        # action_dic["p1"]["action"] = ""
                         action_data_p1 = False
                     if action_data_p2 == "grenade":
-                        action_dic["p2"]["action"] = ""
+                        # action_dic["p2"]["action"] = ""
                         action_data_p2 = False
                         
                     print(action)
@@ -346,11 +346,6 @@ class GameEngine(threading.Thread):
                     if p2_action[0] == "reload":
                         if valid_action_p2:
                             self.p2.reload()
-        
-                    # gamestate to eval_server
-                    self.eval_client.submit_to_eval()
-                    # eval server to subscriber queue
-                    correct_actions = self.eval_client.receive_correct_ans()
 
                     # If health drops to 0 then everything resets except for number of deaths
                     if self.p1.hp <= 0:
@@ -358,13 +353,18 @@ class GameEngine(threading.Thread):
                     if self.p2.hp <= 0:
                         self.reset_player(self.p2)
 
+                    # gamestate to eval_server
+                    self.eval_client.submit_to_eval()
+                    # eval server to subscriber queue
+                    correct_actions = self.eval_client.receive_correct_ans()
+
                     print(correct_actions)
 
                     p1_action, p2_action = correct_actions['p1']['action'], correct_actions['p2']['action']
                     self.update_actions(p1_action, self.p1_action)
                     self.update_actions(p2_action, self.p2_action)
 
-                    # subscriber queue to sw/feedback que
+                    # subscriber queue to sw/feedback
                     self.p2.action = viz_action_p2                    
                     self.p1.action = viz_action_p1
 
@@ -523,9 +523,6 @@ class Server(threading.Thread):
         # Shoot Engine Threads
         self.action_engine = action_engine_model
 
-        # Data Buffer
-        self.data = b''
-
         # Flags
         self.shutdown = threading.Event()
 
@@ -561,15 +558,7 @@ class Server(threading.Thread):
         while not self.shutdown.is_set():
             try:
                 # Receive up to 64 Bytes of data
-                data = self.connection.recv(64)
-
-                # Append existing data into new data
-                self.data = self.data + data
-                if len(self.data) < constants.PACKET_SIZE:
-                    continue
-
-                packet = self.data[:constants.PACKET_SIZE]
-                self.data = self.data[constants.PACKET_SIZE:]
+                packet = self.connection.recv(16)
 
                 packer = BLEPacket()
                 packer.unpack(packet)
