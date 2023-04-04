@@ -15,15 +15,17 @@ import socket
 import random
 import time
 import json
+<<<<<<< HEAD
 import joblib
+=======
+import queue
+>>>>>>> 1698024d56a243ff68dd31f25b6b5883e9c179ea
 from queue import Queue
 from _socket import SHUT_RDWR
 from collections import deque
 from player import PlayerAction
 from GameState import GameState
 from ble_packet import BLEPacket
-from scipy.signal import medfilt
-from scipy.ndimage import gaussian_filter1d
 from scipy.ndimage import gaussian_filter
 
 import pynq
@@ -585,7 +587,7 @@ class AIModel(threading.Thread):
         # Flags
         self.shutdown = threading.Event()
 
-        features = np.load('dependencies/features_v3.3.3.2.npz', allow_pickle=True)
+        features = np.load('dependencies/features_v3.4.npz', allow_pickle=True)
         self.mean = features['mean']
         self.variance = features['variance']
         self.pca_eigvecs = features['pca_eigvecs']
@@ -629,34 +631,17 @@ class AIModel(threading.Thread):
             pass
     
     def blur_3d_movement(self, acc_df):
-        acc_df = pd.DataFrame(acc_df)
-        acc_df = acc_df.apply(pd.to_numeric)
-        fs = 20 # sampling frequency
+        acc_arr = np.array(acc_df, dtype=np.float32)
+        fs = 20  # sampling frequency
         dt = 1/fs
 
-        filtered_acc_df = acc_df.apply(lambda x: gaussian_filter(x, sigma=5))
-        
-        ax = filtered_acc_df[0]
-        ay = filtered_acc_df[1]
-        az = filtered_acc_df[2]
+        filtered_acc_arr = gaussian_filter(acc_arr, sigma=5)
 
-        vx = np.cumsum(ax) * dt
-        vy = np.cumsum(ay) * dt
-        vz = np.cumsum(az) * dt
+        xyz = np.cumsum(np.cumsum(filtered_acc_arr, axis=0) * dt, axis=0)
 
-        x = np.cumsum(vx) * dt
-        y = np.cumsum(vy) * dt
-        z = np.cumsum(vz) * dt
-
-        x_arr = np.array(x)
-        y_arr = np.array(y)
-        z_arr = np.array(z)
-
-        x_disp = x_arr[-1] - x_arr[0]
-        y_disp = y_arr[-1] - y_arr[0]
-        z_disp = z_arr[-1] - z_arr[0]
-
-        xyz = np.column_stack((x, y, z))
+        x_disp = xyz[-1, 0] - xyz[0, 0]
+        y_disp = xyz[-1, 1] - xyz[0, 1]
+        z_disp = xyz[-1, 2] - xyz[0, 2]
 
         return xyz, [x_disp, y_disp, z_disp]
     
