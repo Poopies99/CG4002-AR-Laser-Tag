@@ -165,7 +165,7 @@ class ActionEngine(threading.Thread):
                     if action_data_p2 == 'shoot':
                         action[1] = [action_data_p2, self.p1_vest_shot]
                     elif action_data_p2 == 'grenade':
-                        action_dic["p2"] = "check_grenade"
+                        action_dic["p2"]["action"] = "check_grenade"
                         action[1] = [action_data_p2, False]
                     else:
                         action[1] = [action_data_p2, True]
