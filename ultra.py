@@ -981,8 +981,8 @@ if __name__ == '__main__':
     if not DEBUG_MODE:
         block_print()
 
-    hive.start()
-    viz.start()
+    # hive.start()
+    # viz.start()
     game_engine.start()
     laptop_server.start()
 
