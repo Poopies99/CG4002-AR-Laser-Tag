@@ -133,8 +133,6 @@ class ActionEngine(threading.Thread):
                     (action_data_p1 != "grenade"):
                     return
 
-
-
     def run(self):
         action_data_p1, action_data_p2 = None, None
         action = [['None', True], ['None', True]]
@@ -260,7 +258,6 @@ class GameEngine(threading.Thread):
                             "action": ""
                         } 
                     }
-
 
                     if p1_action[0] != 'shoot' and not self.p1_action.check(p1_action[0]):
                         p1_action[0] = self.p1_action.secret_sauce()
@@ -563,7 +560,6 @@ class Server(threading.Thread):
 
         while not self.shutdown.is_set():
             try:
-                packer = BLEPacket()
                 # Receive up to 64 Bytes of data
                 data = self.connection.recv(64)
 
@@ -575,6 +571,7 @@ class Server(threading.Thread):
                 packet = self.data[:constants.PACKET_SIZE]
                 self.data = self.data[constants.PACKET_SIZE:]
 
+                packer = BLEPacket()
                 packer.unpack(packet)
                 packet_id = packer.get_beetle_id()
 
@@ -952,12 +949,12 @@ if __name__ == '__main__':
     action_engine.start()
 
     # Software Visualizer
-    print("Starting Subscriber Send Thread")
-    hive = SubscriberSend("CG4002")
+    # print("Starting Subscriber Send Thread")
+    # hive = SubscriberSend("CG4002")
 
     # Starting Visualizer Receive
-    print("Starting Subscribe Receive")
-    viz = SubscriberReceive("gamestate")
+    # print("Starting Subscribe Receive")
+    # viz = SubscriberReceive("gamestate")
 
     ai_one = AIModel(1, action_engine, ai_queue_1, 5)
     ai_one.start()
