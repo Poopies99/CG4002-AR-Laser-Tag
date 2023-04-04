@@ -96,10 +96,11 @@ class GameState:
             self.player_2.initialize_from_dict(game_state_received['p2'])
 
             print("Player 1 Updated Stats:", self.player_1.get_dict())
+            print("Player 1 Updated Stats:", )
 
             success = True
             break
-        return success
+        return self.get_dict()
 
     def init_player(self, player_id, action, hp, bullets_remaining, grenades_remaining,
                      shield_time_remaining, shield_health, num_unused_shield, num_deaths):
