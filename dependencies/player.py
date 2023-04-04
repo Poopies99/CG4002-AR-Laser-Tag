@@ -20,6 +20,8 @@ class PlayerAction:
     def secret_sauce(self):
         print('Activating Secret Sauce')
         max_action = max(self.actions, key=self.actions.get)
+        if self.actions[max_action] == 0:
+            return 'logout'
         return max_action
 
     def check(self, action):

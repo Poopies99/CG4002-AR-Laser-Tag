@@ -183,10 +183,10 @@ class ActionEngine(threading.Thread):
                     action[0][1] = self.p2_grenade_hit
                     action[1][1] = self.p1_grenade_hit
                     if action_data_p1 == "grenade":
-                        action_dic["p1"]["action"] = ""
+                        # action_dic["p1"]["action"] = ""
                         action_data_p1 = False
                     if action_data_p2 == "grenade":
-                        action_dic["p2"]["action"] = ""
+                        # action_dic["p2"]["action"] = ""
                         action_data_p2 = False
                         
                     print(action)
@@ -263,7 +263,6 @@ class GameEngine(threading.Thread):
                         p1_action[0] = self.p1_action.secret_sauce()
                     if p2_action[0] != 'shoot' and not self.p1_action.check(p2_action[0]):
                         p2_action[0] = self.p2_action.secret_sauce()
-
 
                     viz_action_p1, viz_action_p2 = None, None
 
@@ -370,18 +369,12 @@ class GameEngine(threading.Thread):
                     self.update_actions(p1_action, self.p1_action)
                     self.update_actions(p2_action, self.p2_action)
 
-                    # subscriber queue to sw/feedback que
+                    # subscriber queue to sw/feedback
                     self.p2.action = viz_action_p2                    
                     self.p1.action = viz_action_p1
 
                     laptop_queue.append(self.eval_client.gamestate._get_data_plain_text())
                     subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
-
-                    # If health drops to 0 then everything resets except for number of deaths
-                    if self.p1.hp <= 0:
-                        self.reset_player(self.p1)
-                    if self.p2.hp <= 0:
-                        self.reset_player(self.p2)
 
             except KeyboardInterrupt as _:
                 traceback.print_exc()
@@ -529,9 +522,6 @@ class Server(threading.Thread):
         # Shoot Engine Threads
         self.action_engine = action_engine_model
 
-        # Data Buffer
-        self.data = b''
-
         # Flags
         self.shutdown = threading.Event()
 
@@ -567,15 +557,7 @@ class Server(threading.Thread):
         while not self.shutdown.is_set():
             try:
                 # Receive up to 64 Bytes of data
-                data = self.connection.recv(64)
-
-                # Append existing data into new data
-                self.data = self.data + data
-                if len(self.data) < constants.PACKET_SIZE:
-                    continue
-
-                packet = self.data[:constants.PACKET_SIZE]
-                self.data = self.data[constants.PACKET_SIZE:]
+                packet = self.connection.recv(16)
 
                 packer = BLEPacket()
                 packer.unpack(packet)
