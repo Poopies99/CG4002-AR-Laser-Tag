@@ -990,6 +990,7 @@ if __name__ == '__main__':
     game_engine.start()
     laptop_server.start()
 
+    tracemalloc.start()
     start_time = time.time()
     while True:
         if time.time() - start_time > 5:
