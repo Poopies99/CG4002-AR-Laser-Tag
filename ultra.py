@@ -641,6 +641,7 @@ class AIModel(threading.Thread):
 
         # PYNQ overlay NEW - pca_mlp_v3.5
         self.overlay = Overlay("dependencies/pca_mlp_3_5.bit")
+        self.overlay.download()
         self.dma = self.overlay.axi_dma_0
         self.in_buffer = pynq.allocate(shape=(129,), dtype=np.float32)
         self.out_buffer = pynq.allocate(shape=(3,), dtype=np.float32)
