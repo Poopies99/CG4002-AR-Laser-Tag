@@ -47,6 +47,7 @@ training_model_queue = deque()
 ai_queue_1 = Queue()
 ai_queue_2 = Queue()
 
+
 class ActionEngine(threading.Thread):
     def __init__(self):
         super().__init__()
@@ -156,18 +157,10 @@ class ActionEngine(threading.Thread):
 
                     if action_data_p1 == 'shoot':
                         action[0] = [action_data_p1, self.p2_vest_shot]
-
                     elif action_data_p1 == 'grenade':
                         action_dic["p1"]["action"] = "check_grenade"
                         action[0] = [action_data_p1, False]
-
-                    elif action_data_p1 == 'reload':
-                        action[0] = [action_data_p1, True]
-
-                    elif action_data_p1 == 'shield':
-                        action[0] = [action_data_p1, True]
-
-                    elif action_data_p1 == 'logout':
+                    else:
                         action[0] = [action_data_p1, True]
 
                 if action_data_p2 is None and self.p2_action_queue:
@@ -175,18 +168,10 @@ class ActionEngine(threading.Thread):
 
                     if action_data_p2 == 'shoot':
                         action[1] = [action_data_p2, self.p1_vest_shot]
-
-                    elif action_data_p1 == 'grenade':
-                        action_dic["p2"]["action"] = "check_grenade"
+                    elif action_data_p2 == 'grenade':
+                        action_dic["p2"] = "check_grenade"
                         action[1] = [action_data_p2, False]
-
-                    elif action_data_p2 == 'reload':
-                        action[1] = [action_data_p2, True]
-
-                    elif action_data_p2 == 'shield':
-                        action[1] = [action_data_p2, True]
-
-                    elif action_data_p2 == 'logout':
+                    else:
                         action[1] = [action_data_p2, True]
 
                 if action_data_p1 is not None:
@@ -211,7 +196,6 @@ class ActionEngine(threading.Thread):
                     print(action)
                     
                 if not (action_data_p1 is None or action_data_p2 is None):
-
                     action_queue.append(action)
                     action_data_p1, action_data_p2 = None, None
                     action = [['None', True], ['None', True]]
@@ -226,6 +210,10 @@ class ActionEngine(threading.Thread):
                         self.p2_vest_shot = False
                         self.p2_grenade_hit = None
                         self.p2_action_queue.clear()
+
+
+
+                
 class GameEngine(threading.Thread):
     def __init__(self, eval_client):
         super().__init__()
@@ -250,9 +238,8 @@ class GameEngine(threading.Thread):
     def run(self):
         while not self.shutdown.is_set():
             try:
-
                 if len(action_queue) != 0:
-                    p1_action, p2_action = action_queue.popleft() # [[p1_action, status], [p2_action, status]]
+                    p1_action, p2_action = action_queue.popleft()  # [[p1_action, status], [p2_action, status]]
                     
                     viz_action_p1, viz_action_p2 = None, None
                     print(f"P1 action data: {p1_action}")
@@ -260,7 +247,8 @@ class GameEngine(threading.Thread):
                 
                     self.p1.update_shield()
                     self.p2.update_shield()
-                    #TODO Need to check with chris regarding convention, [action, status] -> for grenade [grenade, true] means p1 throws grenade and hit p2?
+                    # TODO - Need to check with chris regarding convention, [action, status] -> for grenade [grenade, true] means p1 throws grenade and hit p2?
+                    # TODO - Chris: Yes thats right
                     valid_action_p1 = self.p1.action_is_valid(p1_action[0])
                     valid_action_p2 = self.p2.action_is_valid(p2_action[0])
 
@@ -499,8 +487,6 @@ class Server(threading.Thread):
 
         self.server_socket = server_socket
 
-        #self.packer = BLEPacket()
-
         # Shoot Engine Threads
         self.action_engine = action_engine_model
 
@@ -525,11 +511,11 @@ class Server(threading.Thread):
 
         print("Shutting Down Server")
 
-    def send_back_laptop(self):
+    def send_back_laptop(self, packer):
         game_state = json.loads(laptop_queue.popleft())
         data = [0, game_state['p1']['bullets'], game_state['p1']['hp'], 0, game_state['p2']['bullets'],
                 game_state['p2']['hp'], 0, 0]
-        data = self.packer.pack(data)
+        data = packer.pack(data)
 
         self.connection.send(data)
 
@@ -541,6 +527,8 @@ class Server(threading.Thread):
 
         while not self.shutdown.is_set():
             try:
+                packer = BLEPacket()
+
                 # Receive up to 64 Bytes of data
                 data = self.connection.recv(64)
 
@@ -552,14 +540,8 @@ class Server(threading.Thread):
                 packet = self.data[:constants.PACKET_SIZE]
                 self.data = self.data[constants.PACKET_SIZE:]
 
-                packer = BLEPacket()
                 packer.unpack(packet)
-                # print("Beetle {}, Packet Type: {}".format(packer.get_beetle_id(), packer.get_packet_type()))
-                # print("Eul: {}, Acc: {}".format(packer.get_euler_data(), packer.get_acc_data()))
                 packet_id = packer.get_beetle_id()
-
-                # print(packet)
-                # print("Packet ID: ", packet_id)
 
                 if packet_id == 1:
                     self.action_engine.handle_gun_shot(1)
@@ -578,9 +560,8 @@ class Server(threading.Thread):
                 else:
                     print("Invalid Beetle ID")
 
-                # Sends data back into the relay laptop
                 if len(laptop_queue) != 0:
-                    self.send_back_laptop()
+                    self.send_back_laptop(packer)
             except KeyboardInterrupt as _:
                 traceback.print_exc()
                 self.close_connection()
@@ -599,7 +580,7 @@ class AIModel(threading.Thread):
         # Flags
         self.shutdown = threading.Event()
 
-        features = np.load('dependencies/features.npz', allow_pickle=True)
+        features = np.load('dependencies/features_v3.3.3.2.npz', allow_pickle=True)
         self.mean = features['mean']
         self.variance = features['variance']
         self.pca_eigvecs = features['pca_eigvecs']
@@ -632,10 +613,10 @@ class AIModel(threading.Thread):
         # self.out_buffer = pynq.allocate(shape=(4,), dtype=np.float32)
 
         # PYNQ overlay OLD backup - pca_mlp_1
-        self.overlay = Overlay("dependencies/pca_mlp_1.bit")
-        self.dma = self.overlay.axi_dma_0
-        self.in_buffer = pynq.allocate(shape=(125,), dtype=np.float32)
-        self.out_buffer = pynq.allocate(shape=(3,), dtype=np.float32)
+        # self.overlay = Overlay("dependencies/pca_mlp_1.bit")
+        # self.dma = self.overlay.axi_dma_0
+        # self.in_buffer = pynq.allocate(shape=(125,), dtype=np.float32)
+        # self.out_buffer = pynq.allocate(shape=(3,), dtype=np.float32)
 
     def sleep(self, seconds):
         start_time = time.time()
@@ -730,33 +711,33 @@ class AIModel(threading.Thread):
 
     def get_action(self, softmax_array):
         max_index = np.argmax(softmax_array)
-        # action_dict = {0: 'G', 1: 'L', 2: 'R', 3: 'S'}
+        # action_dict = {0: 'G', 1: 'L', 2: 'R', 3: 'S'} # TODO check if Logout is present
         action_dict = {0: 'G', 1: 'R', 2: 'S'}
         action = action_dict[max_index]
         return action
 
 
-    def mlp_vivado(self, data):
-        start_time = time.time()
+#     def mlp_vivado(self, data):
+#         start_time = time.time()
 
-        # reshape data to match in_buffer shape
-        data = np.reshape(data, (125,))
+#         # reshape data to match in_buffer shape
+#         data = np.reshape(data, (125,))
 
-        self.in_buffer[:] = data
+#         self.in_buffer[:] = data
 
-        self.dma.sendchannel.transfer(self.in_buffer)
-        self.dma.recvchannel.transfer(self.out_buffer)
+#         self.dma.sendchannel.transfer(self.in_buffer)
+#         self.dma.recvchannel.transfer(self.out_buffer)
 
-        # wait for transfer to finish
-        self.dma.sendchannel.wait()
-        self.dma.recvchannel.wait()
+#         # wait for transfer to finish
+#         self.dma.sendchannel.wait()
+#         self.dma.recvchannel.wait()
 
-        # print output buffer
-        print("mlp done with output: " + " ".join(str(x) for x in self.out_buffer))
+#         # print output buffer
+#         print("mlp done with output: " + " ".join(str(x) for x in self.out_buffer))
 
-        print(f"MLP time taken so far output: {time.time() - start_time}")
+#         print(f"MLP time taken so far output: {time.time() - start_time}")
 
-        return self.out_buffer
+#         return self.out_buffer
 
     def mlp_vivado_mockup(self, data):
         action = data[0:120].reshape(40, 3)
@@ -775,17 +756,26 @@ class AIModel(threading.Thread):
         top_2 = self.get_top_2_axes(disp_change)
         metric_ratios = self.get_metric_ratios(disp_change)
 
-        vivado_input = np.hstack((np.array(blurred_data).reshape(1, 120), np.array(disp_change).reshape(1, 3), np.array(top_2).reshape(1, 2))).flatten()
+        vivado_input = np.hstack((np.array(blurred_data).reshape(1,120), 
+                          np.array(disp_change).reshape(1,3), 
+                          np.array(top_2).reshape(1,2),
+                          np.array(metric_ratios).reshape(1,3)
+                          )).flatten()
 
-        vivado_predictions = self.mlp_vivado(vivado_input)
-        # vivado_predictions = self.mlp_vivado_mockup(vivado_input)
+        # vivado_predictions = self.mlp_vivado(vivado_input)
+        vivado_predictions = self.mlp_vivado_mockup(vivado_input)
+        
+        # GOAL - hardcode G
+        # kenneth edit here; arr[0],[1],[2] = G,R,S
+        # see the values and watch for special changes only for G, eg
+        # if vivado_predictions[0] >= 0.5 and vivado_predictions[1] >= 0.3:
+        #     action = 'G'
+        # else:
+        #     action = self.get_action(vivado_predictions)
+        #
+        # action = self.get_action(vivado_predictions)
 
-        action = self.get_action(vivado_predictions)
-
-        print(vivado_predictions)
-        print(action)
-
-        return action
+        return vivado_predictions
         
     def close_connection(self):
         self.shutdown.set()
@@ -794,7 +784,7 @@ class AIModel(threading.Thread):
 
     def run(self):
         # Set the threshold value for movement detection based on user input
-        K = 10
+        K = 5
         # K = float(input("threshold value? "))
 
         # Initialize arrays to hold the current and previous data packets
@@ -837,11 +827,11 @@ class AIModel(threading.Thread):
                         print(f"prev_mag: {prev_mag} \n")
                         movement_watchdog = True
                         # append previous and current packet to data packet
-                        data_packet = np.concatenate((previous_packet, current_packet), axis=0)
+                        # data_packet = np.concatenate((previous_packet, current_packet), axis=0)
 
                     # movement_watchdog activated, count is_movement_counter from 0 up 6 and append current packet each time
                     if movement_watchdog:
-                        if is_movement_counter < 6:
+                        if is_movement_counter < 8:
                             data_packet = np.concatenate((data_packet, current_packet), axis=0)
                             is_movement_counter += 1
                         
@@ -855,6 +845,15 @@ class AIModel(threading.Thread):
 
                             action = self.AIDriver(data_packet) # TODO re-enable for live integration
                             print(f"action from MLP in main: {action} \n")  # print output of MLP
+
+                            if action == 'G':
+                                self.action_engine.handle_grenade(self.player)
+                            elif action == 'S':
+                                self.action_engine.handle_shield(self.player)
+                            elif action == 'R':
+                                self.action_engine.handle_reload(self.player)
+                            elif action == 'L':
+                                self.action_engine.handle_logout(self.player)
 
                             # movement_watchdog deactivated, reset is_movement_counter
                             movement_watchdog = False
