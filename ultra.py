@@ -286,10 +286,10 @@ class GameEngine(threading.Thread):
                         
                     if valid_action_p2:
                         action_dic["p2"]["action"] = p2_action[0]
-                    else:
+                    else
                         action_dic["p2"]["action"] = p2_action[0] + "#"
                         
-                    subscribe_queue.put(action_dic)
+                    subscribe_queue.put(json.dumps(action_dic))
                     
                     if p1_action[0] == "logout" and p2_action[0] == "logout":
                         # send to visualizer
@@ -952,12 +952,12 @@ if __name__ == '__main__':
     action_engine.start()
 
     # Software Visualizer
-    # print("Starting Subscriber Send Thread")
-    # hive = SubscriberSend("CG4002")
+    print("Starting Subscriber Send Thread")
+    hive = SubscriberSend("CG4002")
 
     # Starting Visualizer Receive
-    # print("Starting Subscribe Receive")
-    # viz = SubscriberReceive("gamestate")
+    print("Starting Subscribe Receive")
+    viz = SubscriberReceive("gamestate")
 
     ai_one = AIModel(1, action_engine, ai_queue_1, 5)
     ai_one.start()
@@ -985,8 +985,21 @@ if __name__ == '__main__':
     if not DEBUG_MODE:
         block_print()
 
-    # hive.start()
-    # viz.start()
+    hive.start()
+    viz.start()
     game_engine.start()
     laptop_server.start()
+
+    start_time = time.time()
+    while True:
+        if time.time() - start_time > 5:
+            snapshot = tracemalloc.take_snapshot()
+            top_stats = snapshot.statistics('lineno')
+
+            print("[ Top 10 ]")
+            for stat in top_stats[:10]:
+                print(stat)
+
+            start_time = time.time()
+
 
