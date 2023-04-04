@@ -233,9 +233,9 @@ class GameEngine(threading.Thread):
                 if len(action_queue) != 0:
                     p1_action, p2_action = action_queue.popleft()
 
-                    if not self.p1_action.check(p1_action) and p1_action != 'shoot':
+                    if not self.p1_action.check(p1_action[0]) and p1_action[0] != 'shoot':
                         p1_action = self.p1_action.secret_sauce()
-                    if not self.p1_action.check(p2_action) and p1_action != 'shoot':
+                    if not self.p2_action.check(p2_action[0]) and p2_action[0] != 'shoot':
                         p2_action = self.p2_action.secret_sauce()
 
                     viz_action_p1, viz_action_p2 = None, None
