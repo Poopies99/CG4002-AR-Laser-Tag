@@ -373,6 +373,14 @@ class GameEngine(threading.Thread):
                     self.p2.action = viz_action_p2                    
                     self.p1.action = viz_action_p1
 
+                    if p1_action[0] == "shield":
+                        if valid_action_p1 and not self.p1.check_shield():
+                            self.p1.activate_shield()
+
+                    if p2_action[0] == "shield":
+                        if valid_action_p2 and not self.p2.check_shield():
+                            self.p2.activate_shield()
+
                     laptop_queue.append(self.eval_client.gamestate._get_data_plain_text())
                     subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
 
