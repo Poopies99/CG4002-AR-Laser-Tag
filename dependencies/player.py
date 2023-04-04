@@ -18,6 +18,7 @@ class PlayerAction:
         self.actions['grenade'] -= 1
 
     def secret_sauce(self):
+        print('Activating Secret Sauce')
         max_action = max(self.actions, key=self.actions.get)
         return max_action
 

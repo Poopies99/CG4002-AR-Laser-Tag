@@ -108,7 +108,6 @@ class ActionEngine(threading.Thread):
             self.p2_vest_shot = True
             
     def determine_grenade_hit(self, action_data_p1, action_data_p2):
-        
         while True:
             while not feedback_queue.empty():
                 data = feedback_queue.get()
@@ -134,7 +133,7 @@ class ActionEngine(threading.Thread):
                     (action_data_p1 != "grenade"):
                     return
 
-        
+
 
     def run(self):
         action_data_p1, action_data_p2 = None, None
@@ -262,10 +261,12 @@ class GameEngine(threading.Thread):
                         } 
                     }
 
+
                     if not self.p1_action.check(p1_action) and p1_action != 'shoot':
                         p1_action[0] = self.p1_action.secret_sauce()
                     if not self.p1_action.check(p2_action) and p1_action != 'shoot':
                         p2_action[0] = self.p2_action.secret_sauce()
+
 
                     viz_action_p1, viz_action_p2 = None, None
 
@@ -354,13 +355,14 @@ class GameEngine(threading.Thread):
                     self.eval_client.submit_to_eval()
                     # eval server to subscriber queue
                     correct_actions = self.eval_client.receive_correct_ans()
-                    
                     # If health drops to 0 then everything resets except for number of deaths
                     if self.p1.hp <= 0:
                         self.reset_player(self.p1)
                     if self.p2.hp <= 0:
                         self.reset_player(self.p2)
-                        
+
+                    print(correct_actions)
+
                     p1_action, p2_action = correct_actions['p1']['action'], correct_actions['p2']['action']
                     self.update_actions(p1_action, self.p1_action)
                     self.update_actions(p2_action, self.p2_action)
@@ -372,6 +374,11 @@ class GameEngine(threading.Thread):
                     laptop_queue.append(self.eval_client.gamestate._get_data_plain_text())
                     subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
 
+                    # If health drops to 0 then everything resets except for number of deaths
+                    if self.p1.hp <= 0:
+                        self.reset_player(self.p1)
+                    if self.p2.hp <= 0:
+                        self.reset_player(self.p2)
 
             except KeyboardInterrupt as _:
                 traceback.print_exc()
@@ -495,7 +502,7 @@ class EvalClient:
 
     def receive_correct_ans(self):
         print(f'[EvalClient] Received Game State: {self.gamestate._get_data_plain_text()}'.ljust(80), end='\r')
-        self.gamestate.recv_and_update(self.client_socket)
+        return self.gamestate.recv_and_update(self.client_socket)
 
 
     def close_connection(self):
@@ -557,7 +564,6 @@ class Server(threading.Thread):
         while not self.shutdown.is_set():
             try:
                 packer = BLEPacket()
-
                 # Receive up to 64 Bytes of data
                 data = self.connection.recv(64)
 
@@ -600,7 +606,7 @@ class Server(threading.Thread):
 
 
 class AIModel(threading.Thread):
-    def __init__(self, player, action_engine_model, queue_added):
+    def __init__(self, player, action_engine_model, queue_added, K):
         super().__init__()
 
         self.player = player
@@ -632,6 +638,8 @@ class AIModel(threading.Thread):
 
         # define the available actions
         self.test_actions = ['G', 'S', 'R', 'L']
+
+        self.K = K
 
         self.ai_queue = queue_added
         
@@ -785,9 +793,9 @@ class AIModel(threading.Thread):
         # else:
         #     action = self.get_action(vivado_predictions)
         #
-        # action = self.get_action(vivado_predictions)
-
-        return vivado_predictions
+        action = self.get_action(vivado_predictions)
+        print(vivado_predictions)
+        return str(action)
         
     def close_connection(self):
         self.shutdown.set()
@@ -796,7 +804,7 @@ class AIModel(threading.Thread):
 
     def run(self):
         # Set the threshold value for movement detection based on user input
-        K = 5
+        # K = 5
         # K = float(input("threshold value? "))
 
         # Initialize arrays to hold the current and previous data packets
@@ -832,7 +840,7 @@ class AIModel(threading.Thread):
                     prev_mag = np.sum(np.square(np.mean(previous_packet[:, -3:], axis=1)))
 
                     # Check for movement detection
-                    if not movement_watchdog and curr_mag - prev_mag > K:
+                    if not movement_watchdog and curr_mag - prev_mag > self.K:
                         print("Movement detected!")
                         # print currr and prev mag for sanity check
                         print(f"curr_mag: {curr_mag} \n")
@@ -932,26 +940,22 @@ if __name__ == '__main__':
     # print("Starting Subscribe Receive")
     # viz = SubscriberReceive("gamestate")
 
-    # AI Model
-    # ai_test = AIModel(1, [], [])
-    # ai_test.start()
-
-    ai_one = AIModel(1, action_engine, ai_queue_1)
+    ai_one = AIModel(1, action_engine, ai_queue_1, 5)
     ai_one.start()
 
     if not SINGLE_PLAYER_MODE:
-        ai_two = AIModel(2, action_engine, ai_queue_2)
+        ai_two = AIModel(2, action_engine, ai_queue_2, 5)
         ai_two.start()
 
     # # Client Connection to Evaluation Server
-    # print("Starting Client Thread")
-    # # # eval_client = EvalClient(9999, "137.132.92.184")
+    print("Starting Client Thread")
+    # eval_client = EvalClient(9999, "137.132.92.184")
     eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
     eval_client.connect_to_eval()
 
     # Game Engine
-    # print("Starting Game Engine Thread")
-    # game_engine = GameEngine(eval_client=eval_client)
+    print("Starting Game Engine Thread")
+    game_engine = GameEngine(eval_client=eval_client)
 
     # # Server Connection to Laptop
     print("Starting Server Thread")
@@ -964,6 +968,6 @@ if __name__ == '__main__':
 
     # hive.start()
     # viz.start()
-    # game_engine.start()
+    game_engine.start()
     laptop_server.start()
 
