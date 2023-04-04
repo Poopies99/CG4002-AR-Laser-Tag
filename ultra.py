@@ -615,7 +615,7 @@ class AIModel(threading.Thread):
         # Flags
         self.shutdown = threading.Event()
 
-        features = np.load('dependencies/features_v3.4.npz', allow_pickle=True)
+        features = np.load('dependencies/features_v3.5.npz', allow_pickle=True)
         self.mean = features['mean']
         self.variance = features['variance']
         self.pca_eigvecs = features['pca_eigvecs']
@@ -660,7 +660,7 @@ class AIModel(threading.Thread):
         while time.time() - start_time < seconds:
             pass
     
-    def blur_3d_movement(self, acc_df):
+    def blur_3d_movement(acc_df):
         acc_arr = np.array(acc_df, dtype=np.float32)
         fs = 20  # sampling frequency
         dt = 1/fs
@@ -673,7 +673,25 @@ class AIModel(threading.Thread):
         y_disp = xyz[-1, 1] - xyz[0, 1]
         z_disp = xyz[-1, 2] - xyz[0, 2]
 
-        return xyz, [x_disp, y_disp, z_disp]
+        xz_proj = xyz[:, [0, 2]]  # Select the first and third columns for xz projection
+
+        # Calculate the absolute distance between the first and last point in the xz projection
+        first_point = xz_proj[0]
+        last_point = xz_proj[-1]
+        # distance = np.abs(last_point - first_point)
+        distance_num = np.sum(np.abs(last_point - first_point))
+
+        arc_length = 0
+
+        for i in range(1, len(xz_proj)):
+            point1 = xz_proj[i-1]
+            point2 = xz_proj[i]
+            distance = np.linalg.norm(point2 - point1)
+            arc_length += distance
+
+        gap_ratio = distance_num/arc_length
+
+        return xyz, [x_disp, y_disp, z_disp], gap_ratio
     
     def get_top_2_axes(self, row):
         row = np.array(row)
@@ -763,7 +781,7 @@ class AIModel(threading.Thread):
         action = data[0:120].reshape(40, 3)
         scaled_action = self.scaler(action)
         pca_action = self.pca(scaled_action.reshape(1,120))
-        mlp_input = np.hstack((pca_action.reshape(1,6), data[120:128].reshape(1,8)))
+        mlp_input = np.hstack((pca_action.reshape(1,6), data[120:].reshape(1,9)))
         Y_softmax = self.mlp(mlp_input)
         return Y_softmax
 
@@ -772,15 +790,16 @@ class AIModel(threading.Thread):
         acc_df = test_input[:, -3:]
         
         # Transform data using Scaler and PCA
-        blurred_data, disp_change = self.blur_3d_movement(acc_df.reshape(40,3))
+        blurred_data, disp_change, gap_ratio = self.blur_3d_movement(acc_df.reshape(40,3))
         top_2 = self.get_top_2_axes(disp_change)
         metric_ratios = self.get_metric_ratios(disp_change)
 
         vivado_input = np.hstack((np.array(blurred_data).reshape(1,120), 
-                          np.array(disp_change).reshape(1,3), 
-                          np.array(top_2).reshape(1,2),
-                          np.array(metric_ratios).reshape(1,3)
-                          )).flatten()
+                                np.array(disp_change).reshape(1,3), 
+                                np.array(top_2).reshape(1,2),
+                                np.array(metric_ratios).reshape(1,3),
+                                np.array(gap_ratio).reshape(1,1)
+                                )).flatten()
 
         # vivado_predictions = self.mlp_vivado(vivado_input)
         vivado_predictions = self.mlp_vivado_mockup(vivado_input)
