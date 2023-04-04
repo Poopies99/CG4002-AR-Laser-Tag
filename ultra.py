@@ -322,6 +322,7 @@ class GameEngine(threading.Thread):
                     self.eval_client.submit_to_eval()
                     # eval server to subscriber queue
                     correct_actions = self.eval_client.receive_correct_ans()
+                    print(correct_actions)
                     p1_action, p2_action = correct_actions['p1']['action'], correct_actions['p2']['action']
                     self.update_actions(p1_action, self.p1_action)
                     self.update_actions(p2_action, self.p2_action)
