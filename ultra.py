@@ -180,7 +180,7 @@ class ActionEngine(threading.Thread):
                 
                 if action_data_p1 == "grenade" or action_data_p2 == "grenade":
                     subscribe_queue.put(json.dumps(action_dic))
-                    self.determine_grenade_hit(action_data_p1, action_data_p2)
+                    # self.determine_grenade_hit(action_data_p1, action_data_p2)
                     print("done")
                     action[0][1] = self.p2_grenade_hit
                     action[1][1] = self.p1_grenade_hit
@@ -286,7 +286,7 @@ class GameEngine(threading.Thread):
                         
                     if valid_action_p2:
                         action_dic["p2"]["action"] = p2_action[0]
-                    else
+                    else:
                         action_dic["p2"]["action"] = p2_action[0] + "#"
                         
                     subscribe_queue.put(json.dumps(action_dic))
