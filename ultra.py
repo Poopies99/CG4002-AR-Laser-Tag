@@ -16,11 +16,11 @@ import random
 import time
 import json
 import joblib
-import queue
 from queue import Queue
-from GameState import GameState
 from _socket import SHUT_RDWR
 from collections import deque
+from player import PlayerAction
+from GameState import GameState
 from ble_packet import BLEPacket
 from scipy.signal import medfilt
 from scipy.ndimage import gaussian_filter1d
@@ -52,9 +52,9 @@ class ActionEngine(threading.Thread):
     def __init__(self):
         super().__init__()
 
+        # Flags
         self.p1_action_queue = deque()
 
-        # Flags
         self.p1_gun_shot = False
         self.p1_vest_shot = False
         self.p1_grenade_hit = False
@@ -204,6 +204,20 @@ class GameEngine(threading.Thread):
 
         self.shutdown = threading.Event()
 
+        self.p1_action = PlayerAction()
+
+        if not SINGLE_PLAYER_MODE:
+            self.p2_action = PlayerAction()
+
+
+    def update_actions(self, player_action_value, player_action):
+        if player_action_value == 'grenade':
+            player_action.grenade()
+        elif player_action_value == 'reload':
+            player_action.reload()
+        elif player_action_value == 'shield':
+            player_action.shield()
+
     def reset_player(self, player):
         player.hp = 100
         player.action = "none"
@@ -218,16 +232,21 @@ class GameEngine(threading.Thread):
         while not self.shutdown.is_set():
             try:
                 if len(action_queue) != 0:
-                    p1_action, p2_action = action_queue.popleft()  # [[p1_action, status], [p2_action, status]]
-                    
+                    p1_action, p2_action = action_queue.popleft()
+
+                    if not self.p1_action.check(p1_action):
+                        p1_action = self.p1_action.secret_sauce()
+                    if not self.p1_action.check(p2_action):
+                        p2_action = self.p2_action.secret_sauce()
+
                     viz_action_p1, viz_action_p2 = None, None
+
                     print(f"P1 action data: {p1_action}")
                     print(f"P2 action data: {p2_action}")
                 
                     self.p1.update_shield()
                     self.p2.update_shield()
-                    # TODO - Need to check with chris regarding convention, [action, status] -> for grenade [grenade, true] means p1 throws grenade and hit p2?
-                    # TODO - Chris: Yes thats right
+
                     valid_action_p1 = self.p1.action_is_valid(p1_action[0])
                     valid_action_p2 = self.p2.action_is_valid(p2_action[0])
 
@@ -299,17 +318,15 @@ class GameEngine(threading.Thread):
                         if valid_action_p2:
                             self.p2.reload()
                             viz_action_p2 = "reload"
-                            
-                    # If health drops to 0 then everything resets except for number of deaths
-                    if self.p1.hp <= 0:
-                        self.reset_player(self.p1)
-                    if self.p2.hp <= 0:
-                        self.reset_player(self.p2)
 
                     # gamestate to eval_server
                     self.eval_client.submit_to_eval()
                     # eval server to subscriber queue
-                    self.eval_client.receive_correct_ans()
+                    correct_actions = self.eval_client.receive_correct_ans()
+                    p1_action, p2_action = correct_actions['p1']['action'], correct_actions['p2']['action']
+                    self.update_actions(p1_action, self.p1_action)
+                    self.update_actions(p2_action, self.p2_action)
+
                     # subscriber queue to sw/feedback queue
 
                     if valid_action_p1:
@@ -321,8 +338,15 @@ class GameEngine(threading.Thread):
                         self.p2.action = viz_action_p2
                     else:
                         self.p2.action = "invalid"
+
                     laptop_queue.append(self.eval_client.gamestate._get_data_plain_text())
                     subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
+
+                    # If health drops to 0 then everything resets except for number of deaths
+                    if self.p1.hp <= 0:
+                        self.reset_player(self.p1)
+                    if self.p2.hp <= 0:
+                        self.reset_player(self.p2)
 
             except KeyboardInterrupt as _:
                 traceback.print_exc()
@@ -448,6 +472,7 @@ class EvalClient:
     def receive_correct_ans(self):
         print(f'[EvalClient] Received Game State: {self.gamestate._get_data_plain_text()}'.ljust(80), end='\r')
         self.gamestate.recv_and_update(self.client_socket)
+
 
     def close_connection(self):
         self.client_socket.close()
