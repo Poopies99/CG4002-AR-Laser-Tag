@@ -790,7 +790,7 @@ class AIModel(threading.Thread):
         acc_df = test_input[:, -3:]
         
         # Transform data using Scaler and PCA
-        blurred_data, disp_change, gap_ratio = self.blur_3d_movement(acc_df.reshape(40,3))
+        blurred_data, disp_change, gap_ratio = self.blur_3d_movement(acc_df)
         top_2 = self.get_top_2_axes(disp_change)
         metric_ratios = self.get_metric_ratios(disp_change)
 
