@@ -640,11 +640,11 @@ class AIModel(threading.Thread):
 
         self.ai_queue = queue_added
         
-        # PYNQ overlay NEW - pca_mlp_v3.5
-        self.overlay = Overlay("dependencies/pca_mlp_3_5.bit")
-        self.dma = self.overlay.axi_dma_0
-        self.in_buffer = pynq.allocate(shape=(129,), dtype=np.float32)
-        self.out_buffer = pynq.allocate(shape=(3,), dtype=np.float32)
+        # PYNQ overlay NEW - pca_mlp_2
+        # self.overlay = Overlay("dependencies/pca_mlp_2.bit")
+        # self.dma = self.overlay.axi_dma_0
+        # self.in_buffer = pynq.allocate(shape=(128,), dtype=np.float32)
+        # self.out_buffer = pynq.allocate(shape=(4,), dtype=np.float32)
 
         # PYNQ overlay OLD backup - pca_mlp_1
         # self.overlay = Overlay("dependencies/pca_mlp_1.bit")
@@ -752,27 +752,27 @@ class AIModel(threading.Thread):
         return action
 
 
-    def mlp_vivado(self, data):
-        start_time = time.time()
+#     def mlp_vivado(self, data):
+#         start_time = time.time()
 
-        # reshape data to match in_buffer shape
-        data = np.reshape(data, (129,))
+#         # reshape data to match in_buffer shape
+#         data = np.reshape(data, (125,))
 
-        self.in_buffer[:] = data
+#         self.in_buffer[:] = data
 
-        self.dma.sendchannel.transfer(self.in_buffer)
-        self.dma.recvchannel.transfer(self.out_buffer)
+#         self.dma.sendchannel.transfer(self.in_buffer)
+#         self.dma.recvchannel.transfer(self.out_buffer)
 
-        # wait for transfer to finish
-        self.dma.sendchannel.wait()
-        self.dma.recvchannel.wait()
+#         # wait for transfer to finish
+#         self.dma.sendchannel.wait()
+#         self.dma.recvchannel.wait()
 
-        # print output buffer
-        print("mlp done with output: " + " ".join(str(x) for x in self.out_buffer))
+#         # print output buffer
+#         print("mlp done with output: " + " ".join(str(x) for x in self.out_buffer))
 
-        print(f"MLP time taken so far output: {time.time() - start_time}")
+#         print(f"MLP time taken so far output: {time.time() - start_time}")
 
-        return self.out_buffer
+#         return self.out_buffer
 
     def mlp_vivado_mockup(self, data):
         action = data[0:120].reshape(40, 3)
@@ -792,19 +792,26 @@ class AIModel(threading.Thread):
         metric_ratios = self.get_metric_ratios(disp_change)
 
         vivado_input = np.hstack((np.array(blurred_data).reshape(1,120), 
-                            np.array(disp_change).reshape(1,3), 
-                            np.array(top_2).reshape(1,2),
-                            np.array(metric_ratios).reshape(1,3),
-                            np.array(gap_ratio).reshape(1,1)
-                            )).flatten()
+                                np.array(disp_change).reshape(1,3), 
+                                np.array(top_2).reshape(1,2),
+                                np.array(metric_ratios).reshape(1,3),
+                                np.array(gap_ratio).reshape(1,1)
+                                )).flatten()
 
-        vivado_predictions = self.mlp_vivado(vivado_input)
-        # vivado_predictions = self.mlp_vivado_mockup(vivado_input)
+        # vivado_predictions = self.mlp_vivado(vivado_input)
+        vivado_predictions = self.mlp_vivado_mockup(vivado_input)
         
+        # GOAL - hardcode G
+        # kenneth edit here; arr[0],[1],[2] = G,R,S
+        # see the values and watch for special changes only for G, eg
+        # if vivado_predictions[0] >= 0.5 and vivado_predictions[1] >= 0.3:
+        #     action = 'G'
+        # else:
+        #     action = self.get_action(vivado_predictions)
+        #
         action = self.get_action(vivado_predictions)
         print(vivado_predictions)
         return str(action)
-
         
     def close_connection(self):
         self.shutdown.set()
@@ -942,8 +949,7 @@ if __name__ == '__main__':
     action_engine.start()
 
     # Software Visualizer
-    # print("Starting Subscriber Send Thread")
-    # hive = SubscriberSend("CG4002")
+    # print("S!scriberSend("CG4002")
 
     # Starting Visualizer Receive
     # print("Starting Subscribe Receive")
