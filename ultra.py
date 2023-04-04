@@ -137,6 +137,8 @@ class ActionEngine(threading.Thread):
                     (action_data_p1 != "grenade"):
                     return
 
+        
+
     def run(self):
         action_data_p1, action_data_p2 = None, None
         action = [['None', True], ['None', True]]
@@ -227,7 +229,6 @@ class GameEngine(threading.Thread):
 
     def reset_player(self, player):
         player.hp = 100
-        player.action = "none"
         player.bullets = 6
         player.grenades = 2
         player.shield_time = 0
@@ -242,13 +243,13 @@ class GameEngine(threading.Thread):
                     p1_action, p2_action = action_queue.popleft()  # [[p1_action, status], [p2_action, status]]
                     
                     viz_action_p1, viz_action_p2 = None, None
+                    viz_flag = False
                     print(f"P1 action data: {p1_action}")
                     print(f"P2 action data: {p2_action}")
                 
                     self.p1.update_shield()
                     self.p2.update_shield()
-                    # TODO - Need to check with chris regarding convention, [action, status] -> for grenade [grenade, true] means p1 throws grenade and hit p2?
-                    # TODO - Chris: Yes thats right
+
                     valid_action_p1 = self.p1.action_is_valid(p1_action[0])
                     valid_action_p2 = self.p2.action_is_valid(p2_action[0])
 
@@ -265,12 +266,10 @@ class GameEngine(threading.Thread):
                     
                     if p1_action[0] == "shield":
                         if valid_action_p1 and not self.p1.check_shield():
-                            viz_action_p1 = "shield"
                             self.p1.activate_shield()
                     
                     if p2_action[0] == "shield":
                         if valid_action_p2 and not self.p2.check_shield():
-                            viz_action_p2 = "shield"
                             self.p2.activate_shield()
                     
                     if p1_action[0] == "grenade":
@@ -293,7 +292,6 @@ class GameEngine(threading.Thread):
                     
                     if p1_action[0] == "shoot":
                         if valid_action_p1:
-                            viz_action_p1 = "shoot"
                             self.p1.shoot()
                             if p1_action[1]:
                                 viz_action_p2 = "hit_bullet"
@@ -303,7 +301,6 @@ class GameEngine(threading.Thread):
                                 
                     if p2_action[0] == "shoot":
                         if valid_action_p2:
-                            viz_action_p2 = "shoot"
                             self.p2.shoot()
                             if p2_action[1]:
                                 viz_action_p1 = "hit_bullet"
@@ -314,36 +311,51 @@ class GameEngine(threading.Thread):
                     if p1_action[0] == "reload":
                         if valid_action_p1:
                             self.p1.reload()
-                            viz_action_p1 = "reload"
+                        
                                         
                     if p2_action[0] == "reload":
                         if valid_action_p2:
                             self.p2.reload()
-                            viz_action_p2 = "reload"
-                            
+                    
                     # If health drops to 0 then everything resets except for number of deaths
                     if self.p1.hp <= 0:
                         self.reset_player(self.p1)
                     if self.p2.hp <= 0:
                         self.reset_player(self.p2)
-
+                        
+                    action_p1, action_p2 = self.p1.action, self.p2.action
                     # gamestate to eval_server
                     self.eval_client.submit_to_eval()
                     # eval server to subscriber queue
                     self.eval_client.receive_correct_ans()
                     # subscriber queue to sw/feedback queue
 
-                    if valid_action_p1:
-                        self.p1.action = viz_action_p1
-                    else:
-                        self.p1.action = "invalid"
+                    action_dic = {
+                        "p1": {
+                            "action": ""
+                        },
+                        "p2": {
+                            "action": ""
+                        } 
+                    }
+                      
+                    if valid_action_p1 and action_p1 == self.p1.action:
+                        action_dic["p1"]["action"] = viz_action_p1
+                        viz_flag = True
+                    
+                    if valid_action_p2 and action_p2 == self.p2.action:
+                        action_dic["p2"]["action"] = viz_action_p2
+                        viz_flag = True
                         
-                    if valid_action_p2:
-                        self.p2.action = viz_action_p2
-                    else:
-                        self.p2.action = "invalid"
+                    if not valid_action_p1:
+                        self.p1.action = self.p1.action + "#"
+                    if not valid_action_p2:
+                        self.p2.action = self.p2.action + "#"
+                    
                     laptop_queue.append(self.eval_client.gamestate._get_data_plain_text())
                     subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
+                    if viz_flag:
+                        subscribe_queue.put(action_dic)
 
             except KeyboardInterrupt as _:
                 traceback.print_exc()
@@ -906,6 +918,7 @@ if __name__ == '__main__':
         DEBUG_MODE = True
 
     print('---------------<Setup Announcement>---------------')
+    
     # Action Engine
     print('Starting Action Engine Thread')
     action_engine = ActionEngine()
@@ -933,8 +946,8 @@ if __name__ == '__main__':
     # # Client Connection to Evaluation Server
     # print("Starting Client Thread")
     # # # eval_client = EvalClient(9999, "137.132.92.184")
-    # eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
-    # eval_client.connect_to_eval()
+    eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
+    eval_client.connect_to_eval()
 
     # Game Engine
     # print("Starting Game Engine Thread")
