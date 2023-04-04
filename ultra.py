@@ -264,7 +264,7 @@ class GameEngine(threading.Thread):
 
                     if not self.p1_action.check(p1_action[0]) and p1_action[0] != 'shoot':
                         p1_action[0] = self.p1_action.secret_sauce()
-                    if not self.p1_action.check(p2_action[0]) and p1_action[0] != 'shoot':
+                    if not self.p1_action.check(p2_action[0]) and p2_action[0] != 'shoot':
                         p2_action[0] = self.p2_action.secret_sauce()
 
 
