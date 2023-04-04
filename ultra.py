@@ -573,7 +573,7 @@ class Server(threading.Thread):
 
 
 class AIModel(threading.Thread):
-    def __init__(self, player, action_engine_model, queue_added):
+    def __init__(self, player, action_engine_model, queue_added, K):
         super().__init__()
 
         self.player = player
@@ -605,6 +605,8 @@ class AIModel(threading.Thread):
 
         # define the available actions
         self.test_actions = ['G', 'S', 'R', 'L']
+
+        self.K = K
 
         self.ai_queue = queue_added
         
@@ -769,7 +771,7 @@ class AIModel(threading.Thread):
 
     def run(self):
         # Set the threshold value for movement detection based on user input
-        K = 5
+        # K = 5
         # K = float(input("threshold value? "))
 
         # Initialize arrays to hold the current and previous data packets
@@ -805,7 +807,7 @@ class AIModel(threading.Thread):
                     prev_mag = np.sum(np.square(np.mean(previous_packet[:, -3:], axis=1)))
 
                     # Check for movement detection
-                    if not movement_watchdog and curr_mag - prev_mag > K:
+                    if not movement_watchdog and curr_mag - prev_mag > self.K:
                         print("Movement detected!")
                         # print currr and prev mag for sanity check
                         print(f"curr_mag: {curr_mag} \n")
@@ -908,11 +910,11 @@ if __name__ == '__main__':
     # ai_test = AIModel(1, [], [])
     # ai_test.start()
 
-    ai_one = AIModel(1, action_engine, ai_queue_1)
+    ai_one = AIModel(1, action_engine, ai_queue_1, 2.5)
     ai_one.start()
 
     if not SINGLE_PLAYER_MODE:
-        ai_two = AIModel(2, action_engine, ai_queue_2)
+        ai_two = AIModel(2, action_engine, ai_queue_2, 3)
         ai_two.start()
 
     # # Client Connection to Evaluation Server
