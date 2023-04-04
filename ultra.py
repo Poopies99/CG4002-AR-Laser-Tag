@@ -108,19 +108,21 @@ class ActionEngine(threading.Thread):
             self.p2_vest_shot = True
             
     def determine_grenade_hit(self):
-        while True:
-            while not feedback_queue.empty():
-                data = feedback_queue.get()
-                if data == "6 hit_grenade#":
-                    self.p2_grenade_hit = True
-                elif data == "3 hit_grenade#":
-                    self.p1_grenade_hit = True
-                elif data == "6 no#":
-                    self.p2_grenade_hit = False
-                elif data == "3 no#":
-                    self.p1_grenade_hit = False                    
-                else:
-                    break
+        # while True:
+        #     while not feedback_queue.empty():
+        #         data = feedback_queue.get()
+        #         if data == "6 hit_grenade#":
+        #             self.p2_grenade_hit = True
+        #         elif data == "3 hit_grenade#":
+        #             self.p1_grenade_hit = True
+        #         elif data == "6 no#":
+        #             self.p2_grenade_hit = False
+        #         elif data == "3 no#":
+        #             self.p1_grenade_hit = False
+        #         else:
+        #             break
+        self.p2_grenade_hit = True
+        self.p1_grenade_hit = True
 
     def run(self):
         action_data_p1, action_data_p2 = None, None
