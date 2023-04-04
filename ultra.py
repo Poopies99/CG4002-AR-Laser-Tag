@@ -262,9 +262,9 @@ class GameEngine(threading.Thread):
                     }
 
 
-                    if not self.p1_action.check(p1_action) and p1_action != 'shoot':
+                    if not self.p1_action.check(p1_action[0]) and p1_action[0] != 'shoot':
                         p1_action[0] = self.p1_action.secret_sauce()
-                    if not self.p1_action.check(p2_action) and p1_action != 'shoot':
+                    if not self.p1_action.check(p2_action[0]) and p1_action[0] != 'shoot':
                         p2_action[0] = self.p2_action.secret_sauce()
 
 
@@ -660,7 +660,7 @@ class AIModel(threading.Thread):
         while time.time() - start_time < seconds:
             pass
     
-    def blur_3d_movement(acc_df):
+    def blur_3d_movement(self, acc_df):
         acc_arr = np.array(acc_df, dtype=np.float32)
         fs = 20  # sampling frequency
         dt = 1/fs
