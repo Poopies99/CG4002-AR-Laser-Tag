@@ -347,20 +347,26 @@ class GameEngine(threading.Thread):
                     if p2_action[0] == "reload":
                         if valid_action_p2:
                             self.p2.reload()
+                            
+                    if self.p1.hp <= 0:
+                        self.reset_player(self.p1)
+                    if self.p2.hp <= 0:
+                        self.reset_player(self.p2)
         
                     # gamestate to eval_server
                     self.eval_client.submit_to_eval()
                     # eval server to subscriber queue
                     correct_actions = self.eval_client.receive_correct_ans()
                     # If health drops to 0 then everything resets except for number of deaths
-                    if self.p1.hp <= 0:
-                        self.reset_player(self.p1)
-                    if self.p2.hp <= 0:
-                        self.reset_player(self.p2)
-
-                    print(correct_actions)
 
                     p1_action, p2_action = correct_actions['p1']['action'], correct_actions['p2']['action']
+                    
+                    if p1_action == "shield" and not self.p1.check_shield():
+                        self.p1.activate_shield()
+                    
+                    if p2_action == "shield" and not self.p2.check_shield():
+                        self.p2.activate_shield()
+                    
                     self.update_actions(p1_action, self.p1_action)
                     self.update_actions(p2_action, self.p2_action)
 
