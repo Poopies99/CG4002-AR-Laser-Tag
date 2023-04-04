@@ -264,7 +264,6 @@ class GameEngine(threading.Thread):
                     if p2_action[0] != 'shoot' and not self.p1_action.check(p2_action[0]):
                         p2_action[0] = self.p2_action.secret_sauce()
 
-
                     viz_action_p1, viz_action_p2 = None, None
 
                     print(f"P1 action data: {p1_action}")
@@ -352,6 +351,7 @@ class GameEngine(threading.Thread):
                     self.eval_client.submit_to_eval()
                     # eval server to subscriber queue
                     correct_actions = self.eval_client.receive_correct_ans()
+
                     # If health drops to 0 then everything resets except for number of deaths
                     if self.p1.hp <= 0:
                         self.reset_player(self.p1)
