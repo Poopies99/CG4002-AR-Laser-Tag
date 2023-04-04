@@ -471,7 +471,7 @@ class EvalClient:
 
     def receive_correct_ans(self):
         print(f'[EvalClient] Received Game State: {self.gamestate._get_data_plain_text()}'.ljust(80), end='\r')
-        self.gamestate.recv_and_update(self.client_socket)
+        return self.gamestate.recv_and_update(self.client_socket)
 
 
     def close_connection(self):
