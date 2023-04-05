@@ -64,35 +64,35 @@ class ActionEngine(threading.Thread):
             self.p2_grenade_hit = None
 
     def handle_grenade(self, player):
-        print("Handling Grenade")
+        print(f"Handling Grenade {player}")
         if player == 1:
             self.p1_action_queue.append('grenade')
         else:
             self.p2_action_queue.append('grenade')
 
     def handle_shield(self, player):
-        print("Handling Shield")
+        print(f"Handling Shield {player}")
         if player == 1:
             self.p1_action_queue.append('shield')
         else:
             self.p2_action_queue.append('shield')
 
     def handle_reload(self, player):
-        print("Handling Reload")
+        print(f"Handling Reload {player}")
         if player == 1:
             self.p1_action_queue.append('reload')
         else:
             self.p2_action_queue.append('reload')
 
     def handle_logout(self, player):
-        print('Handling Logout')
+        print(f'Handling Logout {player}')
         if player == 1:
             self.p1_action_queue.append('logout')
         else:
             self.p2_action_queue.append('logout')
 
     def handle_gun_shot(self, player):
-        print('Handling Gun Shot')
+        print(f'Handling Gun Shot {player}')
         if player == 1:
             self.p1_gun_shot = True
             self.p1_action_queue.append('shoot')
@@ -101,7 +101,7 @@ class ActionEngine(threading.Thread):
             self.p2_action_queue.append('shoot')
 
     def handle_vest_shot(self, player):
-        print('Handling Vest Shot')
+        print(f'Handling Vest Shot {player}')
         if player == 1:
             self.p1_vest_shot = True
         else:
