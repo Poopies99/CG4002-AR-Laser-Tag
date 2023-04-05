@@ -238,6 +238,7 @@ class GameEngine(threading.Thread):
         player.num_deaths += 1
 
     def run(self):
+        action_counter = 0
         while not self.shutdown.is_set():
             try:
                 if len(action_queue) != 0:
@@ -259,8 +260,8 @@ class GameEngine(threading.Thread):
 
                     viz_action_p1, viz_action_p2 = None, None
 
-                    print(f"P1 action data: {p1_action}")
-                    print(f"P2 action data: {p2_action}")
+                    print(f"P1 action data Counter {action_counter}: {p1_action}")
+                    print(f"P2 action data Counter {action_counter}: {p2_action}")
                 
                     self.p1.update_shield()
                     self.p2.update_shield()
@@ -344,7 +345,10 @@ class GameEngine(threading.Thread):
                         self.reset_player(self.p1)
                     if self.p2.hp <= 0:
                         self.reset_player(self.p2)
-        
+
+                    self.p1.update_shield()
+                    self.p2.update_shield()
+                    
                     # gamestate to eval_server
                     self.eval_client.submit_to_eval()
                     # eval server to subscriber queue

@@ -164,7 +164,7 @@ class Player:
             self.hp -= diff
 
     def activate_shield(self):
-        if not self.shield_active():
+        if not self.shield_status:
             self.num_shield -= 1
             self.shield_status = True
             self.shield_health = 30
