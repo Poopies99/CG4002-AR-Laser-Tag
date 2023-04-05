@@ -169,12 +169,6 @@ class ActionEngine(threading.Thread):
                         action[1] = [action_data_p2, False]
                     else:
                         action[1] = [action_data_p2, True]
-
-                if action_data_p1 is not None:
-                    self.p1_action_queue.clear()
-
-                if action_data_p2 is not None:
-                    self.p2_action_queue.clear()
                 
                 if action_data_p1 == "grenade" or action_data_p2 == "grenade":
                     subscribe_queue.put(json.dumps(action_dic))
@@ -189,7 +183,6 @@ class ActionEngine(threading.Thread):
                         # action_dic["p2"]["action"] = ""
                         action_data_p2 = False
                         
-                    print(action)
                     
                 if not (action_data_p1 is None or action_data_p2 is None):
                     action_queue.append(action)
@@ -360,11 +353,16 @@ class GameEngine(threading.Thread):
 
                     p1_action, p2_action = correct_actions['p1']['action'], correct_actions['p2']['action']
                     
-                    if p1_action == "shield" and not self.p1.check_shield():
-                        self.p1.activate_shield()
+                    valid_action_p1 = self.p1.action_is_valid(p1_action)
+                    valid_action_p2 = self.p2.action_is_valid(p2_action)
                     
-                    if p2_action == "shield" and not self.p2.check_shield():
-                        self.p2.activate_shield()
+                    if p1_action == "shield":
+                        if valid_action_p1 and not self.p1.check_shield():
+                            self.p1.activate_shield()
+                    
+                    if p2_action == "shield":
+                        if valid_action_p2 and not self.p2.check_shield():
+                            self.p2.activate_shield()
                     
                     self.update_actions(p1_action, self.p1_action)
                     self.update_actions(p2_action, self.p2_action)
@@ -372,14 +370,6 @@ class GameEngine(threading.Thread):
                     # subscriber queue to sw/feedback
                     self.p2.action = viz_action_p2                    
                     self.p1.action = viz_action_p1
-
-                    if p1_action[0] == "shield":
-                        if valid_action_p1 and not self.p1.check_shield():
-                            self.p1.activate_shield()
-
-                    if p2_action[0] == "shield":
-                        if valid_action_p2 and not self.p2.check_shield():
-                            self.p2.activate_shield()
 
                     laptop_queue.append(self.eval_client.gamestate._get_data_plain_text())
                     subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
