@@ -829,19 +829,19 @@ def enable_print():
 
 
 if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        print('Invalid number of arguments')
-        print('Parameters: [num_of_players]')
-        sys.exit()
-    if int(sys.argv[1]) == 1:
-        print("SINGLE PLAYER MODE")
-        SINGLE_PLAYER_MODE = True
-    else:
-        print("TWO PLAYER MODE")
+#     if len(sys.argv) < 2:
+#         print('Invalid number of arguments')
+#         print('Parameters: [num_of_players]')
+#         sys.exit()
+#     if int(sys.argv[1]) == 1:
+#         print("SINGLE PLAYER MODE")
+#         SINGLE_PLAYER_MODE = True
+#     else:
+#         print("TWO PLAYER MODE")
 
-    if len(sys.argv) == 3 and sys.argv[2] == '-p':
-        print('Debugging Mode Enabled')
-        DEBUG_MODE = True
+#     if len(sys.argv) == 3 and sys.argv[2] == '-p':
+#         print('Debugging Mode Enabled')
+#         DEBUG_MODE = True
 
     print('---------------<Setup Announcement>---------------')
     
