@@ -879,8 +879,7 @@ if __name__ == '__main__':
 
     # # Server Connection to Laptop
     print("Starting Server Thread")
-    laptop_server = Server(constants.XILINX_PORT_NUM, constants.XILINX_SERVER)
-    
+    laptop_server = Server(constants.XILINX_PORT_NUM, constants.XILINX_SERVER, [])
 #     laptop_server = Server(constants.XILINX_PORT_NUM, constants.XILINX_SERVER, action_engine)
 
     print('--------------------------------------------------')
