@@ -829,58 +829,58 @@ def enable_print():
 
 
 if __name__ == '__main__':
-#     if len(sys.argv) < 2:
-#         print('Invalid number of arguments')
-#         print('Parameters: [num_of_players]')
-#         sys.exit()
-#     if int(sys.argv[1]) == 1:
-#         print("SINGLE PLAYER MODE")
-#         SINGLE_PLAYER_MODE = True
-#     else:
-#         print("TWO PLAYER MODE")
+    if len(sys.argv) < 2:
+        print('Invalid number of arguments')
+        print('Parameters: [num_of_players]')
+        sys.exit()
+    if int(sys.argv[1]) == 1:
+        print("SINGLE PLAYER MODE")
+        SINGLE_PLAYER_MODE = True
+    else:
+        print("TWO PLAYER MODE")
 
-#     if len(sys.argv) == 3 and sys.argv[2] == '-p':
-#         print('Debugging Mode Enabled')
-#         DEBUG_MODE = True
+    if len(sys.argv) == 3 and sys.argv[2] == '-p':
+        print('Debugging Mode Enabled')
+        DEBUG_MODE = True
 
     print('---------------<Setup Announcement>---------------')
-    
-#     # Action Engine
-#     print('Starting Action Engine Thread')
-#     action_engine = ActionEngine()
-#     action_engine.start()
+    # Action Engine
+    print('Starting Action Engine Thread')
+    action_engine = ActionEngine()
+    action_engine.start()
 
     # Software Visualizer
-    # print("S!scriberSend("CG4002")
+    # print("Starting Subscriber Send Thread")
+    # hive = SubscriberSend("CG4002")
 
     # Starting Visualizer Receive
     # print("Starting Subscribe Receive")
     # viz = SubscriberReceive("gamestate")
 
-    ai_test = AIModel(1, [], [], 5)
-    ai_test.start()
-    
-#     ai_one = AIModel(1, action_engine, ai_queue_1, 5)
-#     ai_one.start()
+    # AI Model
+    # ai_test = AIModel(1, [], [])
+    # ai_test.start()
 
-#     if not SINGLE_PLAYER_MODE:
-#         ai_two = AIModel(2, action_engine, ai_queue_2, 5)
-#         ai_two.start()
+    ai_one = AIModel(1, action_engine, ai_queue_1)
+    ai_one.start()
+
+    if not SINGLE_PLAYER_MODE:
+        ai_two = AIModel(2, action_engine, ai_queue_2)
+        ai_two.start()
 
     # # Client Connection to Evaluation Server
-#     print("Starting Client Thread")
-#     # eval_client = EvalClient(9999, "137.132.92.184")
-#     eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
-#     eval_client.connect_to_eval()
+    # print("Starting Client Thread")
+    # # # eval_client = EvalClient(9999, "137.132.92.184")
+    # eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
+    # eval_client.connect_to_eval()
 
-#     # Game Engine
-#     print("Starting Game Engine Thread")
-#     game_engine = GameEngine(eval_client=eval_client)
+    # Game Engine
+    # print("Starting Game Engine Thread")
+    # game_engine = GameEngine(eval_client=eval_client)
 
     # # Server Connection to Laptop
     print("Starting Server Thread")
-    laptop_server = Server(constants.XILINX_PORT_NUM, constants.XILINX_SERVER, [])
-#     laptop_server = Server(constants.XILINX_PORT_NUM, constants.XILINX_SERVER, action_engine)
+    laptop_server = Server(constants.XILINX_PORT_NUM, constants.XILINX_SERVER, action_engine)
 
     print('--------------------------------------------------')
 
@@ -889,8 +889,9 @@ if __name__ == '__main__':
 
     # hive.start()
     # viz.start()
-#     game_engine.start()
+    # game_engine.start()
     laptop_server.start()
+
 
     # tracemalloc.start()
     # start_time = time.time()
