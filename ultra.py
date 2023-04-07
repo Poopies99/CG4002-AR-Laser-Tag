@@ -861,11 +861,11 @@ if __name__ == '__main__':
     # ai_test = AIModel(1, [], [])
     # ai_test.start()
 
-    ai_one = AIModel(1, action_engine, ai_queue_1)
+    ai_one = AIModel(1, action_engine, ai_queue_1, 5)
     ai_one.start()
 
     if not SINGLE_PLAYER_MODE:
-        ai_two = AIModel(2, action_engine, ai_queue_2)
+        ai_two = AIModel(2, action_engine, ai_queue_2, 5)
         ai_two.start()
 
     # # Client Connection to Evaluation Server
