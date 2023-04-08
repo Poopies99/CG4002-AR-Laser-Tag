@@ -672,25 +672,12 @@ class AIModel(threading.Thread):
         negative_count = np.sum(sensor_data < 0, axis=0)
         positive_count = np.sum(sensor_data > 0, axis=0)
         values_above_mean = np.sum(sensor_data > mean, axis=0)
-        energy = np.sum(sensor_data**2, axis=0) / 1000
+        energy = np.sum(sensor_data**2, axis=0)
 
-        # Calculate FFT of gyro and acc data
-        fft_gyro = np.abs(np.fft.fft(sensor_data[:, :3], axis=0))
-        fft_acc = np.abs(np.fft.fft(sensor_data[:, 3:], axis=0))
-
-        # Extract peak frequency from FFT data
-        peak_gyro = np.argmax(fft_gyro, axis=0)
-        peak_acc = np.argmax(fft_acc, axis=0)
-
-        # Extract spectral centroid and entropy from FFT data
-        centroid_gyro = np.sum(fft_gyro * np.arange(fft_gyro.shape[0])[:, np.newaxis], axis=0) / np.sum(fft_gyro, axis=0)
-        centroid_acc = np.sum(fft_acc * np.arange(fft_acc.shape[0])[:, np.newaxis], axis=0) / np.sum(fft_acc, axis=0)
-
-
-         # Concatenate features and return as a list
-        temp_features = np.concatenate([mean, std, skew, kurtosis, range, rms, variance, mad, abs_diff, minimum, maximum, max_min_diff, median, iqr, 
-                                        negative_count, positive_count, values_above_mean, energy, peak_gyro, centroid_gyro,
-                                        peak_acc, centroid_acc])
+        temp_features = np.concatenate([mean, std, skew, kurtosis, range, rms, variance, 
+                                        mad, abs_diff, minimum, maximum, max_min_diff, median, iqr, negative_count,
+                                        positive_count, values_above_mean, energy
+                                        ], axis=0)
 
         return temp_features.tolist()
 
