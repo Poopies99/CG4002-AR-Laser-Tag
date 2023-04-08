@@ -649,9 +649,8 @@ class AIModel(threading.Thread):
         while time.time() - start_time < seconds:
             pass
         
-    def extract_features(self, raw_sensor_data):
-        raw_sensor_data = np.array(raw_sensor_data, dtype=np.float32)
-        sensor_data = np.cumsum(raw_sensor_data, axis=0) 
+    def extract_features(self, sensor_data):
+        sensor_data = np.array(raw_sensor_data, dtype=np.float32)
 
         # Compute statistical features
         mean = np.mean(sensor_data, axis=0)
