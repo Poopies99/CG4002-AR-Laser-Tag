@@ -604,7 +604,7 @@ class AIModel(threading.Thread):
         # Flags
         self.shutdown = threading.Event()
 
-        features = np.load('dependencies/features_v1.2.npz', allow_pickle=True)
+        features = np.load('dependencies/features_v1.2_best.npz', allow_pickle=True)
 #         self.mean = features['mean']
 #         self.variance = features['variance']
 #         self.pca_eigvecs = features['pca_eigvecs']
