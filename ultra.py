@@ -21,10 +21,12 @@ from collections import deque
 from player import PlayerAction
 from GameState import GameState
 from ble_packet import BLEPacket
-from scipy.ndimage import gaussian_filter
+
 
 import pynq
 from scipy import stats
+from scipy.fft import fft
+from scipy.stats import moment
 from pynq import Overlay
 
 
@@ -647,8 +649,9 @@ class AIModel(threading.Thread):
         while time.time() - start_time < seconds:
             pass
         
-    def extract_features(self, sensor_data):
-        sensor_data = np.array(sensor_data, dtype=np.float32)
+    def extract_features(raw_sensor_data):
+        raw_sensor_data = np.array(raw_sensor_data, dtype=np.float32)
+        sensor_data = np.cumsum(raw_sensor_data, axis=0) 
 
         # Compute statistical features
         mean = np.mean(sensor_data, axis=0)
@@ -670,12 +673,25 @@ class AIModel(threading.Thread):
         negative_count = np.sum(sensor_data < 0, axis=0)
         positive_count = np.sum(sensor_data > 0, axis=0)
         values_above_mean = np.sum(sensor_data > mean, axis=0)
-        energy = np.sum(sensor_data**2, axis=0)
+        energy = np.sum(sensor_data**2, axis=0) / 1000
 
-        temp_features = np.concatenate([mean, std, skew, kurtosis, range, rms, variance, 
-                                        mad, abs_diff, minimum, maximum, max_min_diff, median, iqr, negative_count,
-                                        positive_count, values_above_mean, energy
-                                        ], axis=0)
+        # Calculate FFT of gyro and acc data
+        fft_gyro = np.abs(np.fft.fft(sensor_data[:, :3], axis=0))
+        fft_acc = np.abs(np.fft.fft(sensor_data[:, 3:], axis=0))
+
+        # Extract peak frequency from FFT data
+        peak_gyro = np.argmax(fft_gyro, axis=0)
+        peak_acc = np.argmax(fft_acc, axis=0)
+
+        # Extract spectral centroid and entropy from FFT data
+        centroid_gyro = np.sum(fft_gyro * np.arange(fft_gyro.shape[0])[:, np.newaxis], axis=0) / np.sum(fft_gyro, axis=0)
+        centroid_acc = np.sum(fft_acc * np.arange(fft_acc.shape[0])[:, np.newaxis], axis=0) / np.sum(fft_acc, axis=0)
+
+
+         # Concatenate features and return as a list
+        temp_features = np.concatenate([mean, std, skew, kurtosis, range, rms, variance, mad, abs_diff, minimum, maximum, max_min_diff, median, iqr, 
+                                        negative_count, positive_count, values_above_mean, energy, peak_gyro, centroid_gyro,
+                                        peak_acc, centroid_acc])
 
         return temp_features.tolist()
 
@@ -713,13 +729,12 @@ class AIModel(threading.Thread):
         H2 = np.dot(H1_relu, self.weights[2]) + self.weights[3]
         H2_relu = np.maximum(0, H2)
         Y = np.dot(H2_relu, self.weights[4]) + self.weights[5]
-        Y_softmax = np.exp(Y) / np.sum(np.exp(Y))
+        Y_softmax = np.exp(Y - np.max(Y)) / np.sum(np.exp(Y - np.max(Y)))
         return Y_softmax
 
     def get_action(self, softmax_array):
         max_index = np.argmax(softmax_array)
         action_dict = {0: 'G', 1: 'L', 2: 'R', 3: 'S'} 
-#         action_dict = {0: 'G', 1: 'R', 2: 'S'}
         action = action_dict[max_index]
         return action
 
