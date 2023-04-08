@@ -720,7 +720,7 @@ class AIModel(threading.Thread):
 
     def get_action(self, softmax_array):
         max_index = np.argmax(softmax_array)
-        action_dict = {0: 'G', 1: 'L', 2: 'R', 3: 'S'} 
+        action_dict = {0: 'G', 1: 'S', 2: 'R', 3: 'L'} 
         action = action_dict[max_index]
         return action
 
