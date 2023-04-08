@@ -650,7 +650,7 @@ class AIModel(threading.Thread):
             pass
         
     def extract_features(self, sensor_data):
-        sensor_data = np.array(raw_sensor_data, dtype=np.float32)
+        sensor_data = np.array(sensor_data, dtype=np.float32)
 
         # Compute statistical features
         mean = np.mean(sensor_data, axis=0)
