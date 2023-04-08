@@ -21,10 +21,12 @@ from collections import deque
 from player import PlayerAction
 from GameState import GameState
 from ble_packet import BLEPacket
-from scipy.ndimage import gaussian_filter
+
 
 import pynq
 from scipy import stats
+from scipy.fft import fft
+from scipy.stats import moment
 from pynq import Overlay
 
 
@@ -602,10 +604,10 @@ class AIModel(threading.Thread):
         # Flags
         self.shutdown = threading.Event()
 
-        features = np.load('dependencies/features_v1.2.npz', allow_pickle=True)
+        features = np.load('dependencies/features_v1.2_newest.npz', allow_pickle=True)
 #         self.mean = features['mean']
 #         self.variance = features['variance']
-        self.pca_eigvecs = features['pca_eigvecs']
+#         self.pca_eigvecs = features['pca_eigvecs']
         self.weights = features['weights_list']
 
         # Reshape scaling_factors, mean and variance to (1, 3)
@@ -646,6 +648,38 @@ class AIModel(threading.Thread):
         start_time = time.time()
         while time.time() - start_time < seconds:
             pass
+        
+    def extract_features(self, sensor_data):
+        sensor_data = np.array(sensor_data, dtype=np.float32)
+
+        # Compute statistical features
+        mean = np.mean(sensor_data, axis=0)
+        std = np.std(sensor_data, axis=0)
+        skew = pd.DataFrame(sensor_data).skew().values
+        kurtosis = pd.DataFrame(sensor_data).kurtosis().values
+        range = np.ptp(sensor_data, axis=0)
+        rms = np.sqrt(np.mean(np.square(sensor_data), axis=0))
+        variance = np.var(sensor_data, axis=0)
+        mad = np.median(np.abs(sensor_data - np.median(sensor_data, axis=0)), axis=0)
+
+        # Additional statistical features
+        abs_diff = np.abs(np.diff(sensor_data, axis=0)).mean(axis=0)
+        minimum = np.min(sensor_data, axis=0)
+        maximum = np.max(sensor_data, axis=0)
+        max_min_diff = maximum - minimum
+        median = np.median(sensor_data, axis=0)
+        iqr = np.percentile(sensor_data, 75, axis=0) - np.percentile(sensor_data, 25, axis=0)
+        negative_count = np.sum(sensor_data < 0, axis=0)
+        positive_count = np.sum(sensor_data > 0, axis=0)
+        values_above_mean = np.sum(sensor_data > mean, axis=0)
+        energy = np.sum(sensor_data**2, axis=0)
+
+        temp_features = np.concatenate([mean, std, skew, kurtosis, range, rms, variance, 
+                                        mad, abs_diff, minimum, maximum, max_min_diff, median, iqr, negative_count,
+                                        positive_count, values_above_mean, energy
+                                        ], axis=0)
+
+        return temp_features.tolist()
 
     # Define Scaler
 #     def scaler(self, X):
@@ -681,13 +715,12 @@ class AIModel(threading.Thread):
         H2 = np.dot(H1_relu, self.weights[2]) + self.weights[3]
         H2_relu = np.maximum(0, H2)
         Y = np.dot(H2_relu, self.weights[4]) + self.weights[5]
-        Y_softmax = np.exp(Y) / np.sum(np.exp(Y))
+        Y_softmax = np.exp(Y - np.max(Y)) / np.sum(np.exp(Y - np.max(Y)))
         return Y_softmax
 
     def get_action(self, softmax_array):
         max_index = np.argmax(softmax_array)
-        action_dict = {0: 'G', 1: 'L', 2: 'R', 3: 'S'} 
-#         action_dict = {0: 'G', 1: 'R', 2: 'S'}
+        action_dict = {0: 'G', 1: 'S', 2: 'R', 3: 'L'} 
         action = action_dict[max_index]
         return action
 
@@ -844,38 +877,39 @@ if __name__ == '__main__':
         DEBUG_MODE = True
 
     print('---------------<Setup Announcement>---------------')
-    
-#     # Action Engine
-#     print('Starting Action Engine Thread')
-#     action_engine = ActionEngine()
-#     action_engine.start()
+    # Action Engine
+    print('Starting Action Engine Thread')
+    action_engine = ActionEngine()
+    action_engine.start()
 
     # Software Visualizer
-    # print("S!scriberSend("CG4002")
+    # print("Starting Subscriber Send Thread")
+    # hive = SubscriberSend("CG4002")
 
     # Starting Visualizer Receive
     # print("Starting Subscribe Receive")
     # viz = SubscriberReceive("gamestate")
 
-    ai_test = AIModel(1, [], [], 5)
-    ai_test.start()
-    
-#     ai_one = AIModel(1, action_engine, ai_queue_1, 5)
-#     ai_one.start()
+    # AI Model
+    # ai_test = AIModel(1, [], [])
+    # ai_test.start()
 
-#     if not SINGLE_PLAYER_MODE:
-#         ai_two = AIModel(2, action_engine, ai_queue_2, 5)
-#         ai_two.start()
+    ai_one = AIModel(1, action_engine, ai_queue_1, 5)
+    ai_one.start()
+
+    if not SINGLE_PLAYER_MODE:
+        ai_two = AIModel(2, action_engine, ai_queue_2, 5)
+        ai_two.start()
 
     # # Client Connection to Evaluation Server
-#     print("Starting Client Thread")
-#     # eval_client = EvalClient(9999, "137.132.92.184")
-#     eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
-#     eval_client.connect_to_eval()
+    # print("Starting Client Thread")
+    # # # eval_client = EvalClient(9999, "137.132.92.184")
+    # eval_client = EvalClient(constants.EVAL_PORT_NUM, "localhost")
+    # eval_client.connect_to_eval()
 
-#     # Game Engine
-#     print("Starting Game Engine Thread")
-#     game_engine = GameEngine(eval_client=eval_client)
+    # Game Engine
+    # print("Starting Game Engine Thread")
+    # game_engine = GameEngine(eval_client=eval_client)
 
     # # Server Connection to Laptop
     print("Starting Server Thread")
@@ -888,8 +922,9 @@ if __name__ == '__main__':
 
     # hive.start()
     # viz.start()
-#     game_engine.start()
+    # game_engine.start()
     laptop_server.start()
+
 
     # tracemalloc.start()
     # start_time = time.time()
