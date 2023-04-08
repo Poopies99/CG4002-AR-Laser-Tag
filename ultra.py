@@ -652,8 +652,8 @@ class AIModel(threading.Thread):
 #         return (X - self.mean) / np.sqrt(self.variance)
 
     # Define PCA
-    def pca_math(self, X):
-        return np.dot(X, self.pca_eigvecs.T)
+#     def pca_math(self, X):
+#         return np.dot(X, self.pca_eigvecs.T)
 
     def rng_test_action(self):
         # choose a random action from the list
@@ -713,18 +713,18 @@ class AIModel(threading.Thread):
 
 #         return self.out_buffer
 
-    def mlp_vivado(data):
-        sensor_data = data.reshape(40, 6)
-        sensor_features = self.extract_features(sensor_data)
-        pca_action = self.pca_math(sensor_features)
-        mlp_softmax = self.mlp_math(pca_action)
-        return mlp_softmax
+#     def mlp_vivado(data):
+#         sensor_data = data.reshape(40, 6)
+#         sensor_features = self.extract_features(sensor_data)
+#         pca_action = self.pca_math(sensor_features)
+#         mlp_softmax = self.mlp_math(pca_action)
+#         return mlp_softmax
 
     def AIDriver(self, test_input):        
         sensor_data = test_input.reshape(40, 6)
         sensor_features = self.extract_features(sensor_data)
-        pca_action = self.pca_math(sensor_features)
-        vivado_predictions = self.mlp_math(pca_action)
+#         pca_action = self.pca_math(sensor_features)
+        vivado_predictions = self.mlp_math(sensor_features)
         action = self.get_action(vivado_predictions)
         
         print(vivado_predictions)
