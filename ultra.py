@@ -571,7 +571,6 @@ class Server(threading.Thread):
                 elif packet_id == 3:
                     packet = packer.get_euler_data() + packer.get_acc_data()
                     ai_queue_1.put(packet)
-                    print(f"server sending to q1: {packet}")
                 elif packet_id == 4:
                     self.action_engine.handle_gun_shot(2)
                 elif packet_id == 5:
@@ -579,7 +578,6 @@ class Server(threading.Thread):
                 elif packet_id == 6:
                     packet = packer.get_euler_data() + packer.get_acc_data()
                     ai_queue_2.put(packet)
-                    print(f"server sending to q2: {packet}")
                 else:
                     print("Invalid Beetle ID")
 
