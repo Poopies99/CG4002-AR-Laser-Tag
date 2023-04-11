@@ -180,9 +180,11 @@ class ActionEngine(threading.Thread):
                     action[1][1] = self.p1_grenade_hit
                     if action_data_p1 == "grenade":
                         # action_dic["p1"]["action"] = ""
+                        action[0][0] = "grenade"
                         action_data_p1 = False
                     if action_data_p2 == "grenade":
                         # action_dic["p2"]["action"] = ""
+                        action[1][0] = "grenade"
                         action_data_p2 = False
                         
                     
