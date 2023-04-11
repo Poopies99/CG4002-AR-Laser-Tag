@@ -818,7 +818,7 @@ class AIModel(threading.Thread):
                 new_data = new_data / 100.0  # TODO re-enable for live integration
 
                 # new_data = np.random.randn(6) # TODO DIS-enable for live integration
-                # print(" ".join([f"{x:.3f}" for x in new_data]))
+                print(" ".join([f"{x:.3f}" for x in new_data]))
 
                 # Pack the data into groups of 6
                 current_packet[loop_count] = new_data
