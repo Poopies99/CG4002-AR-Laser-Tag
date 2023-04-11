@@ -369,7 +369,11 @@ class GameEngine(threading.Thread):
                     if p2_action == "shield":
                         if valid_action_p2 and not self.p2.check_shield():
                             self.p2.activate_shield()
-                    
+                   
+                    # update shield to zero if got that from the eval server
+                    self.p1.reset_shield()
+                    self.p2.reset_shield()
+
                     self.update_actions(p1_action, self.p1_action)
                     self.update_actions(p2_action, self.p2_action)
 
