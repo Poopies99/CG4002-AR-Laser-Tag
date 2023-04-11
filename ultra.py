@@ -916,7 +916,7 @@ if __name__ == '__main__':
     # viz = SubscriberReceive("gamestate")
 
     # AI Model
-    ai_test = AIModel(1, [], [], 5)
+    ai_test = AIModel(1, [], ai_queue_1, 5)
     ai_test.start()
 
 #     ai_one = AIModel(1, action_engine, ai_queue_1, 5)
