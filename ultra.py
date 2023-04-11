@@ -604,32 +604,41 @@ class AIModel(threading.Thread):
         # Flags
         self.shutdown = threading.Event()
 
-        features = np.load('dependencies/features_v1.3.npz', allow_pickle=True)
-#         self.mean = features['mean']
-#         self.variance = features['variance']
-#         self.pca_eigvecs = features['pca_eigvecs']
-        self.weights = features['weights_list']
-
-        # Reshape scaling_factors, mean and variance to (1, 3)
-#         self.mean = self.mean.reshape(40, 3)
-#         self.variance = self.variance.reshape(40, 3)
-
-        # read in the test actions from the JSON file
-        with open('dependencies/test_actions.json', 'r') as f:
-            test_actions = json.load(f)
-
-        # extract the test data for each action from the dictionary
-        self.test_g = np.array(test_actions['G'])
-        self.test_s = np.array(test_actions['S'])
-        self.test_r = np.array(test_actions['R'])
-        self.test_l = np.array(test_actions['L'])
-
-        # define the available actions
-        self.test_actions = ['G', 'S', 'R', 'L']
+        # # Load in the features math model if we need vvv
+        # features = np.load('dependencies/features_v1.5.6.npz', allow_pickle=True)
+        # self.pca_eigvecs = features['pca_eigvecs']
+        # self.weights = features['weights_list']
+        # self.mean_vec = features['mean_vec']
+        # self.scale = features['scale']
+        # self.mean = features['mean']
+        # # End of features math model ^^^
 
         self.K = K
-
+        self.TOTAL_PACKET_COUNT = 30
+        self.OVERLAY_INPUTS = 100
+        self.OVERLAY_OUTPUTS = 4
         self.ai_queue = queue_added
+
+
+        # # read in the test actions from the JSON file
+        # with open('dependencies/test_actions.json', 'r') as f:
+        #     test_actions = json.load(f)
+
+        # # extract the test data for each action from the dictionary
+        # self.test_g = np.array(test_actions['G'])
+        # self.test_s = np.array(test_actions['S'])
+        # self.test_r = np.array(test_actions['R'])
+        # self.test_l = np.array(test_actions['L'])
+
+        # # define the available actions
+        # self.test_actions = ['G', 'S', 'R', 'L']
+
+        # PYNQ overlay NEWEST - pca_mlp_1_5
+        self.overlay = Overlay("dependencies/pca_mlp_1_5.bit")
+        self.dma = self.overlay.axi_dma_0
+        self.in_buffer = pynq.allocate(shape=(self.OVERLAY_INPUTS,), dtype=np.float32)
+        self.out_buffer = pynq.allocate(shape=(self.OVERLAY_OUTPUTS,), dtype=np.float32)
+        
 
         # PYNQ overlay NEW - pca_mlp_v3.5
 #         self.overlay = Overlay("dependencies/pca_mlp_3_5.bit")
@@ -650,76 +659,66 @@ class AIModel(threading.Thread):
             pass
         
     def extract_features(self, raw_sensor_data):
-        raw_sensor_data = np.array(raw_sensor_data, dtype=np.float32)
-        sensor_data = np.cumsum(raw_sensor_data, axis=0) 
+
+        # Apply median filtering column-wise using the rolling function, window=5
+        sensor_data = raw_sensor_data.rolling(5, min_periods=1, axis=0).mean()
+        sensor_data = sensor_data.to_numpy()
 
         # Compute statistical features
         mean = np.mean(sensor_data, axis=0)
         std = np.std(sensor_data, axis=0)
-        skew = pd.DataFrame(sensor_data).skew().values
-        kurtosis = pd.DataFrame(sensor_data).kurtosis().values
-        range = np.ptp(sensor_data, axis=0)
-        rms = np.sqrt(np.mean(np.square(sensor_data), axis=0))
-        variance = np.var(sensor_data, axis=0)
-        mad = np.median(np.abs(sensor_data - np.median(sensor_data, axis=0)), axis=0)
-
-        # Additional statistical features
         abs_diff = np.abs(np.diff(sensor_data, axis=0)).mean(axis=0)
         minimum = np.min(sensor_data, axis=0)
         maximum = np.max(sensor_data, axis=0)
         max_min_diff = maximum - minimum
         median = np.median(sensor_data, axis=0)
+        mad = np.median(np.abs(sensor_data - np.median(sensor_data, axis=0)), axis=0)
         iqr = np.percentile(sensor_data, 75, axis=0) - np.percentile(sensor_data, 25, axis=0)
         negative_count = np.sum(sensor_data < 0, axis=0)
         positive_count = np.sum(sensor_data > 0, axis=0)
         values_above_mean = np.sum(sensor_data > mean, axis=0)
-        energy = np.sum(sensor_data**2, axis=0) / 100000
+        
+        peak_counts = np.array(np.apply_along_axis(lambda x: len(find_peaks(x)[0]), 0, sensor_data)).flatten()
 
-        # Calculate FFT of gyro and acc data
-        fft_gyro = np.abs(np.fft.fft(sensor_data[:, :3], axis=0))
-        fft_acc = np.abs(np.fft.fft(sensor_data[:, 3:], axis=0))
+        skewness = np.array(pd.DataFrame(sensor_data.reshape(-1,6)).skew().values).flatten()
+        kurt = np.array(pd.DataFrame(sensor_data.reshape(-1,6)).kurtosis().values).flatten()
+        energy = np.array(np.sum(sensor_data**2, axis=0)).flatten()
 
-        # Extract peak frequency from FFT data
-        peak_gyro = np.argmax(fft_gyro, axis=0)
-        peak_acc = np.argmax(fft_acc, axis=0)
+        # Compute the average resultant for gyro and acc columns
+        gyro_cols = sensor_data[:, :3]
+        acc_cols = sensor_data[:, 3:]
+        gyro_avg_result = np.array(np.sqrt((gyro_cols**2).sum(axis=1)).mean()).flatten()
+        acc_avg_result = np.array(np.sqrt((acc_cols**2).sum(axis=1)).mean()).flatten()
 
-        # Extract spectral centroid and entropy from FFT data
-        centroid_gyro = np.sum(fft_gyro * np.arange(fft_gyro.shape[0])[:, np.newaxis], axis=0) / np.sum(fft_gyro, axis=0)
-        centroid_acc = np.sum(fft_acc * np.arange(fft_acc.shape[0])[:, np.newaxis], axis=0) / np.sum(fft_acc, axis=0)
+        # Compute the signal magnitude area for gyro and acc columns
+        gyro_sma = np.array((np.abs(gyro_cols) / 100).sum(axis=0).sum()).flatten()
+        acc_sma = np.array((np.abs(acc_cols) / 100).sum(axis=0).sum()).flatten()
 
-         # Concatenate features and return as a list
-        temp_features = np.concatenate([mean, std, skew, kurtosis, range, rms, variance, mad, abs_diff, minimum, maximum, max_min_diff, median, iqr, 
-                                        negative_count, positive_count, values_above_mean, energy, peak_gyro, centroid_gyro,
-                                        peak_acc, centroid_acc])
-
+        # Concatenate features and return as a list
+        temp_features = np.concatenate([mean, std, abs_diff, minimum, maximum, max_min_diff, median, mad, iqr,
+                                        negative_count, positive_count, values_above_mean, peak_counts, skewness, kurt, energy,
+                                        gyro_avg_result, acc_avg_result, gyro_sma, acc_sma])
+    
         return temp_features.tolist()
 
-    # Define Scaler
-#     def scaler(self, X):
-#         return (X - self.mean) / np.sqrt(self.variance)
+    # def rng_test_action(self):
+    #     # choose a random action from the list
+    #     chosen_action = random.choice(self.test_actions)
 
-    # Define PCA
-#     def pca_math(self, X):
-#         return np.dot(X, self.pca_eigvecs.T)
+    #     # # print chosen action
+    #     print(f'Chosen action: {chosen_action} \n')
 
-    def rng_test_action(self):
-        # choose a random action from the list
-        chosen_action = random.choice(self.test_actions)
+    #     # use the chosen action to select the corresponding test data
+    #     if chosen_action == 'G':
+    #         test_data = self.test_g
+    #     elif chosen_action == 'S':
+    #         test_data = self.test_s
+    #     elif chosen_action == 'L':
+    #         test_data = self.test_l
+    #     else:
+    #         test_data = self.test_r
 
-        # # print chosen action
-        print(f'Chosen action: {chosen_action} \n')
-
-        # use the chosen action to select the corresponding test data
-        if chosen_action == 'G':
-            test_data = self.test_g
-        elif chosen_action == 'S':
-            test_data = self.test_s
-        elif chosen_action == 'L':
-            test_data = self.test_l
-        else:
-            test_data = self.test_r
-
-        return test_data
+    #     return test_data
 
     # Define MLP
     def mlp_math(self, X):
@@ -737,44 +736,60 @@ class AIModel(threading.Thread):
         action = action_dict[max_index]
         return action
 
-#     def mlp_vivado(self, data):
-#         start_time = time.time()
+    # returns 1x4 softmax array
+    def overlay_vivado(self, data):
+        start_time = time.time()
 
-#         # reshape data to match in_buffer shape
-#         data = np.reshape(data, (129,))
+        # reshape data to match in_buffer shape
+        data = np.reshape(data, (self.OVERLAY_INPUTS,))
 
-#         self.in_buffer[:] = data
+        self.in_buffer[:] = data
 
-#         self.dma.sendchannel.transfer(self.in_buffer)
-#         self.dma.recvchannel.transfer(self.out_buffer)
+        self.dma.sendchannel.transfer(self.in_buffer)
+        self.dma.recvchannel.transfer(self.out_buffer)
 
-#         # wait for transfer to finish
-#         self.dma.sendchannel.wait()
-#         self.dma.recvchannel.wait()
+        # wait for transfer to finish
+        self.dma.sendchannel.wait()
+        self.dma.recvchannel.wait()
 
-#         # print output buffer
-#         print("mlp done with output: " + " ".join(str(x) for x in self.out_buffer))
+        # print output buffer
+        print("mlp done with output: " + " ".join(str(x) for x in self.out_buffer))
+        print(f"MLP time taken so far output: {time.time() - start_time}")
 
-#         print(f"MLP time taken so far output: {time.time() - start_time}")
-
-#         return self.out_buffer
-
-#     def mlp_vivado(data):
-#         sensor_data = data.reshape(40, 6)
-#         sensor_features = self.extract_features(sensor_data)
-#         pca_action = self.pca_math(sensor_features)
-#         mlp_softmax = self.mlp_math(pca_action)
-#         return mlp_softmax
+        return self.out_buffer
 
     def AIDriver(self, test_input):        
-        sensor_data = test_input.reshape(40, 6)
-        sensor_features = self.extract_features(sensor_data)
-#         pca_action = self.pca_math(sensor_features)
-        vivado_predictions = self.mlp_math(sensor_features)
-        action = self.get_action(vivado_predictions)
+        sanity_data = test_input.reshape(1,-1)
+        scaled_action_df = pd.DataFrame(sanity_data.reshape(-1,6))
+
+        # 1. Feature extraction
+        feature_vec = np.array(self.extract_features(scaled_action_df)).reshape(1,-1)
+
+        # Vivado overlay does the below Steps 2-4
+        pred_vivado = self.overlay_vivado(feature_vec)
+        action_vivado = self.get_action(pred_vivado)
+
+        print(pred_vivado)
+        print(action_vivado)
         
-        print(vivado_predictions)
-        return str(action)
+        # # Math model does the below Steps 2-4 vvv
+        # # 2. Scaler using features
+        # scaled_action_math = (feature_vec - self.mean) / self.scale
+
+        # # 3. PCA using scaler
+        # pca_test_centered = scaled_action_math - self.mean_vec.reshape(1,-1)
+        # pca_vec_math = np.dot(pca_test_centered, self.pca_eigvecs.T).astype(float)
+
+        # # 4. MLP using PCA
+        # pred_math = self.mlp_math(np.array(pca_vec_math).reshape(1,-1))
+        # action_math = self.get_action(pred_math)
+
+        # print(pred_math)
+        # print(action_math)
+
+        # # End of Math model ^^^
+
+        return str(action_vivado)
 
     def close_connection(self):
         self.shutdown.set()
@@ -789,7 +804,7 @@ class AIModel(threading.Thread):
         # Initialize arrays to hold the current and previous data packets
         current_packet = np.zeros((5, 6))
         previous_packet = np.zeros((5, 6))
-        data_packet = np.zeros((40, 6))
+        data_packet = np.zeros((self.TOTAL_PACKET_COUNT, 6))
         is_movement_counter = 0
         movement_watchdog = False
         loop_count = 0
@@ -799,7 +814,7 @@ class AIModel(threading.Thread):
             if self.ai_queue:  # TODO re-enable for live integration
                 # if 1 == 1: # TODO DIS-enable for live integration
 
-                # runs loop 6 times and packs the data into groups of 6
+                # runs loop to pack the data into groups of 5
                 q_data = self.ai_queue.get()  # TODO re-enable for live integration
                 self.ai_queue.task_done()  # TODO re-enable for live integration
                 new_data = np.array(q_data)  # TODO re-enable for live integration
@@ -830,7 +845,7 @@ class AIModel(threading.Thread):
 
                     # movement_watchdog activated, count is_movement_counter from 0 up 6 and append current packet each time
                     if movement_watchdog:
-                        if is_movement_counter < 6:
+                        if is_movement_counter < ((self.TOTAL_PACKET_COUNT - 10)/5):
                             data_packet = np.concatenate((data_packet, current_packet), axis=0)
                             is_movement_counter += 1
 
@@ -858,9 +873,9 @@ class AIModel(threading.Thread):
                             movement_watchdog = False
                             is_movement_counter = 0
                             # reset arrays to zeros
-                            current_packet = np.zeros((5, 6))
-                            previous_packet = np.zeros((5, 6))
-                            data_packet = np.zeros((40, 6))
+                            # current_packet = np.zeros((5, 6))
+                            # previous_packet = np.zeros((5, 6))
+                            data_packet = np.zeros((self.TOTAL_PACKET_COUNT, 6))
 
                     # Update the previous packet
                     previous_packet = current_packet.copy()
