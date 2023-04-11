@@ -903,9 +903,9 @@ if __name__ == '__main__':
 
     print('---------------<Setup Announcement>---------------')
     # Action Engine
-#     print('Starting Action Engine Thread')
-#     action_engine = ActionEngine()
-#     action_engine.start()
+    print('Starting Action Engine Thread')
+    action_engine = ActionEngine()
+    action_engine.start()
 
     # Software Visualizer
     # print("Starting Subscriber Send Thread")
@@ -916,7 +916,7 @@ if __name__ == '__main__':
     # viz = SubscriberReceive("gamestate")
 
     # AI Model
-    ai_test = AIModel(1, [], ai_queue_1, 5)
+    ai_test = AIModel(1, action_engine, ai_queue_1, 5)
     ai_test.start()
 
 #     ai_one = AIModel(1, action_engine, ai_queue_1, 5)
@@ -938,8 +938,7 @@ if __name__ == '__main__':
 
     # # Server Connection to Laptop
     print("Starting Server Thread")
-    laptop_server = Server(constants.XILINX_PORT_NUM, constants.XILINX_SERVER, [])
-#     laptop_server = Server(constants.XILINX_PORT_NUM, constants.XILINX_SERVER, action_engine) # TODO undo
+    laptop_server = Server(constants.XILINX_PORT_NUM, constants.XILINX_SERVER, action_engine) 
 
     print('--------------------------------------------------')
 
