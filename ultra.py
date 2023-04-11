@@ -857,14 +857,14 @@ class AIModel(threading.Thread):
                             action = self.AIDriver(data_packet)  # TODO re-enable for live integration
                             print(f"action from MLP in main: {action} \n")  # print output of MLP
 
-                            if action == 'G':
-                                self.action_engine.handle_grenade(self.player)
-                            elif action == 'S':
-                                self.action_engine.handle_shield(self.player)
-                            elif action == 'R':
-                                self.action_engine.handle_reload(self.player)
-                            elif action == 'L':
-                                self.action_engine.handle_logout(self.player)
+#                             if action == 'G':
+#                                 self.action_engine.handle_grenade(self.player)
+#                             elif action == 'S':
+#                                 self.action_engine.handle_shield(self.player)
+#                             elif action == 'R':
+#                                 self.action_engine.handle_reload(self.player)
+#                             elif action == 'L':
+#                                 self.action_engine.handle_logout(self.player)
 
                             # movement_watchdog deactivated, reset is_movement_counter
                             movement_watchdog = False
@@ -903,9 +903,9 @@ if __name__ == '__main__':
 
     print('---------------<Setup Announcement>---------------')
     # Action Engine
-    print('Starting Action Engine Thread')
-    action_engine = ActionEngine()
-    action_engine.start()
+#     print('Starting Action Engine Thread')
+#     action_engine = ActionEngine()
+#     action_engine.start()
 
     # Software Visualizer
     # print("Starting Subscriber Send Thread")
@@ -916,15 +916,15 @@ if __name__ == '__main__':
     # viz = SubscriberReceive("gamestate")
 
     # AI Model
-    # ai_test = AIModel(1, [], [])
-    # ai_test.start()
+    ai_test = AIModel(1, [], [])
+    ai_test.start()
 
-    ai_one = AIModel(1, action_engine, ai_queue_1, 5)
-    ai_one.start()
+#     ai_one = AIModel(1, action_engine, ai_queue_1, 5)
+#     ai_one.start()
 
-    if not SINGLE_PLAYER_MODE:
-        ai_two = AIModel(2, action_engine, ai_queue_2, 5)
-        ai_two.start()
+#     if not SINGLE_PLAYER_MODE:
+#         ai_two = AIModel(2, action_engine, ai_queue_2, 5)
+#         ai_two.start()
 
     # # Client Connection to Evaluation Server
     # print("Starting Client Thread")
