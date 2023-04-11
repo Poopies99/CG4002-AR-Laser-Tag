@@ -22,12 +22,9 @@ from player import PlayerAction
 from GameState import GameState
 from ble_packet import BLEPacket
 
-
 import pynq
-from scipy import stats
-from scipy.fft import fft
-from scipy.stats import moment
 from pynq import Overlay
+from scipy.signal import find_peaks
 
 
 SINGLE_PLAYER_MODE = False
