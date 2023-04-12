@@ -602,12 +602,12 @@ class AIModel(threading.Thread):
         # Flags
         self.shutdown = threading.Event()
 
-        features = np.load('dependencies/features_v1.5.6.npz', allow_pickle=True)
-        self.pca_eigvecs = features['pca_eigvecs']
-        self.weights = features['weights_list']
-        self.mean_vec = features['mean_vec']
-        self.scale = features['scale']
-        self.mean = features['mean']
+        # features = np.load('dependencies/features_v1.5.6.npz', allow_pickle=True)
+        # self.pca_eigvecs = features['pca_eigvecs']
+        # self.weights = features['weights_list']
+        # self.mean_vec = features['mean_vec']
+        # self.scale = features['scale']
+        # self.mean = features['mean']
 
         self.K = K
         self.TOTAL_PACKET_COUNT = 30
@@ -616,11 +616,11 @@ class AIModel(threading.Thread):
 
         # PYNQ overlay NEW - pca_mlp_v3.5
 
-    #         self.overlay = Overlay("dependencies/pca_mlp_3_5.bit")
-    #         self.overlay.download()
-    #         self.dma = self.overlay.axi_dma_0
-    #         self.in_buffer = pynq.allocate(shape=(129,), dtype=np.float32)
-    #         self.out_buffer = pynq.allocate(shape=(3,), dtype=np.float32)
+        self.overlay = Overlay("dependencies/pca_mlp_3_5.bit")
+        self.overlay.download()
+        self.dma = self.overlay.axi_dma_0
+        self.in_buffer = pynq.allocate(shape=(100,), dtype=np.float32)
+        self.out_buffer = pynq.allocate(shape=(4,), dtype=np.float32)
 
     # PYNQ overlay OLD backup - pca_mlp_1
     # self.overlay = Overlay("dependencies/pca_mlp_1.bit")
@@ -697,14 +697,14 @@ class AIModel(threading.Thread):
     #     return test_data
 
     # Define MLP - 3 layers
-    def mlp_math(self, X):
-        H1 = np.dot(X, self.weights[0]) + self.weights[1]
-        H1_relu = np.maximum(0, H1)
-        H2 = np.dot(H1_relu, self.weights[2]) + self.weights[3]
-        H2_relu = np.maximum(0, H2)
-        Y = np.dot(H2_relu, self.weights[4]) + self.weights[5]
-        Y_softmax = np.exp(Y) / np.sum(np.exp(Y))
-        return Y_softmax
+    # def mlp_math(self, X):
+    #     H1 = np.dot(X, self.weights[0]) + self.weights[1]
+    #     H1_relu = np.maximum(0, H1)
+    #     H2 = np.dot(H1_relu, self.weights[2]) + self.weights[3]
+    #     H2_relu = np.maximum(0, H2)
+    #     Y = np.dot(H2_relu, self.weights[4]) + self.weights[5]
+    #     Y_softmax = np.exp(Y) / np.sum(np.exp(Y))
+    #     return Y_softmax
 
     def get_action(self, softmax_array):
         max_index = np.argmax(softmax_array)
@@ -713,27 +713,27 @@ class AIModel(threading.Thread):
         action = action_dict[max_index]
         return action
 
-    #     def mlp_vivado(self, data):
-    #         start_time = time.time()
+    def mlp_vivado(self, data):
+        start_time = time.time()
 
-    #         # reshape data to match in_buffer shape
-    #         data = np.reshape(data, (129,))
+        # reshape data to match in_buffer shape
+        data = np.reshape(data, (100,))
 
-    #         self.in_buffer[:] = data
+        self.in_buffer[:] = data
 
-    #         self.dma.sendchannel.transfer(self.in_buffer)
-    #         self.dma.recvchannel.transfer(self.out_buffer)
+        self.dma.sendchannel.transfer(self.in_buffer)
+        self.dma.recvchannel.transfer(self.out_buffer)
 
-    #         # wait for transfer to finish
-    #         self.dma.sendchannel.wait()
-    #         self.dma.recvchannel.wait()
+        # wait for transfer to finish
+        self.dma.sendchannel.wait()
+        self.dma.recvchannel.wait()
 
-    #         # print output buffer
-    #         print("mlp done with output: " + " ".join(str(x) for x in self.out_buffer))
+        # print output buffer
+        print("mlp done with output: " + " ".join(str(x) for x in self.out_buffer))
 
-    #         print(f"MLP time taken so far output: {time.time() - start_time}")
+        print(f"MLP time taken so far output: {time.time() - start_time}")
 
-    #         return self.out_buffer
+        return self.out_buffer
 
     #     def mlp_vivado(data):
     #         sensor_data = data.reshape(40, 6)
@@ -746,22 +746,28 @@ class AIModel(threading.Thread):
         sanity_data = test_input.reshape(1, -1)
         scaled_action_df = pd.DataFrame(sanity_data.reshape(-1, 6))
 
+
+
         # 1. Feature extraction
         feature_vec = np.array(self.extract_features(scaled_action_df)).reshape(1, -1)
 
-        # 2. Scaler using features
-        scaled_action_math = (feature_vec - self.mean) / self.scale
+        vivado_pred = self.mlp_vivado(feature_vec)
+        vivado_action = self.get_action(vivado_pred)
 
-        # 3. PCA using scaler
-        pca_test_centered = scaled_action_math - self.mean_vec.reshape(1, -1)
-        pca_vec_math = np.dot(pca_test_centered, self.pca_eigvecs.T).astype(float)
 
-        # 4. MLP using PCA
-        pred_math = self.mlp_math(np.array(pca_vec_math).reshape(1, -1))
-        action_math = self.get_action(pred_math)
+        # # 2. Scaler using features
+        # scaled_action_math = (feature_vec - self.mean) / self.scale
+        #
+        # # 3. PCA using scaler
+        # pca_test_centered = scaled_action_math - self.mean_vec.reshape(1, -1)
+        # pca_vec_math = np.dot(pca_test_centered, self.pca_eigvecs.T).astype(float)
+        #
+        # # 4. MLP using PCA
+        # pred_math = self.mlp_math(np.array(pca_vec_math).reshape(1, -1))
+        # action_math = self.get_action(pred_math)
 
-        print(pred_math)
-        return str(action_math)
+        print(vivado_pred)
+        return str(vivado_action)
 
     def close_connection(self):
         self.shutdown.set()
