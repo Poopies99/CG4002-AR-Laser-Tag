@@ -601,14 +601,14 @@ class AIModel(threading.Thread):
         # Flags
         self.shutdown = threading.Event()
 
-        # # Load in the features math model if we need vvv
-        # features = np.load('dependencies/features_v1.5.6.npz', allow_pickle=True)
-        # self.pca_eigvecs = features['pca_eigvecs']
-        # self.weights = features['weights_list']
-        # self.mean_vec = features['mean_vec']
-        # self.scale = features['scale']
-        # self.mean = features['mean']
-        # # End of features math model ^^^
+        # Load in the features math model if we need vvv
+        features = np.load('dependencies/features_v1.6.npz', allow_pickle=True)
+        self.pca_eigvecs = features['pca_eigvecs']
+        self.weights = features['weights_list']
+        self.mean_vec = features['mean_vec']
+        self.scale = features['scale']
+        self.mean = features['mean']
+        # End of features math model ^^^
 
         self.K = K
         self.TOTAL_PACKET_COUNT = 30
@@ -762,31 +762,34 @@ class AIModel(threading.Thread):
         # 1. Feature extraction
         feature_vec = np.array(self.extract_features(scaled_action_df)).reshape(1,-1)
 
-        # Vivado overlay does the below Steps 2-4
-        pred_vivado = self.overlay_vivado(feature_vec)
-        action_vivado = self.get_action(pred_vivado)
+#         # Vivado overlay does the below Steps 2-4
+#         pred_vivado = self.overlay_vivado(feature_vec)
+#         action_vivado = self.get_action(pred_vivado)
 
-        print(pred_vivado)
-        print(action_vivado)
+#         print(pred_vivado)
+#         print(action_vivado)
+#         # End of Vivado model ^^^
         
-        # # Math model does the below Steps 2-4 vvv
-        # # 2. Scaler using features
-        # scaled_action_math = (feature_vec - self.mean) / self.scale
+        # Math model does the below Steps 2-4 vvv
+        # 2. Scaler using features
+        scaled_action_math = (feature_vec - self.mean) / self.scale
 
-        # # 3. PCA using scaler
-        # pca_test_centered = scaled_action_math - self.mean_vec.reshape(1,-1)
-        # pca_vec_math = np.dot(pca_test_centered, self.pca_eigvecs.T).astype(float)
+        # 3. PCA using scaler
+        pca_test_centered = scaled_action_math - self.mean_vec.reshape(1,-1)
+        pca_vec_math = np.dot(pca_test_centered, self.pca_eigvecs.T).astype(float)
 
-        # # 4. MLP using PCA
-        # pred_math = self.mlp_math(np.array(pca_vec_math).reshape(1,-1))
-        # action_math = self.get_action(pred_math)
+        # 4. MLP using PCA
+        pred_math = self.mlp_math(np.array(pca_vec_math).reshape(1,-1))
+        action_math = self.get_action(pred_math)
 
-        # print(pred_math)
-        # print(action_math)
+        print(pred_math)
+        print(action_math)
 
-        # # End of Math model ^^^
+        # End of Math model ^^^
 
-        return str(action_vivado)
+        # return str(action_vivado)
+        return str(action_math)
+        
 
     def close_connection(self):
         self.shutdown.set()
