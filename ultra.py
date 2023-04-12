@@ -43,6 +43,8 @@ training_model_queue = deque()
 ai_queue_1 = Queue()
 ai_queue_2 = Queue()
 
+processing_flag = threading.Event()
+processing_flag.clear()
 
 class ActionEngine(threading.Thread):
     def __init__(self):
@@ -50,18 +52,17 @@ class ActionEngine(threading.Thread):
 
         # Flags
         self.p1_action_queue = deque()
-
+        
         self.p1_gun_shot = False
         self.p1_vest_shot = False
         self.p1_grenade_hit = None
-
         if not SINGLE_PLAYER_MODE:
             self.p2_action_queue = deque()
 
             self.p2_gun_shot = False
             self.p2_vest_shot = False
             self.p2_grenade_hit = None
-
+            
     def handle_grenade(self, player):
         print(f"Handling Grenade {player}")
         if player == 1:
@@ -186,6 +187,7 @@ class ActionEngine(threading.Thread):
                         
                     
                 if not (action_data_p1 is None or action_data_p2 is None):
+                    processing_flag.set()
                     action_queue.append(action)
                     action_data_p1, action_data_p2 = None, None
                     action = [['None', True], ['None', True]]
@@ -243,8 +245,9 @@ class GameEngine(threading.Thread):
         while not self.shutdown.is_set():
             try:
                 if len(action_queue) != 0:
-                    p1_action, p2_action = action_queue.popleft()
                     
+                    p1_action, p2_action = action_queue.popleft()
+
                     action_dic = {
                         "p1": {
                             "action": ""
@@ -355,7 +358,8 @@ class GameEngine(threading.Thread):
                     # eval server to subscriber queue
                     correct_actions = self.eval_client.receive_correct_ans()
                     # If health drops to 0 then everything resets except for number of deaths
-
+                    
+                    processing_flag.clear()
                     p1_action, p2_action = correct_actions['p1']['action'], correct_actions['p2']['action']
                     
                     valid_action_p1 = self.p1.action_is_valid(p1_action)
@@ -379,7 +383,7 @@ class GameEngine(threading.Thread):
                     # subscriber queue to sw/feedback
                     self.p2.action = viz_action_p2                    
                     self.p1.action = viz_action_p1
-
+                    
                     laptop_queue.append(self.eval_client.gamestate._get_data_plain_text())
                     subscribe_queue.put(self.eval_client.gamestate._get_data_plain_text())
 
@@ -570,20 +574,24 @@ class Server(threading.Thread):
                 packer.unpack(packet)
                 packet_id = packer.get_beetle_id()
 
+                
                 if packet_id == 1:
                     self.action_engine.handle_gun_shot(1)
                 elif packet_id == 2:
                     self.action_engine.handle_vest_shot(1)
                 elif packet_id == 3:
-                    packet = packer.get_euler_data() + packer.get_acc_data()
-                    ai_queue_1.put(packet)
+                    if not processing_flag.is_set():
+                            
+                        packet = packer.get_euler_data() + packer.get_acc_data()
+                        ai_queue_1.put(packet)
                 elif packet_id == 4:
                     self.action_engine.handle_gun_shot(2)
                 elif packet_id == 5:
                     self.action_engine.handle_vest_shot(2)
                 elif packet_id == 6:
-                    packet = packer.get_euler_data() + packer.get_acc_data()
-                    ai_queue_2.put(packet)
+                    if not processing_flag.is_set():
+                        packet = packer.get_euler_data() + packer.get_acc_data()
+                        ai_queue_2.put(packet)
                 else:
                     print("Invalid Beetle ID")
 
@@ -866,14 +874,15 @@ class AIModel(threading.Thread):
                             action = self.AIDriver(data_packet)  # TODO re-enable for live integration
                             print(f"action from MLP in main: {action} \n")  # print output of MLP
 
-#                             if action == 'G':
-#                                 self.action_engine.handle_grenade(self.player)
-#                             elif action == 'S':
-#                                 self.action_engine.handle_shield(self.player)
-#                             elif action == 'R':
-#                                 self.action_engine.handle_reload(self.player)
-#                             elif action == 'L':
-#                                 self.action_engine.handle_logout(self.player)
+                            # if processing_flag.set()
+                            if action == 'G':
+                                self.action_engine.handle_grenade(self.player)
+                            elif action == 'S':
+                                self.action_engine.handle_shield(self.player)
+                            elif action == 'R':
+                                self.action_engine.handle_reload(self.player)
+                            elif action == 'L':
+                                self.action_engine.handle_logout(self.player)
 
                             # movement_watchdog deactivated, reset is_movement_counter
                             movement_watchdog = False
@@ -928,12 +937,12 @@ if __name__ == '__main__':
     ai_test = AIModel(1, action_engine, ai_queue_1, 5)
     ai_test.start()
 
-#     ai_one = AIModel(1, action_engine, ai_queue_1, 5)
-#     ai_one.start()
+    ai_one = AIModel(1, action_engine, ai_queue_1, 5)
+    ai_one.start()
 
-#     if not SINGLE_PLAYER_MODE:
-#         ai_two = AIModel(2, action_engine, ai_queue_2, 5)
-#         ai_two.start()
+    if not SINGLE_PLAYER_MODE:
+        ai_two = AIModel(2, action_engine, ai_queue_2, 5)
+        ai_two.start()
 
     # # Client Connection to Evaluation Server
     # print("Starting Client Thread")
