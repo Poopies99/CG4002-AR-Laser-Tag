@@ -151,6 +151,9 @@ class Player:
                 self.shield_status = False
                 self.shield_time = 0
                 self.shield_health = 0
+        else:
+            self.shield_time = 0
+            self.shield_health = 0
                                
     def throw_grenade(self):
         self.grenades -= 1
@@ -169,7 +172,13 @@ class Player:
             self.shield_status = True
             self.shield_health = 30
             self.shield_timer = time.time()
-            self.shield_time = 10 - int(time.time() - self.shield_timer)   
+            self.shield_time = 10 - int(time.time() - self.shield_timer)
+            
+    def reset_shield(self):
+        if self.shield_time <= 0 or self.shield_health <= 0:
+            self.shield_status = False
+            self.shield_time = 0
+            self.shield_health = 0
 
 
     def shield_active(self):

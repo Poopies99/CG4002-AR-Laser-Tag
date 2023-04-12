@@ -177,9 +177,11 @@ class ActionEngine(threading.Thread):
                     action[1][1] = self.p1_grenade_hit
                     if action_data_p1 == "grenade":
                         # action_dic["p1"]["action"] = ""
+                        action[0][0] = "grenade"
                         action_data_p1 = False
                     if action_data_p2 == "grenade":
                         # action_dic["p2"]["action"] = ""
+                        action[1][0] = "grenade"
                         action_data_p2 = False
                         
                     
@@ -366,7 +368,11 @@ class GameEngine(threading.Thread):
                     if p2_action == "shield":
                         if valid_action_p2 and not self.p2.check_shield():
                             self.p2.activate_shield()
-                    
+                   
+                    # update shield to zero if got that from the eval server
+                    self.p1.reset_shield()
+                    self.p2.reset_shield()
+
                     self.update_actions(p1_action, self.p1_action)
                     self.update_actions(p2_action, self.p2_action)
 
