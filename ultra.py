@@ -18,7 +18,6 @@ import json
 from queue import Queue
 from _socket import SHUT_RDWR
 from collections import deque
-from player import PlayerAction
 from GameState import GameState
 from ble_packet import BLEPacket
 from scipy.ndimage import gaussian_filter
@@ -214,20 +213,6 @@ class GameEngine(threading.Thread):
 
         self.shutdown = threading.Event()
 
-        self.p1_action = PlayerAction()
-
-        if not SINGLE_PLAYER_MODE:
-            self.p2_action = PlayerAction()
-
-
-    def update_actions(self, player_action_value, player_action):
-        if player_action_value == 'grenade':
-            player_action.grenade()
-        elif player_action_value == 'reload':
-            player_action.reload()
-        elif player_action_value == 'shield':
-            player_action.shield()
-
     def reset_player(self, player):
         player.hp = 100
         player.bullets = 6
@@ -252,11 +237,6 @@ class GameEngine(threading.Thread):
                             "action": ""
                         } 
                     }
-
-                    if p1_action[0] != 'shoot' and not self.p1_action.check(p1_action[0]):
-                        p1_action[0] = self.p1_action.secret_sauce()
-                    if p2_action[0] != 'shoot' and not self.p1_action.check(p2_action[0]):
-                        p2_action[0] = self.p2_action.secret_sauce()
 
                     viz_action_p1, viz_action_p2 = None, None
 
@@ -367,9 +347,6 @@ class GameEngine(threading.Thread):
                     if p2_action == "shield":
                         if valid_action_p2 and not self.p2.check_shield():
                             self.p2.activate_shield()
-                    
-                    self.update_actions(p1_action, self.p1_action)
-                    self.update_actions(p2_action, self.p2_action)
 
                     # subscriber queue to sw/feedback
                     self.p2.action = viz_action_p2                    
@@ -380,6 +357,7 @@ class GameEngine(threading.Thread):
 
             except KeyboardInterrupt as _:
                 traceback.print_exc()
+
 
 class SubscriberSend(threading.Thread):
     def __init__(self, topic):
