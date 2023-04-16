@@ -13,6 +13,12 @@ After cloning the repository run
 ``
  to establish SSH tunnel to the Ultra96 via the stu server and clone the repository in the Ultra96.
 
+Pip install numpy and pandas for AI thread
+```
+pip3 install numpy
+pip3 install pandas
+```
+
 Then run the following command to start the Ultra96 server
 ```
 cd <repository name>
