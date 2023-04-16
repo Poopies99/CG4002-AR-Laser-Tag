@@ -7,8 +7,7 @@
 3. Extract the zip folder.
 4. Go to 'hardware' folder. Go to 'Player 1' folder. Open the 'Gun_IR_Transmitter.ino' file under the 'Gun_IR_Transmitter' folder.
 5. Change the sketchbook location under File>Preferences, as shown in the picture (with file path ending 'CG4002-AR-Laser-Tag-main\CG4002-AR-Laser-Tag-main\hardware'). Click 'ok'. 
-![ss](https://user-images.githubusercontent.com/66380463/232318801-a1e759a2-9a54-4526-839f-8c023dc43d63.png)
-
+![ss](https://user-images.githubusercontent.com/66380463/232319370-66d43e73-5526-4897-b56d-8c29421d375b.png)
 
 ## Upload Gun code
 The following instructions are for Player 1.
